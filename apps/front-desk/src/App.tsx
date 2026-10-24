@@ -805,6 +805,7 @@ export default function App() {
                       savings={evidence.savings}
                       policy={evidence.triage?.policy}
                     />
+                    <BenchmarkTiles />
                     <div className="content-columns">
                       <div className="main-column">
                         <FindingDetail compact />
@@ -1782,6 +1783,77 @@ function SavingsTiles({
           tone={tone(s?.lessonsInMemory, "purple")}
           subtitle="Compiled into AGENTS.md"
           foot="Mistakes future agents skip"
+        />
+      </div>
+    </section>
+  );
+}
+
+interface BenchmarkSummary {
+  repository: string;
+  analyzed: number;
+  withMutants: number;
+  withSurvivors: number;
+  mutantsRun: number;
+  wholeFileMutants: number | null;
+  survived: number;
+  noCoverage: number;
+  reportUrl: string;
+}
+
+/** The same gate run over recent merged PRs of an open-source repository. Hidden when absent. */
+function BenchmarkTiles() {
+  const [summary, setSummary] = useState<BenchmarkSummary | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/benchmark", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setSummary)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+  if (!summary) return null;
+  const avoided = summary.wholeFileMutants === null ? null : summary.wholeFileMutants - summary.mutantsRun;
+  return (
+    <section className="savings" aria-labelledby="benchmark-title">
+      <h2 id="benchmark-title" className="section-label">
+        Open-source benchmark ·{" "}
+        <a href={summary.reportUrl} target="_blank" rel="noreferrer">
+          {summary.repository} methodology
+        </a>
+      </h2>
+      <div className="metrics-grid">
+        <Metric
+          title="PRs with unnoticed changes"
+          value={tally(summary.withSurvivors)}
+          icon={<TriangleAlert size={16} />}
+          tone="amber"
+          subtitle={`of ${summary.analyzed} recent merged PRs`}
+          foot="A changed line no test noticed"
+        />
+        <Metric
+          title="Surviving mutants"
+          value={tally(summary.survived)}
+          icon={<ShieldX size={16} />}
+          tone="amber"
+          subtitle={`+${summary.noCoverage} on lines no test runs`}
+          foot="Behaviour changes tests missed"
+        />
+        <Metric
+          title="Mutants run"
+          value={tally(summary.mutantsRun)}
+          icon={<FlaskConical size={16} />}
+          tone="neutral"
+          subtitle={`across ${summary.withMutants} PRs with mutable changes`}
+          foot="Changed lines only"
+        />
+        <Metric
+          title="Mutants avoided"
+          value={tally(avoided)}
+          icon={<Cpu size={16} />}
+          tone={avoided === null ? "neutral unmeasured" : "green"}
+          subtitle={summary.wholeFileMutants === null ? "Whole files not measured" : `of ${summary.wholeFileMutants} whole-file mutants`}
+          foot="Skipped by changed-line scoping"
         />
       </div>
     </section>

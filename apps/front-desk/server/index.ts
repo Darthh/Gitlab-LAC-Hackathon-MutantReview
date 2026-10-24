@@ -9,6 +9,7 @@ import { gitlabOrigin, validateEvidence } from "./evidence-validation.js";
 import { validateAssistedReceipt } from "./assisted-receipt-validation.js";
 import { loadSignedEvidence } from "./signed-evidence.js";
 import { readLedger } from "./ledger-validation.js";
+import { readBenchmark } from "./benchmark.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = express();
@@ -250,6 +251,15 @@ app.get(["/api/evidence", "/api/evidence/download"], async (req, res) => {
   }
 });
 app.get("/api/health", (_req, res) => res.json({ status: "ok", revision }));
+app.get("/api/benchmark", async (_req, res) => {
+  try {
+    const summary = await readBenchmark(resolve(root, "benchmarks/results"));
+    if (!summary) return void res.status(404).json({ error: "No benchmark results in this build." });
+    res.json({ ...summary, reportUrl: `${publicProject}/-/blob/main/benchmarks/RESULTS.md` });
+  } catch {
+    res.status(500).json({ error: "Benchmark results are malformed." });
+  }
+});
 app.get("/api/ledger", async (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   try {
