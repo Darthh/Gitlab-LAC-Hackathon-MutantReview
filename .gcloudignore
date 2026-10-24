@@ -11,3 +11,7 @@ evidence/verification
 benchmarks/results/raw
 
 # gcloud: upload exactly what the Docker build needs
+.oidc_token
+*cred*.json
+*.pem
+*.key

@@ -9,3 +9,7 @@ coverage
 evidence/incremental
 evidence/verification
 benchmarks/results/raw
+.oidc_token
+*cred*.json
+*.pem
+*.key

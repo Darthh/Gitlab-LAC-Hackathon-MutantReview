@@ -131,10 +131,15 @@ async function reply(adapter: GitLabAdapter, mr: MergeRequest, text: string, tag
   await adapter.createMergeRequestNote(mr.iid, `${text}\n\n${MARK}${tag} ${mr.sha} -->`);
 }
 
-async function memberLevel(adapter: GitLabAdapter, note: Note): Promise<number> {
-  if (await adapter.accountKind(note.author.id) !== 'human') return 0;
-  const member = await adapter.currentMember(note.author.id).catch(() => null);
-  return member && member.id === note.author.id && (!member.state || member.state === 'active') ? member.access_level : 0;
+/** Access level of an active human author; null when this token may not read users/members. */
+async function memberLevel(adapter: GitLabAdapter, note: Note): Promise<number | null> {
+  try {
+    if (await adapter.accountKind(note.author.id) !== 'human') return 0;
+    const member = await adapter.currentMember(note.author.id);
+    return member.id === note.author.id && (!member.state || member.state === 'active') ? member.access_level : 0;
+  } catch (error) {
+    return /\((?:401|403)\)/.test(String(error)) ? null : 0;
+  }
 }
 
 /** Gate waiver: newest override note at this head by an active human Maintainer. */
@@ -149,7 +154,7 @@ export async function findOverride(adapter: GitLabAdapter, mrIid: number, headSh
     try { command = parseReviewCommand(note.body, handle); } catch { continue; }
     if (command.action !== 'override') continue;
     const accessLevel = await memberLevel(adapter, note);
-    if (accessLevel < 40) continue;
+    if (accessLevel === null || accessLevel < 40) continue;
     return { actor: note.author.username, accessLevel, reason: command.reason, noteUrl: `${mr.web_url}#note_${note.id}`, approvedAt: note.created_at, headSha };
   }
   return null;
@@ -296,8 +301,8 @@ export async function flowPrepare(args: string[]) {
   if (command.action === 'apply') return done(await flowApply(adapter, mr, handle, trigger!, command.findings));
   if (command.action === 'override') {
     const level = await memberLevel(adapter, trigger!);
-    await reply(adapter, mr, level >= 40
-      ? `Override request recorded for \`${mr.sha.slice(0, 8)}\` by @${trigger!.author.username}: "${command.reason}". Re-run the pipeline; the gate job verifies this note and records the reason.`
+    await reply(adapter, mr, level === null || level >= 40
+      ? `Override request noted for \`${mr.sha.slice(0, 8)}\` by @${trigger!.author.username}: "${command.reason}". Re-run \`mutation:gate\`; it verifies the Maintainer role and records the reason.`
       : `@${trigger!.author.username} only a Maintainer can override the mutation gate.`, 'override');
     return done('Override acknowledged.');
   }
@@ -374,15 +379,19 @@ const mutantOf = (finding: RankedFinding) => ({ path: finding.path, line: findin
 
 export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle: string, note: Note, selection: number[]): Promise<string> {
   const fail = async (message: string) => { await reply(adapter, mr, `@${note.author.username} ${message}`, 'apply-refused'); return message; };
-  if (await memberLevel(adapter, note) < 30) return fail('applying tests needs an active human account with the Developer role or higher.');
   const notes = await adapter.listMergeRequestNotes(mr.iid);
+  // GitLab lets only Developer+ trigger a flow. If this token may not read roles, accept
+  // the command only when it is the newest comment, i.e. the one that started this run.
+  const level = await memberLevel(adapter, note);
+  const startedThisRun = Boolean(process.env.GITLAB_TOKEN) && notes.find((item) => !item.system)?.id === note.id;
+  if (level === null ? !startedThisRun : level < 30) return fail('applying tests needs an active human account with the Developer role or higher.');
   let payload: ProposalPayload | null = null, proposalNote: Note | undefined;
-  // Proposals are trusted only when this flow's own service account posted them.
+  // Proposals are trusted only when this flow's own service account posted them (usernames are unique).
   const agent = handle.slice(1).toLowerCase();
   for (const candidate of notes) {
     if (candidate.author.username?.toLowerCase() !== agent) continue;
     const decoded = decodePayload(candidate.body);
-    if (decoded && await adapter.accountKind(candidate.author.id) === 'bot') { payload = decoded; proposalNote = candidate; break; }
+    if (decoded) { payload = decoded; proposalNote = candidate; break; }
   }
   if (!payload || !proposalNote) return fail(`there are no verified proposals on this MR yet. Mention \`${handle}\` to start a review.`);
   if (payload.headSha !== mr.sha || payload.mrIid !== mr.iid) return fail(`the code changed since the proposals were posted. Mention \`${handle}\` for a fresh review.`);

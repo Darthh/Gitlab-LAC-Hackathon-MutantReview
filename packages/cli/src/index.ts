@@ -29,12 +29,25 @@ async function gate() {
   const protectedChanges = evidence.source === 'gitlab' && evidence.provenance.baseSha ? git('diff', '--name-only', evidence.provenance.baseSha, headSha, '--').split('\n').some(protectedPath) : false;
   const decision = evaluateGate({ baselinePassed: evidence.baseline.status === 'passed', complete: evidence.scope.complete && evidence.mutation.status === 'complete', expectedHeadSha: headSha, evidenceHeadSha: evidence.provenance.headSha, metrics: storedMetrics, threshold: policy.mutationThreshold ?? 100, actionableSurvivors: storedMetrics.survived, protectedFilesChanged: protectedChanges });
   let override = null;
-  if (decision.status === 'failed' && process.env.CI_MERGE_REQUEST_IID && process.env.MUTANT_REVIEW_TOKEN) {
+  const mrIid = Number(process.env.CI_MERGE_REQUEST_IID);
+  if (decision.status === 'failed' && mrIid && process.env.MUTANT_REVIEW_TOKEN) {
     try {
-      override = await findOverride(await flowAdapter(), Number(process.env.CI_MERGE_REQUEST_IID), headSha, flowHandle([]));
+      override = await findOverride(await flowAdapter(), mrIid, headSha, flowHandle([]));
     } catch (error) { console.error(`Override lookup failed: ${(error as Error).message}`); }
   }
   const final = applyOverride(decision, override, headSha);
+  if (final.status === 'overridden') {
+    // A waiver is debt, not a pass: track the untested changes as a planned follow-up.
+    const open = evidence.mutation.mutants.filter((mutant: { status: string }) => mutant.status === 'Survived' || mutant.status === 'NoCoverage');
+    try {
+      const issue = await (await flowAdapter()).ensureIssue(`Test debt: mutation gate overridden on !${mrIid}`, [
+        `@${final.override.actor} overrode the mutation gate on !${mrIid} at \`${headSha.slice(0, 8)}\`: "${final.override.reason}" ([comment](${final.override.noteUrl})).`,
+        '', 'Changes no test would notice:', '',
+        ...open.map((mutant: { path: string; line: number; original: string; replacement: string }) => `- [ ] \`${mutant.path}:${mutant.line}\` \`${mutant.original.replace(/\s+/g, ' ')}\` → \`${mutant.replacement.replace(/\s+/g, ' ')}\``),
+      ].join('\n'), ['mutant-review', 'test-debt']);
+      console.log(`Follow-up issue: ${issue.web_url}`);
+    } catch (error) { console.error(`Could not open the test-debt issue: ${(error as Error).message}`); }
+  }
   await save('evidence/gate.json', { ...final, headSha, threshold: policy.mutationThreshold ?? 100, score: storedMetrics.score, checkedAt: new Date().toISOString() });
   console.log(JSON.stringify(final, null, 2));
   if (final.status === 'failed') console.log(`Add the tests Mutant Review proposed, or have a Maintainer comment "${process.env.MUTANT_REVIEW_HANDLE ?? '@<flow-account>'} override <reason>" and re-run this job.`);

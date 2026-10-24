@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkDraft, decodePayload, encodePayload, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
+import { checkDraft, decodePayload, encodePayload, flowApply, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
 
 const handle = '@ai-mutant-review';
@@ -58,6 +58,43 @@ describe('proposal payload', () => {
     expect(body).toContain('`@ai-mutant-review apply 1`');
     expect(body).toContain('"Untested boundary value"');
     expect(body).toContain('Filtered as noise before any AI call: 1 (logging statement)');
+  });
+});
+
+describe('apply authorization (refusals never execute or commit)', () => {
+  const head = 'a'.repeat(40);
+  const mr = { iid: 1, sha: head, web_url: 'https://gitlab.com/g/p/-/merge_requests/1' } as never;
+  const payload: ProposalPayload = { version: 1, mrIid: 1, headSha: head, runId: 'run', score: 75, ranges: ['src/shipping.ts:4-4'],
+    proposals: [{ ...good, finding, testName: 'ships free at exactly $100' }], rejected: [], equivalent: [] };
+  const proposalNote = (author = 'ai-mutant-review', body = `summary\n${encodePayload(payload)}`) => ({ id: 10, body, system: false, created_at: '2026-10-24T11:00:00Z', author: { id: 2, username: author } });
+  const command = { id: 11, body: `${handle} apply 1`, system: false, created_at: '2026-10-24T12:00:00Z', author: { id: 9, username: 'dev' } };
+  const run = async (notes: unknown[], level: number | 'forbidden' = 30, selection = [1]) => {
+    const replies: string[] = [];
+    const adapter = {
+      listMergeRequestNotes: async () => notes,
+      accountKind: async () => { if (level === 'forbidden') throw new Error('GitLab request failed (403)'); return 'human'; },
+      currentMember: async (id: number) => ({ id, access_level: level, state: 'active' }),
+      createMergeRequestNote: async (_iid: number, body: string) => { replies.push(body); return { id: 99 }; },
+      commitToMergeRequest: async () => { throw new Error('must not commit'); },
+    } as never;
+    const result = await flowApply(adapter, mr, handle, command, selection);
+    return { result, reply: replies.join('\n') };
+  };
+  it('refuses Reporters', async () => expect((await run([command, proposalNote()], 20)).result).toMatch(/Developer role/));
+  it('refuses proposals posted by anyone but the flow account', async () => expect((await run([command, proposalNote('mallory')])).result).toMatch(/no verified proposals/));
+  it('refuses proposals from an older head', async () => {
+    const stale = proposalNote('ai-mutant-review', encodePayload({ ...payload, headSha: 'b'.repeat(40) }));
+    expect((await run([command, stale])).result).toMatch(/code changed/);
+  });
+  it('refuses findings without a verified test', async () => expect((await run([command, proposalNote()], 30, [2])).result).toMatch(/only verified findings/));
+  it('refuses an unreadable role unless the command started this run', async () => {
+    const newer = { ...command, id: 12, body: 'thanks!' };
+    expect((await run([newer, command, proposalNote()], 'forbidden')).result).toMatch(/Developer role/);
+  });
+  it('replies to the author with the reason and the agent marker', async () => {
+    const { reply } = await run([command, proposalNote('mallory')]);
+    expect(reply).toMatch(/^@dev there are no verified proposals/);
+    expect(reply).toContain('<!-- mutant-review:apply-refused');
   });
 });
 

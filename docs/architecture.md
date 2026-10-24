@@ -1,33 +1,46 @@
-# Architecture and evidence
-
-Mutant Review asks whether green tests detect a specific behavioral change. The shipping contract includes exactly 10,000 cents. The initial suite covers 9,999 and 10,001 cents. Real mutation execution shows whether replacing `>=` with `>` escapes those tests.
+# Architecture
 
 ```mermaid
-flowchart LR
-  A[Recorded revision and contract] --> B[Vitest baseline and coverage]
-  B --> C[Bounded changed-source Stryker run]
-  C --> D[Scope-filtered normalized evidence]
-  D --> E[Deterministic mutation gate]
-  D --> F[Read-only Front Desk]
-  D --> G[Duo interpretation and exact proposal]
-  G --> H[Separate human patch approval]
-  H --> I[Restricted repair branch]
-  I --> J[Separate verification approval]
-  J --> K[Fresh original and exact-mutant execution]
-  K --> L[Separate human lesson approval]
-  L --> M[Versioned lesson retrieval]
+sequenceDiagram
+  actor Dev as Developer
+  participant CI as GitLab CI
+  participant Flow as Duo flow (workload)
+  participant LLM as Drafting agent
+  participant GL as GitLab API
+  Dev->>CI: push to MR
+  CI->>CI: mutation:review (Stryker on changed lines, triage)
+  CI->>GL: mutation:notify (≤3 findings)
+  CI->>CI: mutation:gate (fails below policy)
+  Dev->>Flow: "@mutant-review" (mention or assign reviewer)
+  Flow->>Flow: prepare: find MR by head, read trigger, run review, write brief
+  Flow->>LLM: brief (≤3 findings, source, contract, AGENTS.md rules)
+  LLM->>Flow: .mutant-review/work/proposals.json
+  Flow->>Flow: verify: each draft passes on code AND fails on mutant
+  Flow->>GL: summary + inline comments + hashed proposal payload
+  Dev->>Flow: "@mutant-review apply 1 and 3"
+  Flow->>GL: check role, proposal author/hash, MR head
+  Flow->>Flow: apply tests, vitest, Stryker on same ranges
+  Flow->>GL: commit tests + ledger + lessons + AGENTS.md; reply score delta
+  GL->>CI: new MR pipeline, gate passes
 ```
 
-This diagram describes the intended complete workflow. See `limitations.md` for the implemented boundary; arrows do not establish execution evidence.
+## Trust boundaries
 
-`packages/demo-domain` is original deterministic checkout logic. `packages/review-core` owns safe diff scope, normalized statuses, fingerprints, metrics, policy, strict commands, approval predicates, structural preflight, and deterministic lesson retrieval. `packages/cli` executes Vitest/Stryker and writes evidence. `packages/gitlab-adapter` restricts every upstream operation to the configured numeric project, validates current MR heads, maps current diff versions, and controls approved isolated repair commits. `apps/front-desk` reads evidence on the server and renders the review console. Credentials remain on the server; the public interface has no mutation endpoints or merge controls.
+| Decision | Made by | Why |
+| --- | --- | --- |
+| Which lines are in scope | `parseDiff` on `git diff base..head` | Deterministic; rejects path tricks |
+| Score and gate | `mutationMetrics`, `evaluateGate` | Model output never changes counts |
+| Which findings are shown | `triageMutants` | Cheap, reproducible, no model |
+| What a test should assert | Drafting agent | The one creative step |
+| Whether a test is kept | Execution: Vitest + Stryker | A test that doesn't kill its mutant is useless by definition |
+| Whether anything is committed | Human mention, verified by `flowApply` | Role ≥ Developer, proposal from the flow's own account, hash intact, head unchanged |
+| Whether the gate can be waived | Maintainer comment, verified by `findOverride` | After the latest push (server time), reason ≥ 10 characters, audited, test-debt issue |
 
-Pipeline artifacts are the GitLab evidence source. Repository files hold approved lessons. Local demo evidence is labeled local and includes a source-content hash because an implementation session can have uncommitted working files. Local execution, GitLab execution, human approval, Duo output, lesson reuse, and deployment are separate states.
+## Data
 
-The standard score is `(Killed + TimedOut) / (Killed + TimedOut + Survived + NoCoverage)`. Assertion kills remain visible separately. Invalid, pending, partial, stale, or failed-baseline runs cannot pass. Zero applicable mutants produces no score. Current diff scope independently filters incremental reports so cached out-of-scope mutants cannot raise the score.
+- `evidence/latest.json`: one run's provenance, scope, every mutant, triage, savings, gate. Artifact of `mutation:review`.
+- `.mutant-review/ledger.json`: append-only history of repairs and rejected drafts, committed by `apply`.
+- `.mutant-review/lessons/*.json` and the managed section of `AGENTS.md`: approved lessons, one per category, with examples.
+- `.mutant-review/policy.json`: threshold, budgets, protected paths.
 
-For repair proof, the initial production mutation scope is retained even when the repair changes tests only. The exact missing assertion must pass on intended code, fail against the targeted mutant with an assertion failure, leave the full original suite green, and reproduce in a clean rerun. A better aggregate score or a timeout alone cannot establish repair.
-
-The Duo flow is an interpretation boundary. Deterministic code keeps authorization, revision checks, patch restrictions, scoring, and gate decisions. The prepared flow cannot write files or commit; its deterministic lesson lookup feeds read-only triage. The tenant rejected the documented `max_cycles` field, so no eight-cycle runtime limit is claimed. Repository text never becomes approval. Its output remains advisory until parsed and verified.
-
-No database, vector store, queue, or paid payment service is needed. A trusted one-use approval journal stays outside the working checkout. When the trial cannot provide a separate read token, the trusted operator also exports a signed artifact cache there. Front Desk uses only the public verification key, validates the immutable report and checks the current public MR head; it labels the capture time and refuses stale or invalid snapshots. GitLab artifacts remain the source of run evidence. The current file journal supports a single host; distributed execution requires a shared atomic implementation.
+The score is `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)` over changed-line mutants. Invalid, pending, partial or stale runs are inconclusive, never passing. Zero applicable mutants is `no-applicable-scope`, never a pass.

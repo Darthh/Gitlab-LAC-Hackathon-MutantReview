@@ -593,6 +593,14 @@ export class GitLabAdapter {
     return Number.isFinite(time) ? time : null;
   }
 
+  /** Idempotent by exact title: an existing open issue is returned instead of a duplicate. */
+  async ensureIssue(title: string, description: string, labels: string[]) {
+    const open = await this.request<Array<{ iid: number; title: string; web_url: string }>>(`/issues?state=opened&search=${encodeURIComponent(title)}&in=title&per_page=20`);
+    const existing = open.find((issue) => issue.title === title);
+    if (existing) return existing;
+    return this.request<{ iid: number; title: string; web_url: string }>("/issues", { method: "POST", body: { title, description, labels: labels.join(",") } });
+  }
+
   async createMergeRequestNote(iid: number, body: string) {
     return this.request<{ id: number }>(`/merge_requests/${positiveId(iid)}/notes`, { method: "POST", body: { body } });
   }
@@ -674,23 +682,28 @@ export class GitLabAdapter {
       // Check head before every write, since comment publication takes multiple requests.
       if ((await this.currentMergeRequest(iid)).sha !== expectedHead)
         throw new Error("MR head changed during comment publication");
-      posted.push(
-        await this.request(`/merge_requests/${iid}/discussions`, {
-          method: "POST",
-          body: {
-            body: `${finding.body}\n\nEvidence revision: \`${expectedHead}\`.`,
-            position: {
-              position_type: "text",
-              base_sha: latest.base_commit_sha,
-              start_sha: latest.start_commit_sha,
-              head_sha: expectedHead,
-              old_path: file.old_path,
-              new_path: file.new_path,
-              new_line: finding.line,
+      // The summary already carries every finding; a refused diff position must not abort the rest.
+      try {
+        posted.push(
+          await this.request(`/merge_requests/${iid}/discussions`, {
+            method: "POST",
+            body: {
+              body: `${finding.body}\n\nEvidence revision: \`${expectedHead}\`.`,
+              position: {
+                position_type: "text",
+                base_sha: latest.base_commit_sha,
+                start_sha: latest.start_commit_sha,
+                head_sha: expectedHead,
+                old_path: file.old_path,
+                new_path: file.new_path,
+                new_line: finding.line,
+              },
             },
-          },
-        }),
-      );
+          }),
+        );
+      } catch (error) {
+        posted.push({ inlineFailed: finding.id, reason: (error as Error).message });
+      }
     }
     return posted;
   }

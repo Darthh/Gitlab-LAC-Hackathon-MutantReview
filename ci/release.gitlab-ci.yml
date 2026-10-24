@@ -47,10 +47,12 @@ package:image:
   before_script:
     - |
       if [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]; then
-        echo "$GITLAB_OIDC_TOKEN" > .oidc_token
+        # Outside CI_PROJECT_DIR, so `--source .` can never upload or bake in a credential.
+        CRED_DIR=$(mktemp -d)
+        echo "$GITLAB_OIDC_TOKEN" > "$CRED_DIR/oidc_token"
         gcloud iam workload-identity-pools create-cred-config "$GCP_WORKLOAD_IDENTITY_PROVIDER" \
-          --service-account="$GCP_SERVICE_ACCOUNT" --credential-source-file=.oidc_token --output-file=.gcp_cred.json
-        gcloud auth login --cred-file=.gcp_cred.json --quiet
+          --service-account="$GCP_SERVICE_ACCOUNT" --credential-source-file="$CRED_DIR/oidc_token" --output-file="$CRED_DIR/gcp_cred.json"
+        gcloud auth login --cred-file="$CRED_DIR/gcp_cred.json" --quiet
       else
         gcloud auth activate-service-account --key-file="$GCP_SERVICE_ACCOUNT_KEY"
       fi
