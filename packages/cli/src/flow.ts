@@ -74,7 +74,11 @@ export function encodePayload(payload: ProposalPayload): string {
   return `<!-- mutant-review:proposals:v1 sha256=${createHash('sha256').update(text).digest('hex')} ${Buffer.from(text).toString('base64')} -->`;
 }
 
+/** Echoed text (reasons, test code, mutated source) can never form an HTML comment, so the only marker in an agent note is the agent's own. */
+export const inert = (text: string) => text.replace(/<!--/g, '<​!--').replace(/-->/g, '--​>');
+
 export function decodePayload(body: string): ProposalPayload | null {
+  if (body.split('<!--').length !== 2) return null;
   const match = PAYLOAD.exec(body);
   if (!match) return null;
   const text = Buffer.from(match[2]!, 'base64').toString('utf8');
@@ -128,7 +132,7 @@ export function flowHandle(args: string[], env = process.env): string {
 }
 
 async function reply(adapter: GitLabAdapter, mr: MergeRequest, text: string, tag: string) {
-  await adapter.createMergeRequestNote(mr.iid, `${text}\n\n${MARK}${tag} ${mr.sha} -->`);
+  await adapter.createMergeRequestNote(mr.iid, `${inert(text)}\n\n${MARK}${tag} ${mr.sha} -->`);
 }
 
 /** Access level of an active human author; null when this token may not read users/members. */
@@ -344,10 +348,10 @@ export async function flowPublish(args: string[]) {
     const finding = targets.find((target) => target.rank === item.finding);
     if (finding && !payload.proposals.some((proposal) => proposal.finding.rank === item.finding)) payload.equivalent.push({ finding, reason: item.reason });
   }
-  const summary = `${summaryBody(evidence, targets, payload, handle, state.threshold ?? 90)}\n\n${encodePayload(payload)}`;
+  const summary = `${inert(summaryBody(evidence, targets, payload, handle, state.threshold ?? 90))}\n\n${encodePayload(payload)}`;
   await adapter.publishFindings(mr.iid, mr.sha, summary, targets.map((finding) => ({
     id: `Finding ${finding.rank}`, path: finding.path, line: finding.line,
-    body: inlineBody(finding, payload.proposals.find((proposal) => proposal.finding.rank === finding.rank), handle),
+    body: inert(inlineBody(finding, payload.proposals.find((proposal) => proposal.finding.rank === finding.rank), handle)),
   })));
   await save(`${WORK}/published.json`, payload);
   console.log(`Published ${payload.proposals.length} verified, ${payload.rejected.length} rejected, ${payload.equivalent.length} equivalent.`);
@@ -364,8 +368,8 @@ export async function flowNotify(args: string[]) {
   if ((await adapter.listMergeRequestNotes(mr.iid)).some((note) => note.body.includes(`${MARK}notified ${mr.sha}`))) { console.log('Already reported for this head.'); return; }
   const policy = await json('.mutant-review/policy.json').catch(() => ({}));
   const empty = { proposals: [], rejected: [], equivalent: [] };
-  await adapter.publishFindings(mr.iid, mr.sha, `${summaryBody(evidence, evidence.triage.ranked, empty, handle, policy.mutationThreshold ?? 90)}\n\n${MARK}notified ${mr.sha} -->`,
-    evidence.triage.ranked.map((finding: RankedFinding) => ({ id: `Finding ${finding.rank}`, path: finding.path, line: finding.line, body: inlineBody(finding, undefined, handle) })));
+  await adapter.publishFindings(mr.iid, mr.sha, `${inert(summaryBody(evidence, evidence.triage.ranked, empty, handle, policy.mutationThreshold ?? 90))}\n\n${MARK}notified ${mr.sha} -->`,
+    evidence.triage.ranked.map((finding: RankedFinding) => ({ id: `Finding ${finding.rank}`, path: finding.path, line: finding.line, body: inert(inlineBody(finding, undefined, handle)) })));
   console.log(`Reported ${evidence.triage.ranked.length} finding(s).`);
 }
 

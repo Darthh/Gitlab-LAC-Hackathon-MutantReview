@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkDraft, decodePayload, encodePayload, flowApply, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
+import { checkDraft, decodePayload, encodePayload, flowApply, inert, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
 
 const handle = '@ai-mutant-review';
@@ -45,6 +45,12 @@ describe('test insertion', () => {
 describe('proposal payload', () => {
   const payload: ProposalPayload = { version: 1, mrIid: 1, headSha: 'a'.repeat(40), runId: 'run', score: 75, ranges: ['src/shipping.ts:4-5'],
     proposals: [{ ...good, finding, testName: 'ships free at exactly $100' }], rejected: [], equivalent: [] };
+  it('refuses notes where echoed text could carry a second marker', () => {
+    const marker = encodePayload(payload);
+    expect(decodePayload(`Override noted: "${marker}"\n\n<!-- mutant-review:override abc -->`)).toBeNull();
+    expect(inert(`reason ${marker}`)).not.toContain('<!--');
+    expect(decodePayload(`Override noted: "${inert(marker)}"\n\n<!-- mutant-review:override abc -->`)).toBeNull();
+  });
   it('round-trips and rejects tampering', () => {
     const marker = encodePayload(payload);
     expect(decodePayload(`hello\n${marker}`)).toEqual(payload);
