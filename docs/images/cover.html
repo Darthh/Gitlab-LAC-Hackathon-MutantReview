@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mutant Review cover</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --purple: #7060d6; --purple-dark: #4f41b3; --ink: #1d1b2c; --muted: #6e6f80; --border: #e4e2ef; --green: #2f7d62; --amber: #a3701c; --bg: #f6f5fb; }
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1280px; height: 720px; background: var(--bg); font-family: "DM Sans", sans-serif; color: var(--ink); overflow: hidden; position: relative; }
+  .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 40px 40px; opacity: .45; mask-image: linear-gradient(90deg, transparent 0%, #000 55%, #000 100%); }
+  .wrap { position: relative; display: grid; grid-template-columns: 1fr 520px; gap: 56px; padding: 0 72px; height: 600px; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 22px; letter-spacing: -.01em; }
+  .mark { width: 44px; height: 44px; border-radius: 12px; background: var(--purple); color: #fff; display: grid; place-items: center; }
+  h1 { margin-top: 48px; font-size: 76px; line-height: .98; letter-spacing: -.035em; font-weight: 700; }
+  h1 span { color: var(--purple); display: block; }
+  .sub { margin-top: 28px; font-size: 21px; line-height: 1.45; color: var(--muted); max-width: 560px; }
+  .sub b { color: var(--ink); font-weight: 600; }
+  .card { margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 18, 32, .06), 0 12px 32px -12px rgba(20, 18, 32, .16); padding: 22px 24px; }
+  .meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .gate { color: var(--amber); background: #fbf2df; border-radius: 999px; padding: 3px 10px; font-weight: 600; }
+  .mut { font-family: "IBM Plex Mono", monospace; font-size: 14px; background: #f5f4fa; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .del { color: #9b3e36; } .add { color: var(--purple-dark); }
+  .why { font-size: 15.5px; line-height: 1.45; margin: 14px 0; }
+  .why b { font-weight: 600; }
+  pre { font-family: "IBM Plex Mono", monospace; font-size: 13px; line-height: 1.55; background: #1f1d2e; color: #e7e5f7; border-radius: 10px; padding: 12px 14px; white-space: pre; }
+  .k { color: #b8a8ff; } .s { color: #9fe0bd; } .n { color: #f6c97f; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 12.5px; color: var(--green); background: #e6f3ed; border-radius: 999px; padding: 4px 10px; font-weight: 500; }
+  .reply { margin-top: 14px; display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #dcd7f7; display: grid; place-items: center; font-weight: 600; font-size: 12px; color: var(--purple-dark); }
+  .bubble { font-family: "IBM Plex Mono", monospace; font-size: 13.5px; background: #efecfd; color: var(--purple-dark); border-radius: 10px; padding: 7px 11px; }
+  .ok { margin-left: auto; color: var(--green); font-weight: 600; font-size: 13px; }
+  .foot { position: absolute; left: 0; right: 0; bottom: 0; height: 120px; display: flex; align-items: center; justify-content: space-between; padding: 0 72px; border-top: 1px solid var(--border); background: rgba(255,255,255,.7); }
+  .stat { font-size: 19px; line-height: 1.35; max-width: 760px; }
+  .stat b { font-size: 34px; font-weight: 700; color: var(--purple); letter-spacing: -.02em; margin-right: 10px; vertical-align: -3px; }
+  .stack { font-size: 14px; color: var(--muted); text-align: right; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="wrap">
+  <div>
+    <div class="brand"><span class="mark"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M9 6c20 10-6 10 14 20M23 6C3 16 29 16 9 26M10 10h12M12 16h8M10 22h12" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/></svg></span>Mutant Review</div>
+    <h1>100% coverage.<span>0 bugs caught.</span></h1>
+    <p class="sub">A GitLab Duo agent that mutation-tests <b>only the lines a merge request changes</b>, proves its own AI-written tests by <b>running them against the mutant</b>, and commits only what you approve.</p>
+  </div>
+  <div class="card">
+    <div class="meta"><span><b>Mutant Review</b> · merge request !1 · shipping.ts:4</span><span class="gate">Gate blocked</span></div>
+    <div class="mut"><span class="del">- subtotalCents &gt;= 10_000</span><br><span class="add">+ subtotalCents &gt;&nbsp; 10_000</span></div>
+    <p class="why"><b>Changing <code>&gt;=</code> to <code>&gt;</code> fails no test.</b> An order of exactly $100 is untested.</p>
+<pre><span class="k">it</span>(<span class="s">'ships free at exactly $100'</span>, () =&gt; {
+  <span class="k">expect</span>(shippingFee(<span class="n">10_000</span>)).toBe(<span class="n">0</span>);
+});</pre>
+    <span class="chip">✓ passes on the code · fails on the mutant</span>
+    <div class="reply"><span class="avatar">R</span><span class="bubble">@mutant-review apply 1</span><span class="ok">committed · gate passes</span></div>
+  </div>
+</div>
+<div class="foot">
+  <p class="stat"><b>11 of 25</b>recent merged PRs in es-toolkit, a library that reports 100% test coverage, shipped a change no test noticed.</p>
+  <p class="stack">GitLab Duo Agent Platform<br>StrykerJS · Vitest · Cloud Run</p>
+</div>
+</body>
+</html>

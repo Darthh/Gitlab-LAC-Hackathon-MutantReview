@@ -5,6 +5,7 @@ Paste-ready. Replace bracketed items only with results you have actually observe
 **Name:** Mutant Review
 **Tagline:** Your tests passed. Would they notice the code breaking?
 **Path / level:** Path A (Start Fresh), Assisted. Also entering Most Creative and Most Stages Covered.
+**Images:** cover / YouTube thumbnail `docs/images/cover.png` (1280×720); gallery `docs/images/front-desk-overview.png`, `docs/images/front-desk-findings.png`.
 
 ## Inspiration
 

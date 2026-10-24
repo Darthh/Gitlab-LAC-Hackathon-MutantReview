@@ -25,7 +25,7 @@
 
 ## Submission
 
-- [ ] Record the video from `docs/demo.md` (under 3 minutes, public on YouTube, no copyrighted music)
+- [ ] Record the video from `docs/demo.md` (under 3 minutes, public on YouTube, no copyrighted music); use `docs/images/cover.png` as the thumbnail
 - [ ] Fill Devpost from `docs/devpost.md` with the benchmark headline and the Cloud Run URL
 - [ ] Update the README Status table with the live run links
 - [ ] Keep the Cloud Run service and GitLab project public until Nov 16
