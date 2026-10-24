@@ -25,3 +25,9 @@ evidence/assisted-receipt.json
 evidence/error.json
 .mutant-review/proposals/
 .local/
+evidence/stryker.*.json
+evidence/whole-file-count/
+evidence/verify-*/
+evidence/apply/
+evidence/flow/
+evidence/gate.json

@@ -15,14 +15,17 @@ import {
   Clock3,
   Code2,
   Copy,
+  Cpu,
   ExternalLink,
   FileCode2,
   FlaskConical,
+  Funnel,
   GitBranch,
   GitCommitHorizontal,
   GitMerge,
   HelpCircle,
   LayoutDashboard,
+  ListFilter,
   LoaderCircle,
   Menu,
   MoreHorizontal,
@@ -32,13 +35,20 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  ShieldX,
   Sparkles,
   Terminal,
   TriangleAlert,
   X,
   Zap,
 } from "lucide-react";
-import type { Configuration, Evidence, Finding, Mutant } from "./evidence";
+import type {
+  Configuration,
+  Evidence,
+  Finding,
+  LedgerEntry,
+  Mutant,
+} from "./evidence";
 import AssistedReceiptPanel from "./AssistedReceiptPanel";
 
 type Page = "overview" | "findings" | "verification" | "lessons" | "ledger";
@@ -148,9 +158,11 @@ export default function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [copied, setCopied] = useState(false);
   const [detailTab, setDetailTab] = useState("Mutation");
+  const [refreshes, setRefreshes] = useState(0);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
   async function refresh() {
+    setRefreshes((n) => n + 1);
     setLoading(true);
     setError("");
     try {
@@ -789,6 +801,10 @@ export default function App() {
                         foot="Learned from verified evidence"
                       />
                     </div>
+                    <SavingsTiles
+                      savings={evidence.savings}
+                      policy={evidence.triage?.policy}
+                    />
                     <div className="content-columns">
                       <div className="main-column">
                         <FindingDetail compact />
@@ -904,6 +920,7 @@ export default function App() {
                         Engine evidence and interpretation are shown separately.
                       </span>
                     </div>
+                    <TriagePanel triage={evidence.triage} />
                     <FindingDetail />
                     <section className="panel mutants-panel" id="mutants">
                       <div className="panel-heading">
@@ -1203,6 +1220,11 @@ export default function App() {
                 )}
                 {page === "ledger" && (
                   <>
+                    <RepairLedger key={refreshes} projectUrl={projectLink} />
+                    <SavingsTiles
+                      savings={evidence.savings}
+                      policy={evidence.triage?.policy}
+                    />
                     <div className="ledger-summary">
                       <div>
                         <Clock3 size={19} />
@@ -1686,6 +1708,311 @@ function Workflow({
           </button>
         )}
       </div>
+    </section>
+  );
+}
+
+/** Measured counts only: a missing or null value reads "Not measured", never zero. */
+const tally = (n: number | null | undefined) =>
+  n == null ? "Not measured" : String(n).padStart(2, "0");
+const oneLine = (code: string) => {
+  const flat = code.replace(/\s+/g, " ").trim();
+  return flat.length > 90 ? `${flat.slice(0, 89)}…` : flat;
+};
+function MutationLine({ original, replacement }: { original: string; replacement: string }) {
+  return (
+    <>
+      <code>{oneLine(original)}</code>
+      <span aria-hidden="true"> → </span>
+      <span className="sr-only"> becomes </span>
+      <code>{oneLine(replacement)}</code>
+    </>
+  );
+}
+
+function SavingsTiles({
+  savings: s,
+  policy,
+}: {
+  savings?: Evidence["savings"];
+  policy?: string;
+}) {
+  const tone = (n: number | null | undefined, measured: string) =>
+    n == null ? "neutral unmeasured" : measured;
+  return (
+    <section className="savings" aria-labelledby="savings-title">
+      <h2 id="savings-title" className="section-label">
+        Compute saved
+      </h2>
+      <div className="metrics-grid">
+        <Metric
+          title="Mutants avoided"
+          value={tally(s?.mutantsAvoided)}
+          icon={<Cpu size={16} />}
+          tone={tone(s?.mutantsAvoided, "green")}
+          subtitle={
+            !s
+              ? "Not recorded for this run"
+              : s.mutantsWholeFiles != null
+                ? `of ${s.mutantsWholeFiles} whole-file mutants · ${s.mutantsChangedLines} run`
+                : `${s.mutantsChangedLines} run on changed lines · whole files not measured`
+          }
+          foot="Skipped by changed-line scoping"
+        />
+        <Metric
+          title="Arid mutants filtered"
+          value={tally(s?.aridFiltered)}
+          icon={<Funnel size={16} />}
+          tone={tone(s?.aridFiltered, "neutral")}
+          subtitle={policy ? `Policy ${policy}` : "Deterministic noise filter"}
+          foot="Removed before any AI call"
+        />
+        <Metric
+          title="AI calls avoided"
+          value={tally(s?.aiCallsAvoided)}
+          icon={<Sparkles size={16} />}
+          tone={tone(s?.aiCallsAvoided, "green")}
+          subtitle="Arid + over-budget findings"
+          foot="Tokens never spent on noise"
+        />
+        <Metric
+          title="Lessons in agent memory"
+          value={tally(s?.lessonsInMemory)}
+          icon={<BookOpen size={16} />}
+          tone={tone(s?.lessonsInMemory, "purple")}
+          subtitle="Compiled into AGENTS.md"
+          foot="Mistakes future agents skip"
+        />
+      </div>
+    </section>
+  );
+}
+
+function TriagePanel({ triage }: { triage?: Evidence["triage"] }) {
+  if (!triage) return null;
+  const ranked = [...triage.ranked].sort((a, b) => a.rank - b.rank);
+  return (
+    <section className="panel triage-panel" aria-labelledby="triage-title">
+      <div className="panel-heading">
+        <div className="panel-title">
+          <span className="icon-tile amber">
+            <ListFilter size={17} />
+          </span>
+          <h2 id="triage-title">Triage: commented on the MR</h2>
+        </div>
+        <Badge tone="purple">{triage.policy}</Badge>
+      </div>
+      <p className="triage-summary">
+        {triage.considered} surviving considered · {triage.arid.length} arid
+        filtered · {ranked.length} of 3 comments used · {triage.overflow} over
+        budget
+      </p>
+      {ranked.length === 0 ? (
+        <Empty icon={CircleCheck} title="Nothing worth a comment">
+          No actionable surviving mutants remained after the arid filter.
+        </Empty>
+      ) : (
+        <ol className="ledger-rows">
+          {ranked.map((item) => (
+            <li className="ledger-row" key={item.fingerprint}>
+              <span className="icon-tile rank-tile">
+                <span className="sr-only">Rank </span>
+                {item.rank}
+              </span>
+              <div>
+                <b className="mutation-line">
+                  <MutationLine
+                    original={item.original}
+                    replacement={item.replacement}
+                  />
+                </b>
+                <p>{item.why}</p>
+                <span className="ledger-meta">
+                  <span>
+                    {item.path}:{item.line}
+                  </span>
+                  <span>{item.operator}</span>
+                  <span>
+                    {item.status === "NoCoverage" ? "No coverage" : "Survived"}
+                  </span>
+                </span>
+              </div>
+              <Badge
+                tone={
+                  item.priority === "high"
+                    ? "red"
+                    : item.priority === "medium"
+                      ? "amber"
+                      : "neutral"
+                }
+              >
+                {item.priority} priority
+              </Badge>
+            </li>
+          ))}
+        </ol>
+      )}
+      <details className="receipt-patch-details triage-arid">
+        <summary>
+          {triage.arid.length} arid{" "}
+          {triage.arid.length === 1 ? "mutant" : "mutants"} filtered before any
+          AI call
+        </summary>
+        {triage.arid.length ? (
+          <ul>
+            {triage.arid.map((item) => (
+              <li key={item.fingerprint}>
+                <code>
+                  {item.path}:{item.line}
+                </code>{" "}
+                — {item.reason}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="small muted">None in this run.</p>
+        )}
+      </details>
+    </section>
+  );
+}
+
+/** Reads committed approval history; an absent ledger is an empty history, not an error. */
+function RepairLedger({ projectUrl }: { projectUrl?: string | null }) {
+  const [entries, setEntries] = useState<LedgerEntry[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/ledger", { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "The repair ledger could not be read.");
+        setEntries(result.entries);
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setError(err.message);
+      });
+    return () => controller.abort();
+  }, []);
+  const rows = [...(entries ?? [])].sort(
+    (a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt),
+  );
+  const count = (kind: LedgerEntry["kind"]) =>
+    rows.filter((entry) => entry.kind === kind).length;
+  return (
+    <section
+      className="panel repair-ledger"
+      aria-labelledby="repair-ledger-title"
+      aria-busy={!entries && !error}
+    >
+      <div className="panel-heading">
+        <div className="panel-title">
+          <span className="icon-tile purple">
+            <ShieldCheck size={17} />
+          </span>
+          <h2 id="repair-ledger-title">Useless tests caught</h2>
+        </div>
+        {entries && (
+          <Badge tone="purple">
+            {count("repaired")} repaired · {count("rejected-proposal")}{" "}
+            hallucinations blocked
+          </Badge>
+        )}
+      </div>
+      {error ? (
+        <div className="notice receipt-warning" role="alert">
+          <TriangleAlert size={18} />
+          <p>{error}</p>
+        </div>
+      ) : !entries ? (
+        <p className="triage-summary" role="status">
+          Reading the repair ledger…
+        </p>
+      ) : rows.length === 0 ? (
+        <Empty icon={ShieldCheck} title="No repairs recorded yet">
+          Approve a finding on an MR with <code>@mutant-review apply 1</code>.
+        </Empty>
+      ) : (
+        <ol className="ledger-rows">
+          {rows.map((entry) => {
+            const mr = entry.mergeRequestIid;
+            const mrUrl =
+              projectUrl && mr ? `${projectUrl}/-/merge_requests/${mr}` : null;
+            const who = entry.actor && `@${entry.actor.replace(/^@/, "")}`;
+            return (
+              <li className="ledger-row" key={entry.id}>
+                <span
+                  className={`icon-tile ${entry.kind === "repaired" ? "green" : entry.kind === "rejected-proposal" ? "amber" : ""}`}
+                >
+                  {entry.kind === "repaired" ? (
+                    <CircleCheck size={18} />
+                  ) : entry.kind === "rejected-proposal" ? (
+                    <ShieldX size={18} />
+                  ) : (
+                    <TriangleAlert size={18} />
+                  )}
+                </span>
+                <div>
+                  <b>
+                    {entry.kind === "repaired"
+                      ? entry.test
+                        ? `New test: “${entry.test.name}”`
+                        : "Repaired"
+                      : entry.kind === "rejected-proposal"
+                        ? "AI draft rejected: did not fail on the mutant — hallucination blocked"
+                        : "Override"}
+                  </b>
+                  {entry.mutant && (
+                    <p className="mutation-line">
+                      {entry.kind === "repaired" ? "Kills " : "Mutant "}
+                      <MutationLine
+                        original={entry.mutant.original}
+                        replacement={entry.mutant.replacement}
+                      />{" "}
+                      at {entry.mutant.path}:{entry.mutant.line}
+                    </p>
+                  )}
+                  <p>{entry.reason}</p>
+                  <span className="ledger-meta">
+                    {entry.kind === "repaired" ? (
+                      <span>Approved by {who || "an unrecorded approver"}</span>
+                    ) : (
+                      who && <span>By {who}</span>
+                    )}
+                    {mrUrl ? (
+                      <a href={mrUrl} target="_blank" rel="noreferrer">
+                        MR !{mr}
+                        <ArrowUpRight size={11} />
+                      </a>
+                    ) : (
+                      mr && <span>MR !{mr}</span>
+                    )}
+                    {entry.test && <code>{entry.test.path}</code>}
+                    <code>{trimSha(entry.headSha)}</code>
+                    <span>{displayTime(entry.recordedAt)}</span>
+                    {entry.lessonId && <span>Lesson {entry.lessonId}</span>}
+                  </span>
+                </div>
+                {entry.kind !== "repaired" ? (
+                  <Badge
+                    tone={entry.kind === "rejected-proposal" ? "amber" : "neutral"}
+                  >
+                    {entry.kind === "rejected-proposal" ? "Blocked" : "Override"}
+                  </Badge>
+                ) : entry.scoreBefore == null && entry.scoreAfter == null ? (
+                  <span className="small muted">Score not recorded</span>
+                ) : (
+                  <strong>
+                    <span className="sr-only">Mutation score </span>
+                    {percent(entry.scoreBefore)} → {percent(entry.scoreAfter)}
+                  </strong>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
   );
 }

@@ -29,6 +29,19 @@ const approvedLesson = z.object({
   pattern: text, recommendation: text, status: z.literal('approved'), verified: z.literal(true),
   approvedBy: label, approvedAt: z.iso.datetime(), receiptId: label,
 });
+const line = z.number().int().positive();
+const triage = z.object({
+  policy: label, considered: count,
+  arid: z.array(z.object({ fingerprint: hash, path, line, reason: text })).max(10000),
+  ranked: z.array(z.object({ rank: z.number().int().min(1).max(3), fingerprint: hash, path, line, operator: label, original: text, replacement: text,
+    status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text })).max(3),
+  overflow: count,
+});
+const savings = z.object({ mutantsChangedLines: count, mutantsWholeFiles: count.nullable(), mutantsAvoided: count.nullable(),
+  aridFiltered: count, aiCallsAvoided: count, lessonsInMemory: count });
+export type EvidenceTriage = z.infer<typeof triage>;
+export type EvidenceSavings = z.infer<typeof savings>;
+export { label, text, path as repositoryPath };
 
 /** Only the supported artifact shape crosses the server/browser boundary; unknown fields are stripped. */
 export const evidenceSchema = z.object({
@@ -55,6 +68,7 @@ export const evidenceSchema = z.object({
   integrations: z.object({ gitlab: label, duo: label }),
   gate: z.object({ status: z.enum(['passed', 'failed', 'inconclusive', 'no-applicable-scope']), reasons: z.array(text).max(100) }),
   evidenceFiles: z.array(path).max(200),
+  triage: triage.optional(), savings: savings.optional(),
 });
 
 export interface EvidenceExpectations {
@@ -89,6 +103,19 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
   for (const finding of evidence.findings) {
     if (!fingerprints.has(finding.mutantFingerprint)) fail('a finding references an unknown mutation');
     if (createHash('sha256').update(finding.proposal.patch).digest('hex') !== finding.proposal.patchHash) fail('the visible proposal patch does not match its hash');
+  }
+  const byFingerprint = new Map(evidence.mutation.mutants.map(item => [item.fingerprint, item]));
+  if (evidence.triage) {
+    const { arid, ranked, overflow, considered } = evidence.triage;
+    const listed = [...arid, ...ranked];
+    if (listed.some(item => { const raw = byFingerprint.get(item.fingerprint); return !raw || raw.path !== item.path || raw.line !== item.line || (raw.status !== 'Survived' && raw.status !== 'NoCoverage'); })) fail('triage references an unknown or detected mutation');
+    if (ranked.some(item => byFingerprint.get(item.fingerprint)!.status !== item.status) || new Set(ranked.map(item => item.rank)).size !== ranked.length || new Set(listed.map(item => item.fingerprint)).size !== listed.length) fail('ranked findings do not match the raw inventory');
+    if (considered > evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage || listed.length + overflow > considered) fail('triage counts exceed the surviving mutants');
+  }
+  if (evidence.savings) {
+    const { mutantsWholeFiles: whole, mutantsAvoided: avoided, mutantsChangedLines: changed, aridFiltered, aiCallsAvoided } = evidence.savings;
+    if ((whole === null) !== (avoided === null) || (whole !== null && avoided !== whole - changed)) fail('avoided mutants do not equal whole-file minus changed-line mutants');
+    if (evidence.triage && (aridFiltered !== evidence.triage.arid.length || aiCallsAvoided !== aridFiltered + evidence.triage.overflow)) fail('savings do not match the triage record');
   }
   if (evidence.mutation.status === 'complete' && (!evidence.scope.complete || metrics.invalid || metrics.pending || evidence.baseline.status !== 'passed')) fail('completed analysis contains incomplete or failed execution');
   if (evidence.gate.status === 'passed' && (evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || metrics.score === null || metrics.invalid || metrics.pending || evidence.scope.protectedFilesChanged)) fail('passing gate contradicts the execution evidence');

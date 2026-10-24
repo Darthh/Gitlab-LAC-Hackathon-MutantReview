@@ -8,6 +8,7 @@ import { shippingFee } from "../../../packages/demo-domain/src/shipping.js";
 import { gitlabOrigin, validateEvidence } from "./evidence-validation.js";
 import { validateAssistedReceipt } from "./assisted-receipt-validation.js";
 import { loadSignedEvidence } from "./signed-evidence.js";
+import { readLedger } from "./ledger-validation.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = express();
@@ -248,6 +249,19 @@ app.get(["/api/evidence", "/api/evidence/download"], async (req, res) => {
   }
 });
 app.get("/api/health", (_req, res) => res.json({ status: "ok", revision }));
+app.get("/api/ledger", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    res.json(await readLedger(resolve(process.cwd(), ".mutant-review/ledger.json")));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    res.status(500).json({
+      error: message.startsWith("Ledger ")
+        ? message
+        : "The repair ledger could not be read. Check .mutant-review/ledger.json on the server.",
+    });
+  }
+});
 app.get(
   ["/api/assisted-receipt", "/api/assisted-receipt/download"],
   async (req, res) => {
@@ -330,7 +344,8 @@ if (process.argv.includes("--production")) {
   });
   app.use(vite.middlewares);
 }
-const port = Number(process.env.PORT || 4173);
-app.listen(port, "127.0.0.1", () =>
+// Cloud Run sets PORT and needs HOST=0.0.0.0; local runs stay loopback-only.
+const port = Number(process.env.PORT ?? 4173);
+app.listen(port, process.env.HOST ?? "127.0.0.1", () =>
   console.log(`Mutant Review Front Desk: http://localhost:${port}`),
 );

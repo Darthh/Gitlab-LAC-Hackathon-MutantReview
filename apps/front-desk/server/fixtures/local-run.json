@@ -384,5 +384,33 @@
     "evidence/verification/mutant-1.log",
     "evidence/verification/original-2.log",
     "evidence/verification/mutant-2.log"
-  ]
+  ],
+  "triage": {
+    "policy": "arid-v1",
+    "considered": 1,
+    "arid": [],
+    "ranked": [
+      {
+        "rank": 1,
+        "fingerprint": "aac76c49fe533731fe1ff120e1665f7a4ac435fc987c94b605dae96f24bf0b78",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "line": 4,
+        "operator": "EqualityOperator",
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents > 10_000",
+        "status": "Survived",
+        "priority": "high",
+        "why": "Contract boundary SHIPPING-001: an order of exactly $100 would be charged $5 shipping and no test fails."
+      }
+    ],
+    "overflow": 0
+  },
+  "savings": {
+    "mutantsChangedLines": 5,
+    "mutantsWholeFiles": null,
+    "mutantsAvoided": null,
+    "aridFiltered": 0,
+    "aiCallsAvoided": 0,
+    "lessonsInMemory": 0
+  }
 }

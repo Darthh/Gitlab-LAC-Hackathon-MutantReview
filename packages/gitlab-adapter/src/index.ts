@@ -558,6 +558,60 @@ export class GitLabAdapter {
     );
   }
 
+  /** The single open, same-project MR whose current head is this checkout. */
+  async openMergeRequestForHead(checkoutSha: string): Promise<MergeRequest> {
+    if (!sha.test(checkoutSha)) throw new Error("MR discovery requires an exact checkout revision");
+    const candidates = (await this.request<Array<{ iid: number; sha: string; state: string }>>(
+      "/merge_requests?state=opened&per_page=20&order_by=updated_at&sort=desc",
+    )).filter((mr) => mr.sha === checkoutSha);
+    if (candidates.length !== 1) throw new Error("No unique open MR matches the checkout SHA");
+    const mr = await this.currentMergeRequest(candidates[0]!.iid);
+    if (mr.sha !== checkoutSha) throw new Error("MR head changed during discovery");
+    return mr;
+  }
+
+  /** Newest first. Bodies are untrusted data; callers authenticate authors separately. */
+  async listMergeRequestNotes(iid: number) {
+    const notes = await this.request<Array<{ id: number; body: string; system: boolean; created_at: string; author: { id: number; username: string } }>>(
+      `/merge_requests/${positiveId(iid)}/notes?sort=desc&order_by=created_at&per_page=50`,
+    );
+    return notes.filter((note) => Number.isSafeInteger(note.id) && typeof note.body === "string" && Number.isFinite(Date.parse(note.created_at)) && Number.isSafeInteger(note.author?.id));
+  }
+
+  /** Account kind comes from the users API, never from the note payload. */
+  async accountKind(userId: number): Promise<"human" | "bot" | "inactive"> {
+    const user = await this.request<{ id: number; bot?: boolean; state?: string; locked?: boolean }>(`/users/${positiveId(userId)}`, { globalUser: true });
+    if (user.id !== userId || user.state !== "active" || user.locked) return "inactive";
+    return user.bot === false ? "human" : "bot";
+  }
+
+  async createMergeRequestNote(iid: number, body: string) {
+    return this.request<{ id: number }>(`/merge_requests/${positiveId(iid)}/notes`, { method: "POST", body: { body } });
+  }
+
+  /**
+   * Commits approved files onto the MR source branch. Every existing file is guarded by its
+   * last commit at the approved head, so a concurrent push to those files rejects the commit.
+   */
+  async commitToMergeRequest(iid: number, expectedHead: string, files: Array<{ path: string; content: string }>, message: string) {
+    if (!this.token) throw new Error("A write credential is required");
+    const mr = await this.currentMergeRequest(iid);
+    if (mr.sha !== expectedHead || mr.state !== "opened") throw new Error("MR head changed or MR closed; mention the agent again for a fresh review");
+    const actions = [];
+    for (const file of files) {
+      if (!safePath(file.path)) throw new Error("Unsafe commit path");
+      const meta = await this.request<{ last_commit_id: string }>(`/repository/files/${encodeURIComponent(file.path)}?ref=${expectedHead}`).catch(() => null);
+      actions.push(meta
+        ? { action: "update", file_path: file.path, content: file.content, last_commit_id: meta.last_commit_id }
+        : { action: "create", file_path: file.path, content: file.content });
+    }
+    if ((await this.currentMergeRequest(iid)).sha !== expectedHead) throw new Error("MR head changed during commit preparation");
+    return this.request<{ id: string; web_url: string }>("/repository/commits", {
+      method: "POST",
+      body: { branch: mr.source_branch, commit_message: message, actions },
+    });
+  }
+
   async publishFindings(
     iid: number,
     expectedHead: string,

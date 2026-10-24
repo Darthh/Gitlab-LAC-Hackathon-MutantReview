@@ -1,4 +1,9 @@
+import type { EvidenceSavings, EvidenceTriage } from "../server/evidence-validation";
+export type { LedgerEntry } from "../server/ledger-validation";
+
 export interface Evidence {
+  triage?: EvidenceTriage;
+  savings?: EvidenceSavings;
   schemaVersion: number;
   runId: string;
   createdAt: string;

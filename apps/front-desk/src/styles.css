@@ -3233,3 +3233,84 @@ td code {
 .receipt-warning p {
   color: #886728;
 }
+
+/* Front desk: savings, triage and repair ledger */
+.section-label {
+  font-size: 12px;
+  font-weight: 550;
+  color: #5d536f;
+  margin-bottom: 12px;
+}
+.metric.unmeasured .metric-value {
+  font-size: 18px;
+  letter-spacing: -0.3px;
+  color: #74667e;
+}
+.triage-panel,
+.repair-ledger {
+  margin-bottom: 24px;
+}
+ol.ledger-rows {
+  margin: 0;
+  list-style: none;
+}
+.ledger-row > div {
+  min-width: 0;
+}
+.ledger-row > .badge {
+  margin-left: auto;
+}
+.ledger-row code {
+  font-size: 10px;
+  color: #5d536f;
+  overflow-wrap: anywhere;
+}
+.ledger-row b code {
+  font-size: 11px;
+}
+.ledger-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #74667e;
+}
+.ledger-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #7050a5;
+}
+.icon-tile.green {
+  background: #edf7f0;
+  color: #33754e;
+}
+.rank-tile {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b641d;
+  background: #fff5e2;
+}
+.triage-summary {
+  padding: 14px 20px 0;
+  font-size: 11px;
+  color: #74667e;
+}
+.triage-arid {
+  margin: 4px 20px 18px;
+  color: #7050a5;
+}
+.triage-arid ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  line-height: 1.9;
+  color: #7c668e;
+}
+.repair-ledger .notice {
+  margin: 18px;
+}
+.repair-ledger > .triage-summary {
+  padding-bottom: 18px;
+}

@@ -80,3 +80,13 @@ export function evaluateGate(input: GateInput): GateDecision {
   if (input.actionableSurvivors) reasons.push(`${input.actionableSurvivors} actionable surviving finding(s) require repair or an explicit human waiver.`);
   return { status: reasons.length ? 'failed' : 'passed', reasons };
 }
+
+export interface GateOverride { actor: string; accessLevel: number; reason: string; noteUrl: string; approvedAt: string; headSha: string }
+export interface OverriddenGate { status: 'overridden'; reasons: string[]; override: GateOverride }
+
+/** Only a measured, complete failure can be waived, only by a Maintainer, only with a written reason at this exact head. */
+export function applyOverride(decision: GateDecision, override: GateOverride | null, headSha: string): GateDecision | OverriddenGate {
+  if (decision.status !== 'failed' || !override) return decision;
+  if (override.accessLevel < 40 || override.reason.trim().length < 10 || override.headSha !== headSha) return decision;
+  return { status: 'overridden', reasons: [...decision.reasons, `Overridden by @${override.actor}: ${override.reason.trim()}`], override };
+}
