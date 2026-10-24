@@ -1,0 +1,106 @@
+# Release path for code that already passed the MR mutation gate.
+# merge -> demo:evidence -> package:image (GitLab registry) -> deploy:cloud-run -> monitor:smoke
+#
+# Google Cloud setup (once), see docs/deploy.md:
+#   GCP_PROJECT_ID, GCP_REGION (default us-central1)
+#   Keyless (recommended): GCP_WORKLOAD_IDENTITY_PROVIDER + GCP_SERVICE_ACCOUNT
+#   or a file variable:    GCP_SERVICE_ACCOUNT_KEY
+# Deploy jobs are skipped until GCP_PROJECT_ID is set.
+
+variables:
+  CLOUD_RUN_SERVICE: mutant-review-front-desk
+  GCP_REGION: us-central1
+
+.main_push:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+
+# Real evidence for the deployed console: the demo contract mutation-tested on this commit.
+demo:evidence:
+  extends: [.node, .main_push]
+  stage: package
+  needs: [baseline]
+  script:
+    - npm run demo
+  artifacts:
+    expire_in: 30 days
+    paths: [evidence/]
+
+package:image:
+  extends: .main_push
+  stage: package
+  image: docker:27
+  services: [docker:27-dind]
+  needs: [demo:evidence]
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker build --build-arg REVISION="$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE/front-desk:$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE/front-desk:latest" .
+    - docker push --all-tags "$CI_REGISTRY_IMAGE/front-desk"
+
+.gcloud:
+  image: google/cloud-sdk:slim
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/$GCP_WORKLOAD_IDENTITY_PROVIDER
+  before_script:
+    - |
+      if [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]; then
+        echo "$GITLAB_OIDC_TOKEN" > .oidc_token
+        gcloud iam workload-identity-pools create-cred-config "$GCP_WORKLOAD_IDENTITY_PROVIDER" \
+          --service-account="$GCP_SERVICE_ACCOUNT" --credential-source-file=.oidc_token --output-file=.gcp_cred.json
+        gcloud auth login --cred-file=.gcp_cred.json --quiet
+      else
+        gcloud auth activate-service-account --key-file="$GCP_SERVICE_ACCOUNT_KEY"
+      fi
+    - gcloud config set project "$GCP_PROJECT_ID"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push" && $GCP_PROJECT_ID'
+
+# Builds the same Dockerfile with Cloud Build, shifts traffic, smoke-tests the live URL and
+# rolls traffic back to the previous revision if the smoke test fails.
+deploy:cloud-run:
+  extends: .gcloud
+  stage: deploy
+  needs:
+    - job: demo:evidence
+      artifacts: true
+    - job: package:image
+  environment:
+    name: production
+    url: $CLOUD_RUN_URL
+  script:
+    - PREVIOUS=$(gcloud run services describe "$CLOUD_RUN_SERVICE" --region "$GCP_REGION" --format='value(status.latestReadyRevisionName)' 2>/dev/null || true)
+    - >
+      gcloud run deploy "$CLOUD_RUN_SERVICE" --source . --region "$GCP_REGION"
+      --allow-unauthenticated --port 8080 --memory 512Mi --max-instances 2
+      --set-env-vars "REVISION=$CI_COMMIT_SHA" --labels "gitlab-commit=$CI_COMMIT_SHORT_SHA" --quiet
+    - URL=$(gcloud run services describe "$CLOUD_RUN_SERVICE" --region "$GCP_REGION" --format='value(status.url)')
+    - echo "CLOUD_RUN_URL=$URL" > deploy.env
+    - |
+      if ! sh ci/smoke.sh "$URL" "$CI_COMMIT_SHA"; then
+        if [ -n "$PREVIOUS" ]; then
+          echo "Smoke test failed; routing all traffic back to $PREVIOUS"
+          gcloud run services update-traffic "$CLOUD_RUN_SERVICE" --region "$GCP_REGION" --to-revisions "$PREVIOUS=100" --quiet
+        fi
+        exit 1
+      fi
+  artifacts:
+    reports:
+      dotenv: deploy.env
+
+# Runs after each deploy and on a pipeline schedule: the live console must answer with the
+# deployed revision and valid evidence. A failure turns the schedule red.
+monitor:smoke:
+  extends: .gcloud
+  stage: monitor
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $GCP_PROJECT_ID'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push" && $GCP_PROJECT_ID'
+  needs:
+    - job: deploy:cloud-run
+      optional: true
+  script:
+    - URL=$(gcloud run services describe "$CLOUD_RUN_SERVICE" --region "$GCP_REGION" --format='value(status.url)')
+    - sh ci/smoke.sh "$URL"

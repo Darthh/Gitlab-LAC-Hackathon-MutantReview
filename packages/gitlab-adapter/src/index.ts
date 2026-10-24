@@ -585,6 +585,14 @@ export class GitLabAdapter {
     return user.bot === false ? "human" : "bot";
   }
 
+  /** Server-side time GitLab recorded this head as an MR diff version; git dates are author-controlled. */
+  async headPushedAt(iid: number, headSha: string): Promise<number | null> {
+    const versions = await this.request<Array<{ head_commit_sha: string; created_at: string }>>(`/merge_requests/${positiveId(iid)}/versions?per_page=20`);
+    const version = versions.find((item) => item.head_commit_sha === headSha);
+    const time = version ? Date.parse(version.created_at) : NaN;
+    return Number.isFinite(time) ? time : null;
+  }
+
   async createMergeRequestNote(iid: number, body: string) {
     return this.request<{ id: number }>(`/merge_requests/${positiveId(iid)}/notes`, { method: "POST", body: { body } });
   }

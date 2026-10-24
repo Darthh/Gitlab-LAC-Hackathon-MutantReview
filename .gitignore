@@ -31,3 +31,4 @@ evidence/verify-*/
 evidence/apply/
 evidence/flow/
 evidence/gate.json
+evidence/e2e-*/

@@ -10,7 +10,7 @@ import { normalizePath } from '../../review-core/src/scope.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
 import type { MutationScope } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
-import { git, json, runReview, runStryker, save } from './review.js';
+import { git, json, protectedPath, runReview, runStryker, save } from './review.js';
 
 const WORK = '.mutant-review/work';
 const MARK = '<!-- mutant-review:';
@@ -38,8 +38,10 @@ export interface ProposalPayload {
   proposals: VerifiedProposal[]; rejected: RejectedProposal[]; equivalent: { finding: RankedFinding; reason: string }[];
 }
 
-const IMPORT = /^import\s+(?:type\s+)?\{[\w\s,$]+\}\s+from\s+['"](?:\.{1,2}\/[\w./-]+|vitest)['"];?$/;
-const FORBIDDEN = /\.(?:skip|only|todo|fails)\b|\b(?:xit|xtest|xdescribe)\b|\b(?:vi|jest)\s*\.\s*(?:mock|spyOn|stubGlobal|stubEnv)\b|@ts-(?:ignore|nocheck|expect-error)|\b(?:process|require|eval|fetch|globalThis|child_process)\b|\bimport\s*\(|\bcatch\s*[({]/;
+const IMPORT = /^import\s+(?:type\s+)?\{[\w\s,$]+\}\s+from\s+['"](?:(?:\.\.?\/)+(?:[\w-][\w.-]*\/)*[\w-][\w.-]*|vitest)['"];?$/;
+// Defence in depth only. The real boundary: drafts run in child processes with credentials
+// stripped from the environment (runner.executionEnvironment) inside the Duo sandbox.
+const FORBIDDEN = /\.(?:skip|only|todo|fails)\b|\b(?:xit|xtest|xdescribe)\b|\b(?:vi|jest)\s*\.\s*(?:mock|spyOn|stubGlobal|stubEnv)\b|@ts-(?:ignore|nocheck|expect-error)|\b(?:process|require|eval|fetch|globalThis|child_process|Function|constructor|prototype|__proto__|Reflect|Proxy|WebAssembly|XMLHttpRequest|WebSocket)\b|\bimport\s*\(|\bimport\.meta\b|\bcatch\s*[({]/;
 const STRONG = /\bexpect\s*\([\s\S]*?\)\s*\.\s*(?:toBe|toEqual|toStrictEqual|toThrow|toThrowError|toMatch|toBeCloseTo|toHaveLength|toContain)\s*\(/;
 
 export function testName(test: string): string | null {
@@ -139,9 +141,10 @@ async function memberLevel(adapter: GitLabAdapter, note: Note): Promise<number> 
 export async function findOverride(adapter: GitLabAdapter, mrIid: number, headSha: string, handle: string): Promise<GateOverride | null> {
   const mr = await adapter.currentMergeRequest(mrIid);
   if (mr.sha !== headSha) return null;
-  const headTime = Date.parse(git('show', '-s', '--format=%cI', headSha));
+  const pushedAt = await adapter.headPushedAt(mrIid, headSha);
+  if (pushedAt === null) return null;
   for (const note of await adapter.listMergeRequestNotes(mrIid)) {
-    if (note.system || Date.parse(note.created_at) < headTime) continue;
+    if (note.system || Date.parse(note.created_at) <= pushedAt) continue;
     let command: ReviewCommand;
     try { command = parseReviewCommand(note.body, handle); } catch { continue; }
     if (command.action !== 'override') continue;
@@ -374,7 +377,10 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   if (await memberLevel(adapter, note) < 30) return fail('applying tests needs an active human account with the Developer role or higher.');
   const notes = await adapter.listMergeRequestNotes(mr.iid);
   let payload: ProposalPayload | null = null, proposalNote: Note | undefined;
+  // Proposals are trusted only when this flow's own service account posted them.
+  const agent = handle.slice(1).toLowerCase();
   for (const candidate of notes) {
+    if (candidate.author.username?.toLowerCase() !== agent) continue;
     const decoded = decodePayload(candidate.body);
     if (decoded && await adapter.accountKind(candidate.author.id) === 'bot') { payload = decoded; proposalNote = candidate; break; }
   }
@@ -383,6 +389,8 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   if (Date.parse(note.created_at) < Date.parse(proposalNote.created_at)) return fail('this command predates the latest proposals.');
   const selected = payload.proposals.filter((proposal) => selection.includes(proposal.finding.rank));
   if (selected.length !== selection.length) return fail(`only verified findings can be applied: ${payload.proposals.map((item) => item.finding.rank).join(', ') || 'none'}.`);
+  const unsafe = selected.find((proposal) => checkDraft({ ...proposal, finding: proposal.finding.rank }) || protectedPath(proposal.testPath));
+  if (unsafe) return fail(`finding ${unsafe.finding.rank} targets a file the agent may not change; nothing was committed.`);
 
   const files = new Map<string, string>();
   for (const proposal of selected) files.set(proposal.testPath, withTest(files.get(proposal.testPath) ?? await readOr(proposal.testPath), proposal.imports, proposal.test));

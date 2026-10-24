@@ -17,7 +17,8 @@
     "gate": "tsx packages/cli/src/index.ts gate",
     "lessons": "tsx packages/cli/src/index.ts lessons",
     "typecheck": "tsc --noEmit",
-    "mr": "tsx packages/cli/src/index.ts"
+    "mr": "tsx packages/cli/src/index.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
     "express": "5.3.0",

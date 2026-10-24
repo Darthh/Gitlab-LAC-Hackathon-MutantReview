@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+coverage
+.env
+.env.*
+.stryker-tmp
+.mutant-review/work
+evidence/incremental
+evidence/verification
+benchmarks/results/raw

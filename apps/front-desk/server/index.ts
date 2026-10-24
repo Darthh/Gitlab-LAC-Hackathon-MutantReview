@@ -18,8 +18,9 @@ app.use((_req, res, next) => {
   res.setHeader("Referrer-Policy", "same-origin");
   next();
 });
-let revision = "unavailable";
-try {
+// Container images carry no .git; CI passes the commit as REVISION.
+let revision = process.env.REVISION || "unavailable";
+if (!process.env.REVISION) try {
   revision = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: root,
     encoding: "utf8",
