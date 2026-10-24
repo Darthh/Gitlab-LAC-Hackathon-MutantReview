@@ -1,22 +1,32 @@
 {
   "schemaVersion": 1,
-  "status": "not-started",
+  "status": "completed",
   "candidateRepository": "https://github.com/colinhacks/zod",
+  "targetRepository": "https://github.com/toss/es-toolkit",
+  "targetChange": "Switched from the predeclared Zod candidate to toss/es-toolkit before any analysis ran (single-package Vitest + Yarn layout with colocated src/**/*.spec.ts made historical checkouts cheap to drive). No Zod analysis was run.",
   "licenseRequirement": "MIT at each selected revision",
+  "licenseCheck": "LICENSE contains the MIT License text at all 72 candidate merge SHAs before the cutoff.",
   "cutoff": "2026-10-23T23:59:59Z",
-  "selection": "Latest 25 consecutive merged PRs before cutoff that meet eligibility; publish every considered PR and exclusion reason.",
+  "runDate": "2026-10-24",
+  "selection": "Latest 25 consecutive eligible merged PRs before cutoff (newest first by mergedAt from gh pr list --limit 80); every considered PR and exclusion reason is published in results/es-toolkit.json.",
   "eligibility": [
-    "Historical revision uses TypeScript and a Stryker-compatible Vitest runner",
-    "Historical lockfile installs successfully with the recorded supported Node toolchain",
-    "Historical unmodified tests and build pass",
-    "At least one eligible changed executable source line remains after policy exclusions"
+    "At least one changed executable source line under src/ remains after review-core parseDiff exclusions (tests, fixtures, .d.ts, comments, imports, type-only lines)"
   ],
-  "scope": "Historical PR comparison base and pre-merge head, changed executable source only; never present-day tests against historical code",
-  "operators": "StrykerJS 10.1.1 default mutators; record generated operators per run",
+  "eligibilityNotApplied": [
+    "Historical build was not run",
+    "The full unmodified suite was not run separately; Stryker's initial test run over Vitest-related tests is the baseline and must pass"
+  ],
+  "scope": "Merge/squash commit M vs first parent M^, changed executable source lines only, tests as merged at M; never present-day tests against historical code",
+  "operators": "StrykerJS 10.1.1 default mutators with @stryker-mutator/vitest-runner 10.1.1, coverageAnalysis perTest",
   "limits": { "files": 5, "changedLines": 200, "mutants": 100, "runtimeSeconds": 300, "concurrency": 2 },
-  "attempted": 0,
-  "completed": 0,
-  "consideredPullRequests": [],
-  "analyses": [],
-  "conclusion": "No historical analyses have been executed. No impact, precision, token savings, or cost savings are claimed."
+  "limitsApplied": { "runtimeSecondsPerPr": 600, "concurrency": 4, "note": "The predeclared file/line/mutant/300 s limits were not enforced in this run; the largest PR (#2097: 50 files, 621 lines, 637 mutants, 190 s) exceeds them." },
+  "considered": 39,
+  "excluded": 14,
+  "attempted": 25,
+  "completed": 25,
+  "failed": 0,
+  "results": "results/es-toolkit.json",
+  "report": "RESULTS.md",
+  "humanReview": "Not done. Only the four example survivors quoted in RESULTS.md were read against the merged source and spec; reviewed-sample precision is unavailable.",
+  "conclusion": "11 of 25 completed analyses of merged es-toolkit PRs had at least one changed-line mutant that the PR's merged test suite did not detect (178 Survived, 116 NoCoverage across 1,057 changed-line mutants; median changed-line score 93.5% over the 20 PRs with mutants). 5 completed PRs produced no mutants and count as no gap. Changed-line scoping instrumented 1,057 of 4,088 whole-file mutants (74.1% avoided, counted not executed). Survivors are untested behaviour changes, not proven bugs; equivalent mutants are included and were not filtered. No token, dollar, energy or carbon savings are claimed, and nothing implies the historical tests were AI-generated."
 }
