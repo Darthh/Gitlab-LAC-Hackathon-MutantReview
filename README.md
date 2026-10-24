@@ -83,7 +83,7 @@ flowchart LR
 | | |
 | --- | --- |
 | Verified on GitLab | Changed-line review and the gate blocking !1; the custom flow enabled and executing in a GitLab Duo workload ([pipeline 2985096882](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2985096882)) |
-| Verified by automated tests | Arid triage, `apply 1 and 3` parsing, audited override, AGENTS.md memory, and draft verification by real Stryker execution (`npm run test:e2e`) |
+| Verified by automated tests | Arid triage, `apply 1 and 3` parsing and refusals, audited override, AGENTS.md memory, and with real Vitest + Stryker (`npm run test:e2e`, GitLab mocked): draft verification, then `apply 1` committing the test, ledger, lesson and AGENTS.md with the score going 80% → 100% |
 | Wired, first live run pending | The new flow's draft → verify → `apply` loop on !1, and the Cloud Run deploy (needs the GCP variables in [docs/deploy.md](docs/deploy.md)) |
 
 ## Front Desk

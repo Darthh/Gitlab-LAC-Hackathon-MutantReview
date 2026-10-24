@@ -436,7 +436,7 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   for (const proposal of selected) {
     const id = `repair-${mr.iid}-${proposal.finding.fingerprint.slice(0, 12)}`;
     const lesson = learnFromRepair(lessons.get(`lesson-${lessonCategory(proposal.finding).tag}`) ?? null, proposal.finding,
-      { repository: mr.web_url.replace(/\/-\/merge_requests\/\d+$/, ''), module: dirname(proposal.finding.path), approvedBy: note.author.username, approvedAt: note.created_at, receiptId: id, mergeRequestIid: mr.iid });
+      { repository: new URL(mr.web_url).pathname.replace(/\/-\/merge_requests\/\d+$/, '').slice(1), module: dirname(proposal.finding.path), approvedBy: note.author.username, approvedAt: note.created_at, receiptId: id, mergeRequestIid: mr.iid });
     lessons.set(lesson.id, lesson);
     add({ id, kind: 'repaired', recordedAt: now, mergeRequestIid: mr.iid, headSha: mr.sha, mutant: mutantOf(proposal.finding), test: { path: proposal.testPath, name: proposal.testName },
       scoreBefore: payload.score, scoreAfter, actor: note.author.username, reason: proposal.finding.why, lessonId: lesson.id });
