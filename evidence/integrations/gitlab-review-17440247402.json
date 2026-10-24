@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-2026-10-24T18-02-55-649Z",
+  "createdAt": "2026-10-24T18:03:00.781Z",
+  "source": "gitlab",
+  "provenance": {
+    "projectId": "88030103",
+    "mrIid": 1,
+    "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+    "baseSha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+    "pipelineId": "2984952053",
+    "jobId": "17440247402",
+    "pipelineUrl": "https://gitlab.com/Darthh2/mutant-review/-/pipelines/2984952053",
+    "projectUrl": "https://gitlab.com/Darthh2/mutant-review",
+    "policyVersion": "1.0.0",
+    "toolchain": {
+      "node": "v24.16.0",
+      "vitest": "3.2.7",
+      "stryker": "10.1.1"
+    },
+    "scopeKind": "merge request changed source",
+    "workingTreeHash": "901b4587142f9654b412dd7981ca4c24b3eecf06529eb56e80a553c23e10bb82"
+  },
+  "baseline": {
+    "status": "passed",
+    "tests": 4,
+    "branchCoverage": 100,
+    "durationMs": 1028,
+    "log": "evidence/baseline.log"
+  },
+  "scope": {
+    "files": [
+      {
+        "path": "packages/demo-domain/src/shipping.ts",
+        "startLine": 4,
+        "endLine": 5,
+        "lines": [
+          {
+            "start": 4,
+            "end": 5
+          }
+        ]
+      }
+    ],
+    "changedLines": 2,
+    "complete": true,
+    "reason": null,
+    "limits": {
+      "files": 5,
+      "changedLines": 100,
+      "mutants": 64,
+      "runtimeMs": 180000,
+      "concurrency": 2,
+      "modelCalls": 3,
+      "repairAttempts": 2
+    },
+    "protectedFilesChanged": false
+  },
+  "mutation": {
+    "status": "complete",
+    "score": 75,
+    "counts": {
+      "killed": 3,
+      "survived": 1,
+      "noCoverage": 0,
+      "timedOut": 0,
+      "invalid": 0,
+      "ignored": 0,
+      "pending": 0
+    },
+    "mutants": [
+      {
+        "id": "0",
+        "fingerprint": "2a1c71a266c1d82d074d1131a15cb8dfc671cdca245b223d347b2441b6d8a2f9",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 30,
+            "line": 4
+          },
+          "start": {
+            "column": 7,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "true",
+        "operator": "ConditionalExpression",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "0"
+        ],
+        "provenance": {
+          "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+          "baseSha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "3.2.7",
+            "stryker": "10.1.1"
+          },
+          "fresh": false
+        },
+        "line": 4
+      },
+      {
+        "id": "2",
+        "fingerprint": "d1071379ad2ff9fa171c7b73f8537871c7bc84f29453e754a13da29f9e8cf8e5",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 30,
+            "line": 4
+          },
+          "start": {
+            "column": 7,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents > 10_000",
+        "operator": "EqualityOperator",
+        "status": "Survived",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [],
+        "provenance": {
+          "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+          "baseSha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "3.2.7",
+            "stryker": "10.1.1"
+          },
+          "fresh": false
+        },
+        "line": 4
+      },
+      {
+        "id": "1",
+        "fingerprint": "2f63848aaa69fe6e2177b09b87668ba71381b310be159909e7c2f3daf2163020",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 30,
+            "line": 4
+          },
+          "start": {
+            "column": 7,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "false",
+        "operator": "ConditionalExpression",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "1"
+        ],
+        "provenance": {
+          "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+          "baseSha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "3.2.7",
+            "stryker": "10.1.1"
+          },
+          "fresh": false
+        },
+        "line": 4
+      },
+      {
+        "id": "3",
+        "fingerprint": "354fa87e3a197ce5edf7e217c75ef5af22ec809662a91fee77d7c487d8702572",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 30,
+            "line": 4
+          },
+          "start": {
+            "column": 7,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents < 10_000",
+        "operator": "EqualityOperator",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "0"
+        ],
+        "provenance": {
+          "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+          "baseSha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "3.2.7",
+            "stryker": "10.1.1"
+          },
+          "fresh": false
+        },
+        "line": 4
+      }
+    ],
+    "durationMs": 4055,
+    "reportPath": "evidence/mutation/mutation.json",
+    "incremental": true,
+    "cacheKey": "515463a173c66ae75d901d4ac9dce1b9c8ce90f36780fa9bf5dcd7bafa10112b"
+  },
+  "findings": [
+    {
+      "id": "SHIPPING-001-boundary",
+      "title": "The tests missed the exact $100 free-shipping boundary.",
+      "consequence": "Changing >= to > charges $5 shipping on an order of exactly $100 while the original tests remain green.",
+      "requirement": "SHIPPING-001: Orders with a subtotal of at least $100 receive free shipping. Smaller orders pay $5 shipping. Money uses integer cents.",
+      "requirementReference": "packages/demo-domain/CONTRACTS.md#checkout-contracts",
+      "mutantFingerprint": "d1071379ad2ff9fa171c7b73f8537871c7bc84f29453e754a13da29f9e8cf8e5",
+      "proposal": {
+        "id": "proposal-b2bdf2b3820d",
+        "patch": "--- a/packages/demo-domain/src/shipping.test.ts\n+++ b/packages/demo-domain/src/shipping.test.ts\n@@ -12,0 +13,4 @@\n+\n+it('ships for free at exactly $100 (SHIPPING-001)', () => {\n+  expect(shippingFee(10_000)).toBe(0);\n+});\n",
+        "patchHash": "5cfa0198483d03c586d51793e85b96206b6657fa902bd9215614bb24ac970970",
+        "originalTestHash": "4cea2a5a2dae61a02983c89fa939eba20c678b4c1f6a72dd7ddcdb1c16d8a1a0",
+        "repairedTestHash": "b2bdf2b3820d2256818951e18132af3e7083042da1070b3be1882afaf2f91936",
+        "sourceHash": "901b4587142f9654b412dd7981ca4c24b3eecf06529eb56e80a553c23e10bb82",
+        "testPath": "packages/demo-domain/src/shipping.test.ts",
+        "originalTest": "import { describe, expect, it } from 'vitest';\nimport { shippingFee } from './shipping.js';\n\ndescribe('shipping fee', () => {\n  it('charges $5 below the free-shipping threshold', () => {\n    expect(shippingFee(9_999)).toBe(500);\n  });\n\n  it('ships for free above the threshold', () => {\n    expect(shippingFee(10_001)).toBe(0);\n  });\n});\n",
+        "repairedTest": "import { describe, expect, it } from 'vitest';\nimport { shippingFee } from './shipping.js';\n\ndescribe('shipping fee', () => {\n  it('charges $5 below the free-shipping threshold', () => {\n    expect(shippingFee(9_999)).toBe(500);\n  });\n\n  it('ships for free above the threshold', () => {\n    expect(shippingFee(10_001)).toBe(0);\n  });\n});\n\nit('ships for free at exactly $100 (SHIPPING-001)', () => {\n  expect(shippingFee(10_000)).toBe(0);\n});\n",
+        "approvalStatus": "awaiting approval",
+        "generatedBy": "deterministic demonstration fixture; not GitLab Duo"
+      },
+      "interpretationSource": "deterministic demonstration fixture; not GitLab Duo",
+      "confidence": null,
+      "approvalStatus": "awaiting approval",
+      "uncertainty": "This is evidence of a missing boundary assertion, not evidence of a production defect. Duo interpretation has not run."
+    }
+  ],
+  "verification": {
+    "status": "not_run",
+    "scope": "Awaiting separate verification approval",
+    "originalPasses": false,
+    "mutantFails": false,
+    "cleanRerun": false,
+    "logs": [],
+    "approval": null,
+    "repairCommit": null
+  },
+  "metrics": {
+    "modelCalls": 0,
+    "tokens": null,
+    "repairAttempts": 0,
+    "verifiedRepairs": 0,
+    "localSandboxProofs": 0,
+    "mutantsGenerated": 4,
+    "freshExecutions": null,
+    "cachedResults": null,
+    "totalDurationMs": 5132,
+    "lessonsApproved": 0,
+    "lessonApplications": 0
+  },
+  "lessons": [],
+  "preflight": {
+    "results": [],
+    "retrievedLessons": [],
+    "note": "Advisory heuristics. A clean preflight does not establish behavioral adequacy; retrieved lessons are not demonstrated applications."
+  },
+  "integrations": {
+    "gitlab": "ci execution",
+    "duo": "not_executed"
+  },
+  "gate": {
+    "status": "failed",
+    "reasons": [
+      "Mutation score 75.0% is below the 90% project policy.",
+      "1 actionable surviving finding(s) require repair or an explicit human waiver."
+    ]
+  },
+  "evidenceFiles": [
+    "evidence/baseline.json",
+    "evidence/baseline.log",
+    "evidence/coverage/coverage-summary.json",
+    "evidence/mutation/mutation.json",
+    "evidence/mutation.log"
+  ]
+}

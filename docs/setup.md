@@ -15,7 +15,11 @@ Open `http://localhost:4173`. The console reads `evidence/latest.json` produced 
 
 ## GitLab project and access
 
-The public demonstration project is [Darthh2/mutant-review](https://gitlab.com/Darthh2/mutant-review), numeric project ID `88030103`. Project creation was confirmed in the signed-in browser, and a real public API capability probe resolved the same project. The required-successful-pipeline merge setting was enabled and confirmed in the signed-in UI. Anonymous API responses omit that field, so the public capability probe records it as unavailable (`null`). This does not establish CI runners, Duo enablement, discussion creation, artifact reads, or actual merge blocking. The original checkout's configured `origin` is GitHub; a GitLab remote is separate.
+The public demonstration project is [Darthh2/mutant-review](https://gitlab.com/Darthh2/mutant-review), numeric project ID `88030103`. The October 24 authenticated API check confirmed required successful pipelines and hosted runners are enabled. Anonymous project responses omit the merge-check field, so the earlier public probe correctly records it as unavailable (`null`). Real baseline, mutation, and gate jobs have now executed, as recorded below. Duo execution and approved repair remain uncompleted stages. This checkout's configured `origin` is GitHub; its GitLab remote is separate.
+
+An Ultimate trial is active for the separate public group [mutant-review1](https://gitlab.com/mutant-review1), group ID `145666501`, with UI expiry November 23, 2026. Project `88030103` is still in the personal namespace `Darthh2`; it has not been transferred. GitLab's current [StageCheck implementation](https://gitlab.com/gitlab-org/gitlab/-/blob/master/ee/lib/gitlab/llm/stage_check.rb) rejects personal namespaces for AI Catalog availability. The missing flow controls therefore remain a real setup blocker for this project.
+
+The transfer is awaiting explicit approval because GitLab warns that project transfer permanently deletes any Secrets Manager secrets. Metadata-only queries, including the signed-in Owner query, returned permission/resource errors; provisioning and secret count remain **unknown**, not zero. No secret names or values were read. A separate Reporter/`read_api` token form is prepared for Front Desk but is also awaiting approval; no read token has been issued. The trusted operator's Developer/`api` credential is kept out of the public console.
 
 Use `.env.example` as a variable reference. Set the values in your shell or runtime configuration; the server does not need browser credentials.
 
@@ -42,7 +46,25 @@ This checks project readability, an optional MR, and the required-successful-pip
 
 The implementation was pushed to GitLab and [pipeline 2983816811](https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983816811) was created at `12fb58c38cad1533c21563b0b85aa04ece7abcdb`. It failed before any job started. The signed-in UI displayed **Phone Number Verification** as the execution blocker. Public API inspection showed no jobs, no start time, and no YAML error. No GitLab test, mutation, gate, or artifact execution has been established by that attempt.
 
-The real demonstration MR is [!1: Demonstrate the unprotected free-shipping boundary](https://gitlab.com/Darthh2/mutant-review/-/merge_requests/1), branch `demo/shipping-boundary`, head `c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91`. It changes only shipping source to an equivalent `if`/`return` implementation while retaining the inclusive comparison; four domain tests passed locally in an isolated worktree. Its MR pipeline [2983839784](https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983839784) also failed before execution. GitLab reports `ci_must_pass` for the MR, but no mutation-gate job has run. The MR remains open and unmerged; creation is not repair approval.
+The real demonstration MR is [!1: Demonstrate the unprotected free-shipping boundary](https://gitlab.com/Darthh2/mutant-review/-/merge_requests/1), branch `demo/shipping-boundary`. The following measured CI run used revision `c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91`. It changes only shipping source to an equivalent `if`/`return` implementation while retaining the inclusive comparison; four domain tests passed locally in an isolated worktree. Its initial MR pipeline [2983839784](https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983839784) failed before execution. After phone verification cleared on October 24, a fresh [MR pipeline 2984952053](https://gitlab.com/Darthh2/mutant-review/-/pipelines/2984952053) executed at that exact SHA:
+
+| Evidence | Actual result |
+| --- | --- |
+| [Baseline job 17440247401](https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247401) | Succeeded; domain tests, measured coverage, TypeScript checks, and production build completed |
+| [Mutation review job 17440247402](https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247402) | Succeeded; four domain tests pass and shipping branch coverage measures 100% |
+| Scope | `packages/demo-domain/src/shipping.ts`, changed lines 4–5, two lines; complete analysis |
+| Mutation evidence | Four mutants: three killed and one survivor; zero timeouts, errors, uncovered, or pending mutants |
+| Changed-source mutation score | 75% |
+| [Mutation gate job 17440247403](https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247403) | Failed because 75% is below the 90% policy and the boundary survivor requires repair |
+| Merge state | MR remains open and unmerged; authenticated API reports `ci_must_pass` |
+
+The normalized artifact passed the scoped adapter's job/project/pipeline/SHA checks; the raw Stryker report was retrieved from that same job. Independent re-normalization reproduced the 75% result. Snapshots are saved as `evidence/integrations/gitlab-review-17440247402.json`, `gitlab-mutation-17440247402.json`, and `gitlab-live-pipeline.json`.
+
+The manual review job was played as an explicitly authorized bounded engineering run using project-token bot actor `43702566`. This records actual execution provenance; it is not an in-application human patch, verification, or lesson approval. No repair was applied, merged, or learned.
+
+The original local ternary fixture remains a separate measured example: five generated mutants, four killed, one survivor, **80%** score. The CI MR uses equivalent `if`/`return` source and a changed-line scope, yielding **75%**. Do not replace one measurement with the other or present them as a controlled performance comparison.
+
+The source branch was subsequently synchronized with main through normal merge commit `a287ca71fdfdb451e44b63302ab543f865b74aff`, preserving all four domain source/test files. That is a source update, not an MR merge or test repair. Artifact `17440247402` belongs to the earlier measured revision and must be treated as stale for the updated MR head until a new bounded review completes.
 
 Push the repository to the GitLab project and enable a compatible runner. Open an MR that changes the shipping implementation. The pipeline runs baseline tests and measured coverage, then blocks on `mutation:review`. Playing that job authorizes a bounded mutation run only. It cannot approve a repair, lesson, merge, or deployment. The next job evaluates the deterministic gate and preserves diagnostics on failure.
 
@@ -54,7 +76,7 @@ To run a diagnostic proof independently of a failed MR pipeline, create a web/AP
 
 ## Enable the Duo custom flow
 
-1. Confirm the tenant permits custom flows, has the necessary GitLab Duo access/credits, and can run its configured tools. The observed UI requested a Duo trial; no Duo session has been executed yet.
+1. Confirm the trial group's Agent Platform and custom-flow settings, then resolve the current personal-project namespace blocker through an explicitly approved setup action. The group trial is active; no Duo session or actual configured service-account handle has been established yet.
 2. Import `.gitlab/duo/mutant-review.yml` into a custom flow in the AI Catalog and enable it for this project. `.gitlab/duo/agent-config.yml` supplies the Node execution environment. Accepting a schema in documentation is different from this tenant accepting and executing it.
 3. Inspect the tenant's actual `run_command` tool schema. The primary flow uses the capability-selected shell form `command`. If the tenant exposes structured `program` and `args` instead, import `.gitlab/duo/mutant-review.structured.yml`. Both forms are present in GitLab's [official command-tool implementation](https://gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/-/blob/main/duo_workflow_service/tools/command.py); they are different schemas under the same tool name. Confirm `DeterministicStepComponent`, `AgentComponent`, `read_file`, and `list_dir` are supported. Do not replace them with guessed Human Input syntax.
 4. Configure a mention trigger and record the real service-account handle in `GITLAB_FLOW_HANDLE`. Never advertise `@mutant-review` as a configured account until verified.
@@ -62,6 +84,8 @@ To run a diagnostic proof independently of a failed MR pipeline, create a web/AP
 6. Validate the returned JSON with review-core, preserve its Duo session link, and publish the finding through the scoped adapter. The adapter caps inline findings at three and falls back to the summary when it cannot map a changed line to current diff coordinates.
 
 The prepared flow follows GitLab's [custom-flow YAML restrictions](https://docs.gitlab.com/user/duo_agent_platform/flows/custom_flows_schema/) and [flow registry v1 reference](https://gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/-/blob/main/docs/flow_registry/v1.md). It does not claim unsupported per-prompt model selection, an exact provider-request count, or native built-in `review`/`apply` commands.
+
+Public access to the report file does not establish access to authoritative job metadata: the independent anonymous probe could read the artifact but received `401` for the job record. Front Desk keeps those provenance checks. Live console connection therefore awaits the separately approved read credential; no write-token fallback or skipped metadata check is used.
 
 ### Evidence hydration in a real flow job
 

@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T18:04:37.103Z",
+  "source": "GitLab CI and authenticated REST API",
+  "projectId": 88030103,
+  "mergeRequest": {
+    "iid": 1,
+    "url": "https://gitlab.com/Darthh2/mutant-review/-/merge_requests/1",
+    "state": "opened",
+    "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+    "detailedMergeStatus": "ci_must_pass"
+  },
+  "pipeline": {
+    "id": 2984952053,
+    "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+    "status": "failed",
+    "ref": "refs/merge-requests/1/head",
+    "source": "merge_request_event",
+    "url": "https://gitlab.com/Darthh2/mutant-review/-/pipelines/2984952053",
+    "startedAt": "2026-10-24T18:00:14.921Z",
+    "yamlErrors": null
+  },
+  "jobs": [
+    {
+      "id": 17440247403,
+      "name": "mutation:gate",
+      "status": "failed",
+      "stage": "govern",
+      "failureReason": "script_failure",
+      "url": "https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247403"
+    },
+    {
+      "id": 17440247402,
+      "name": "mutation:review",
+      "status": "success",
+      "stage": "review",
+      "failureReason": null,
+      "url": "https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247402"
+    },
+    {
+      "id": 17440247401,
+      "name": "baseline",
+      "status": "success",
+      "stage": "validate",
+      "failureReason": null,
+      "url": "https://gitlab.com/Darthh2/mutant-review/-/jobs/17440247401"
+    }
+  ],
+  "executionActor": {
+    "id": 43702566,
+    "username": "project_88030103_bot_3afa2f87ec39fafa47a7dbe3deade3e9",
+    "bot": true,
+    "credentialKind": "project access token"
+  },
+  "measured": {
+    "baseline": {
+      "status": "passed",
+      "tests": 4,
+      "branchCoverage": 100,
+      "durationMs": 1028,
+      "log": "evidence/baseline.log"
+    },
+    "scope": {
+      "files": [
+        {
+          "path": "packages/demo-domain/src/shipping.ts",
+          "startLine": 4,
+          "endLine": 5,
+          "lines": [
+            {
+              "start": 4,
+              "end": 5
+            }
+          ]
+        }
+      ],
+      "changedLines": 2,
+      "complete": true,
+      "reason": null,
+      "limits": {
+        "files": 5,
+        "changedLines": 100,
+        "mutants": 64,
+        "runtimeMs": 180000,
+        "concurrency": 2,
+        "modelCalls": 3,
+        "repairAttempts": 2
+      },
+      "protectedFilesChanged": false
+    },
+    "mutation": {
+      "status": "complete",
+      "score": 75,
+      "counts": {
+        "killed": 3,
+        "survived": 1,
+        "noCoverage": 0,
+        "timedOut": 0,
+        "invalid": 0,
+        "ignored": 0,
+        "pending": 0
+      }
+    },
+    "gate": {
+      "status": "failed",
+      "reasons": [
+        "Mutation score 75.0% is below the 90% project policy.",
+        "1 actionable surviving finding(s) require repair or an explicit human waiver."
+      ]
+    },
+    "coverage": {
+      "lines": {
+        "total": 4,
+        "covered": 4,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 4,
+        "covered": 4,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 1,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 2,
+        "covered": 2,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": "Unknown"
+      }
+    }
+  },
+  "evidenceFiles": [
+    "evidence/integrations/gitlab-review-17440247402.json",
+    "evidence/integrations/gitlab-mutation-17440247402.json"
+  ],
+  "evidenceBoundary": "Actual CI baseline, mutation analysis, and gate results. The manual execution job was played using an authorized project-token bot; this is not human patch approval. Duo, repair approval, repair commit, verified lesson and reuse remain separate."
+}
