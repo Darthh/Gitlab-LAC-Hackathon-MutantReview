@@ -3,7 +3,8 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseDiff, strykerRanges } from '../../review-core/src/scope.js';
 import { mutationMetrics, normalizeStrykerReport, evaluateGate } from '../../review-core/src/report.js';
-import { preflight, retrieveLessons, type ApprovedLesson } from '../../review-core/src/preflight.js';
+import { preflight } from '../../review-core/src/preflight.js';
+import type { MemoryLesson } from '../../review-core/src/memory.js';
 import { triageMutants } from '../../review-core/src/triage.js';
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
@@ -12,7 +13,6 @@ import { digest, makeProposal, verifySandbox } from './proof.js';
 export const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }).trim();
 export const json = async (path: string) => JSON.parse(await readFile(path, 'utf8'));
 export const save = async (path: string, value: unknown) => { await mkdir(resolve(path, '..'), { recursive: true }); await writeFile(path, JSON.stringify(value, null, 2) + '\n'); };
-export const LIMITS = { files: 5, changedLines: 100, mutants: 64, runtimeMs: 180_000, concurrency: 2, modelCalls: 3, repairAttempts: 2 };
 export const protectedPath = (path: string) => /^(?:\.gitlab-ci\.yml|\.gitlab\/|\.mutant-review\/policy\.json|packages\/(?:review-core|cli|gitlab-adapter)\/|package(?:-lock)?\.json$|vitest(?:\.domain)?\.config\.ts$|stryker\.config\.json$)/.test(path);
 
 export interface ReviewContext {
@@ -40,9 +40,9 @@ export function ciContext(env = process.env): ReviewContext {
     pipelineId: env.CI_PIPELINE_ID ?? null, jobId: env.CI_JOB_ID ?? null, pipelineUrl: env.CI_PIPELINE_URL ?? null, projectUrl: env.CI_PROJECT_URL ?? null, output: 'evidence/latest.json' };
 }
 
-export async function versionedLessons(): Promise<ApprovedLesson[]> {
+export async function versionedLessons(): Promise<MemoryLesson[]> {
   const names = await readdir('.mutant-review/lessons').catch(() => []);
-  const records: ApprovedLesson[] = [];
+  const records: MemoryLesson[] = [];
   for (const name of names.filter((name) => name.endsWith('.json'))) {
     try {
       const path = `.mutant-review/lessons/${name}`;
@@ -52,10 +52,6 @@ export async function versionedLessons(): Promise<ApprovedLesson[]> {
     } catch { /* Uncommitted or malformed lesson data is never approved versioned evidence. */ }
   }
   return records;
-}
-
-export async function relevantLessons(query: string) {
-  return retrieveLessons(await versionedLessons(), { repository: process.env.CI_PROJECT_PATH ?? 'mutant-review', module: 'demo-domain', symbol: query, tags: ['inclusive-threshold', query], source: await readFile('packages/demo-domain/src/shipping.ts', 'utf8') });
 }
 
 /** Runs Stryker on exact `path:start-end` ranges using the project's own Stryker configuration. */
@@ -68,7 +64,7 @@ export async function runStryker(ranges: string[], options: { incremental: boole
   if (options.dryRunOnly) config.dryRunOnly = true;
   await save(`evidence/stryker.${options.name}.json`, config);
   await rm(`evidence/${options.name}/mutation.json`, { force: true });
-  const run = await execute(['node_modules/@stryker-mutator/core/bin/stryker.js', 'run', `evidence/stryker.${options.name}.json`], `evidence/${options.name}.log`, options.timeoutMs ?? LIMITS.runtimeMs);
+  const run = await execute(['node_modules/@stryker-mutator/core/bin/stryker.js', 'run', `evidence/stryker.${options.name}.json`], `evidence/${options.name}.log`, options.timeoutMs ?? 180_000);
   const report = await json(`evidence/${options.name}/mutation.json`).catch(() => null) as Record<string, unknown> | null;
   return { run, report };
 }
@@ -100,6 +96,8 @@ export async function runReview(context: ReviewContext) {
   const scopeLines = scope.reduce((sum, file) => sum + file.lines.reduce((n, lines) => n + lines.end - lines.start + 1, 0), 0);
   const protectedChanges = demo ? false : git('diff', '--name-only', baseSha!, headSha, '--').split('\n').some(protectedPath);
   const policy = await json('.mutant-review/policy.json').catch(() => ({ version: '1', threshold: 100 }));
+  // Budgets live in .mutant-review/policy.json only; defaults apply when the policy is missing.
+  const budget = { files: policy.budgets?.files ?? 5, changedLines: policy.budgets?.changedLines ?? 100, mutants: policy.budgets?.mutants ?? 100, runtimeMs: (policy.budgets?.runtimeSeconds ?? 180) * 1000 };
   const provenance = {
     projectId: context.projectId,
     mrIid: context.mrIid,
@@ -116,14 +114,13 @@ export async function runReview(context: ReviewContext) {
   };
   const testPaths = demo ? ['packages/demo-domain/src/shipping.test.ts', 'packages/demo-domain/src/discount.test.ts'] : git('diff', '--name-only', '--diff-filter=AM', baseSha!, headSha, '--').split('\n').filter((path) => /\.(?:test|spec)\.ts$/.test(path));
   const preflightResults = await Promise.all(testPaths.map(async (path) => ({ path, findings: preflight(await readFile(path, 'utf8')) })));
-  const retrievedLessons = await relevantLessons('shippingFee');
   await rm('evidence/baseline.json', { force: true });
   await rm('evidence/coverage/coverage-summary.json', { force: true });
   const baselineRun = await execute(['node_modules/vitest/vitest.mjs', 'run', '--config', 'vitest.domain.config.ts', '--coverage', '--reporter=json', '--outputFile=evidence/baseline.json'], 'evidence/baseline.log');
   const baselineRaw = await json('evidence/baseline.json').catch(() => null);
   const coverage = await json('evidence/coverage/coverage-summary.json').catch(() => null);
   const baselinePassed = baselineRun.exitCode === 0 && !baselineRun.timedOut && baselineRaw?.success === true;
-  const scopeWithinBudget = scope.length <= LIMITS.files && scopeLines <= LIMITS.changedLines;
+  const scopeWithinBudget = scope.length <= budget.files && scopeLines <= budget.changedLines;
   let mutationRun: Awaited<ReturnType<typeof execute>> | null = null;
   let mutants: NormalizedMutant[] = [];
   let rawReport: Record<string, unknown> | null = null;
@@ -137,7 +134,7 @@ export async function runReview(context: ReviewContext) {
     cacheKey = digest(JSON.stringify({ keyParts, node: process.version, platform: process.platform, env: { NODE_ENV: process.env.NODE_ENV, TZ: process.env.TZ }, toolchain: provenance.toolchain }));
     const previous = await json('evidence/incremental/key.json').catch(() => null);
     if (previous?.cacheKey !== cacheKey) await rm('evidence/incremental/mutation.json', { force: true });
-    const stryker = await runStryker(strykerRanges(scope), { incremental: context.mode === 'ci', name: 'mutation' });
+    const stryker = await runStryker(strykerRanges(scope), { incremental: context.mode === 'ci', name: 'mutation', timeoutMs: budget.runtimeMs });
     mutationRun = stryker.run;
     rawReport = stryker.report;
     if (rawReport) mutants = normalizeStrykerReport(rawReport as never, scope, { headSha, ...(baseSha ? { baseSha } : {}), toolchain: provenance.toolchain, fresh: demo });
@@ -146,7 +143,7 @@ export async function runReview(context: ReviewContext) {
     if (wholeFileMutants !== null && wholeFileMutants < mutants.length) wholeFileMutants = null;
   }
   const metrics = mutationMetrics(mutants);
-  const complete = Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && rawReport && metrics.total <= LIMITS.mutants && metrics.pending === 0 && metrics.invalid === 0);
+  const complete = Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && rawReport && metrics.total <= budget.mutants && metrics.pending === 0 && metrics.invalid === 0);
   const threshold = policy.mutationThreshold ?? 100;
   const gate = evaluateGate({ baselinePassed, complete, expectedHeadSha: headSha, evidenceHeadSha: headSha, metrics, threshold, actionableSurvivors: metrics.survived, protectedFilesChanged: protectedChanges });
   const sources = Object.fromEntries(Object.entries((rawReport as { files?: Record<string, { source: string }> } | null)?.files ?? {}).map(([path, file]) => [path.replaceAll('\\', '/').replace(/^\.\//, ''), file.source]));
@@ -161,9 +158,9 @@ export async function runReview(context: ReviewContext) {
     lessonsInMemory: lessons.length,
   };
   const targeted = mutants.find((mutant) => mutant.status === 'Survived' && mutant.operator === 'EqualityOperator' && mutant.replacement === 'subtotalCents > 10_000' && mutant.path === 'packages/demo-domain/src/shipping.ts');
-  const proposal = targeted ? await makeProposal() : null;
-  // Automatic sandbox execution is only a local engineering proof, never repair authorization.
-  const verification = demo && proposal ? await verifySandbox(proposal) : { status: 'not_run', scope: 'Awaiting separate verification approval', originalPasses: false, mutantFails: false, cleanRerun: false, logs: [], approval: null, repairCommit: null };
+  // The fixture proof is for the local demo console only; MR reviews use the Duo flow's verifyDraft.
+  const proposal = targeted && demo ? await makeProposal() : null;
+  const verification = proposal ? await verifySandbox(proposal) : { status: 'not_run', scope: 'Awaiting separate verification approval', originalPasses: false, mutantFails: false, cleanRerun: false, logs: [], approval: null, repairCommit: null };
   const findings = targeted && proposal ? [{
     id: 'SHIPPING-001-boundary',
     title: 'The tests missed the exact $100 free-shipping boundary.',
@@ -184,20 +181,19 @@ export async function runReview(context: ReviewContext) {
     source: demo ? 'local' : 'gitlab',
     provenance,
     baseline: { status: baselinePassed ? 'passed' : 'failed', tests: baselineRaw?.numPassedTests ?? 0, branchCoverage: coverage?.total?.branches?.pct ?? null, durationMs: baselineRun.durationMs, log: baselineRun.log },
-    scope: { files: scope.map((file) => ({ path: file.path, startLine: file.lines[0]?.start, endLine: file.lines.at(-1)?.end, lines: file.lines })), changedLines: scopeLines, complete, reason: skippedReason, limits: LIMITS, protectedFilesChanged: protectedChanges },
+    scope: { files: scope.map((file) => ({ path: file.path, startLine: file.lines[0]?.start, endLine: file.lines.at(-1)?.end, lines: file.lines })), changedLines: scopeLines, complete, reason: skippedReason, limits: budget, protectedFilesChanged: protectedChanges },
     mutation: { status: complete ? 'complete' : 'inconclusive', score: metrics.score, counts: { killed: metrics.killed, survived: metrics.survived, noCoverage: metrics.noCoverage, timedOut: metrics.timedOut, invalid: metrics.invalid, ignored: metrics.ignored, pending: metrics.pending }, mutants: mutants.map((mutant) => ({ ...mutant, line: mutant.location.start.line })), durationMs: mutationRun?.durationMs ?? null, reportPath: rawReport ? 'evidence/mutation/mutation.json' : null, incremental: context.mode === 'ci', cacheKey },
     triage,
     savings,
     findings,
     verification,
-    metrics: { modelCalls: 0, tokens: null, repairAttempts: demo && proposal ? 1 : 0, verifiedRepairs: 0, localSandboxProofs: verification.status === 'passed' ? 1 : 0, mutantsGenerated: metrics.total, freshExecutions: demo ? metrics.total : null, cachedResults: demo ? 0 : null, totalDurationMs: Date.now() - started, lessonsApproved: lessons.length, lessonApplications: 0 },
-    lessons: [],
-    preflight: { results: preflightResults, retrievedLessons, note: 'Advisory heuristics. A clean preflight does not establish behavioral adequacy; retrieved lessons are not demonstrated applications.' },
+    metrics: { modelCalls: 0, tokens: null, repairAttempts: proposal ? 1 : 0, verifiedRepairs: 0, localSandboxProofs: verification.status === 'passed' ? 1 : 0, mutantsGenerated: metrics.total, freshExecutions: demo ? metrics.total : null, cachedResults: demo ? 0 : null, totalDurationMs: Date.now() - started, lessonsApproved: lessons.length, lessonApplications: 0 },
+    preflight: { results: preflightResults, note: 'Advisory heuristics. A clean preflight does not establish behavioral adequacy.' },
     integrations: { gitlab: demo ? 'unconfigured' : 'ci execution', duo: context.mode === 'flow' ? 'flow workload' : 'not_executed' },
     gate,
     evidenceFiles: ['evidence/baseline.json', 'evidence/baseline.log', 'evidence/coverage/coverage-summary.json', ...(rawReport ? ['evidence/mutation/mutation.json', 'evidence/mutation.log'] : []), ...verification.logs],
   };
   await save(context.output, evidence);
-  if (demo && proposal) await save('evidence/verification/receipt.json', { schemaVersion: 1, runId: evidence.runId, provenance, mutant: targeted, proposalId: proposal.id, patchHash: proposal.patchHash, verification, evidenceState: 'local sandbox proof; human approval, repair commit and GitLab pipeline absent' });
+  if (proposal) await save('evidence/verification/receipt.json', { schemaVersion: 1, runId: evidence.runId, provenance, mutant: targeted, proposalId: proposal.id, patchHash: proposal.patchHash, verification, evidenceState: 'local sandbox proof; human approval, repair commit and GitLab pipeline absent' });
   return { evidence, scope, sources, baselinePassed, complete };
 }

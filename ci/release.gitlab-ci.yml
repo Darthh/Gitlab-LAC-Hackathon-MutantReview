@@ -77,7 +77,7 @@ deploy:cloud-run:
     - >
       gcloud run deploy "$CLOUD_RUN_SERVICE" --source . --region "$GCP_REGION"
       --allow-unauthenticated --port 8080 --memory 512Mi --max-instances 2
-      --set-env-vars "REVISION=$CI_COMMIT_SHA" --labels "gitlab-commit=$CI_COMMIT_SHORT_SHA" --quiet
+      --set-env-vars "REVISION=$CI_COMMIT_SHA,MUTANT_REVIEW_HANDLE=$MUTANT_REVIEW_HANDLE" --labels "gitlab-commit=$CI_COMMIT_SHORT_SHA" --quiet
     - URL=$(gcloud run services describe "$CLOUD_RUN_SERVICE" --region "$GCP_REGION" --format='value(status.url)')
     - echo "CLOUD_RUN_URL=$URL" > deploy.env
     - |

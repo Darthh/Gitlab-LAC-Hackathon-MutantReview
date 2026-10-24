@@ -27,7 +27,7 @@ git push gitlab main
 
 ## 4. Update and enable the flow
 
-1. **AI > Flows** (or the AI Catalog): open the Mutant Review flow and replace its definition with [`.gitlab/duo/mutant-review.yml`](../.gitlab/duo/mutant-review.yml). If the tenant's `run_command` tool takes `program` and `args`, use `mutant-review.structured.yml` instead.
+1. **AI > Flows** (or the AI Catalog): open the Mutant Review flow and replace its definition with [`.gitlab/duo/mutant-review.yml`](../.gitlab/duo/mutant-review.yml). It uses `run_command(command)`, the form this GitLab tenant already accepted.
 2. Enable it in the project with the **Mention** and **Assign reviewer** triggers.
 3. Note the service account GitLab creates (`ai-<flow>-<group>`). If it is not `ai-mutant-review-evidence-triage-mutant-review`, replace that handle in both `--handle` lines of the flow YAML and in `MUTANT_REVIEW_HANDLE` in `.gitlab-ci.yml`.
 
@@ -59,5 +59,3 @@ To see an override instead: as a Maintainer, comment `@ai-mutant-review-evidence
 | `npm run mr -- flow publish --handle @x` | Duo flow | Verify drafts by execution, comment |
 | `npm run mr -- memory [--check]` | anywhere | Rebuild or check the AGENTS.md lessons section |
 | `npm run demo` | local | Demo-contract review with sandbox proof |
-
-The earlier operator CLI (`publish`, `apply`, `verify`, `prepare-lesson`, `learn`, `export-console`) is still available for a trusted host with exact hash-bound commands; see `packages/cli/src/workflow.ts`.

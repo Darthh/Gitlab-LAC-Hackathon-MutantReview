@@ -24,30 +24,3 @@ export function preflight(source: string): PreflightFinding[] {
   });
   return findings;
 }
-
-export interface ApprovedLesson {
-  id: string;
-  repository: string;
-  module: string;
-  symbols?: string[];
-  tags: string[];
-  pattern: string;
-  recommendation: string;
-  status: 'approved' | 'superseded' | 'dismissed';
-  verified: boolean;
-  approvedBy: string;
-  approvedAt: string;
-  receiptId: string;
-}
-export interface LessonQuery { repository: string; module: string; symbol?: string; tags?: string[]; source?: string }
-
-export function retrieveLessons(lessons: ApprovedLesson[], query: LessonQuery, limit = 3): ApprovedLesson[] {
-  return lessons.filter(lesson => lesson.status === 'approved' && lesson.verified && lesson.approvedBy && lesson.receiptId && Number.isFinite(Date.parse(lesson.approvedAt)) && lesson.repository === query.repository)
-    .map(lesson => ({ lesson, score: (lesson.module === query.module ? 4 : 0)
-      + (query.symbol && lesson.symbols?.includes(query.symbol) ? 3 : 0)
-      + (query.tags ?? []).filter(tag => lesson.tags.includes(tag)).length * 2
-      + (query.source && lesson.tags.includes('inclusive-threshold') && />=|<=/.test(query.source) ? 2 : 0) }))
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.lesson.id.localeCompare(b.lesson.id))
-    .slice(0, Math.max(0, Math.min(limit, 5))).map(item => item.lesson);
-}

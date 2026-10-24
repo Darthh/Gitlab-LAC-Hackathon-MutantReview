@@ -74,7 +74,7 @@ flowchart LR
 
 ## Measured, not claimed
 
-- **Open-source benchmark:** the gate run over recent merged PRs of a well-known MIT TypeScript repository. Methodology, every exclusion and per-PR results: [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+- **Open-source benchmark:** [es-toolkit](https://github.com/toss/es-toolkit) (MIT, 11k★) describes itself as "battle-tested with 100% test coverage". Run over its last 25 merged PRs, the gate found that **11 shipped a changed line where a behaviour change survived every test** (178 surviving mutants). Scoping to changed lines ran 1,057 mutants instead of 4,088 (74% avoided), 18 seconds median per PR. A survivor is a change no test noticed, not a proven bug; survivors were not human-reviewed. Methodology, all 14 exclusions and per-PR results: [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 - **Live GitLab MR:** [pipeline 2984978409](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2984978409) on [!1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1): 100% branch coverage, 4 mutants, 1 survivor, 75% changed-line score, [gate failed](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477) and blocked the merge.
 - **Local proof:** `npm run demo` reproduces it in about 20 seconds and writes every raw artifact under `evidence/`.
 

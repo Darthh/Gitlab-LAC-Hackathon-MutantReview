@@ -31,7 +31,7 @@ Plan (test-debt issues on override), Create (agent commits approved tests), Veri
 
 ## Measured impact
 
-[From benchmarks/RESULTS.md: "N of M recent merged PRs in <repo> shipped changed lines where at least one mutant survived."] On the demo MR: 100% branch coverage, 75% changed-line mutation score, merge blocked until a one-line boundary test was approved, then 100%.
+es-toolkit (MIT, 11k stars) calls itself "battle-tested with 100% test coverage". We ran the gate over its last 25 merged PRs: 11 shipped a changed line where a behaviour change survived every test, 178 surviving mutants in total. Changed-line scoping ran 1,057 mutants instead of 4,088 (74% avoided), 18 seconds median per PR. A survivor is a change no test noticed, not a proven bug, and these were not human-reviewed; every exclusion is published in benchmarks/RESULTS.md. On the demo MR: 100% branch coverage, 75% changed-line mutation score, merge blocked until a one-line boundary test was approved, then 100%.
 
 ## Challenges
 

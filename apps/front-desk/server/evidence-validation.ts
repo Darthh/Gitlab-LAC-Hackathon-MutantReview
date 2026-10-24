@@ -24,11 +24,6 @@ const mutant = z.object({ id: label, fingerprint: hash, path, line: z.number().i
   status: z.enum(['Killed', 'Survived', 'NoCoverage', 'Timeout', 'CompileError', 'RuntimeError', 'Ignored', 'Pending']),
   coveredBy: z.array(label).max(10000), killedBy: z.array(label).max(10000),
   provenance: rawProvenance.optional(), assertionKilled: z.boolean().optional() });
-const approvedLesson = z.object({
-  id: label, repository: label, module: label, symbols: z.array(label).optional(), tags: z.array(label).max(30),
-  pattern: text, recommendation: text, status: z.literal('approved'), verified: z.literal(true),
-  approvedBy: label, approvedAt: z.iso.datetime(), receiptId: label,
-});
 const line = z.number().int().positive();
 const triage = z.object({
   policy: label, considered: count,
@@ -62,9 +57,9 @@ export const evidenceSchema = z.object({
     patchHash: hash.optional(), exactMutation: z.object({ original: text, replacement: text }).optional(),
     runs: z.array(z.object({ attempt: z.number().int().positive(), original: execution, mutant: execution, assertionKilled: z.boolean() })).max(10).optional(),
     approval: z.null().optional(), repairCommit: z.null().optional(), gitlabPipeline: z.null().optional() }),
-  metrics: z.record(z.string(), duration.nullable()), lessons: z.array(approvedLesson).max(1000),
+  metrics: z.record(z.string(), duration.nullable()),
   preflight: z.object({ results: z.array(z.object({ path, findings: z.array(z.object({ classification: label, line: z.number().int().positive(), code: text, concern: text })) })),
-    retrievedLessons: z.array(approvedLesson).max(5), note: text }).optional(),
+    note: text }).optional(),
   integrations: z.object({ gitlab: label, duo: label }),
   gate: z.object({ status: z.enum(['passed', 'failed', 'inconclusive', 'no-applicable-scope']), reasons: z.array(text).max(100) }),
   evidenceFiles: z.array(path).max(200),
@@ -125,31 +120,4 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     if (!verification.runs || verification.runs.length < 2 || verification.runs.some(run => run.original.exitCode !== 0 || run.original.timedOut || run.mutant.exitCode !== 1 || run.mutant.timedOut || !run.assertionKilled)) fail('verification lacks reproducible assertion-failure execution');
   }
   return evidence;
-}
-
-/** Credentials and paths in a server setting must never be reflected into browser links. */
-export function gitlabOrigin(value: string): string {
-  const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('GitLab URL must be an HTTPS origin without credentials, paths, query, or fragment.');
-  return url.origin;
-}
-
-/** Enforce the evidence budget while reading, before allocating an arbitrary upstream body. */
-export async function readBoundedText(response: Response, maximumBytes = 5_000_000): Promise<string> {
-  if (Number(response.headers.get('content-length') ?? 0) > maximumBytes) throw new Error('Evidence exceeds the 5 MB limit.');
-  if (!response.body) return '';
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let result = '';
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      bytes += chunk.value.byteLength;
-      if (bytes > maximumBytes) { await reader.cancel(); throw new Error('Evidence exceeds the 5 MB limit.'); }
-      result += decoder.decode(chunk.value, { stream: true });
-    }
-    return result + decoder.decode();
-  } finally { reader.releaseLock(); }
 }

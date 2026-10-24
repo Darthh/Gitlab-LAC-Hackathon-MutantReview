@@ -33,7 +33,7 @@ Plan (test-debt issue) · Create (approved test commits) · Verify (mutation, ve
 
 ## Proof (measured, not claimed)
 
-- Run the gate over the last ~25 merged PRs of a well-known MIT TypeScript repo; publish every exclusion and how many shipped changes no test would notice. A survivor is a change no test detects, not proof of a production bug.
+- Run the gate over the last 25 merged PRs of a well-known MIT TypeScript repo and publish every exclusion. Result: es-toolkit ("battle-tested with 100% test coverage") shipped a change no test would notice in 11 of 25; changed-line scoping avoided 74% of mutants ([RESULTS.md](../benchmarks/RESULTS.md)). A survivor is a change no test detects, not proof of a production bug.
 - Demo MR: 100% branch coverage, 75% changed-line score, gate blocks; after `apply 1`, 100% and green.
 - CI job `verify:hallucination-check` proves on every pipeline that a plausible-but-useless draft is rejected.
 

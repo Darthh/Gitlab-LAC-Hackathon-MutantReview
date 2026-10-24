@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { MutationScope, NormalizedMutant } from './types.js';
 
 /** Reject Git path traversal and filenames whose range syntax would expand mutation scope. */
@@ -69,11 +68,4 @@ export function strykerRanges(scope: MutationScope[]): string[] {
 export function filterMutantsToScope<T extends Pick<NormalizedMutant, 'path' | 'location'>>(mutants: T[], scope: MutationScope[]): T[] {
   return mutants.filter(mutant => scope.some(file => file.path === normalizePath(mutant.path)
     && file.lines.some(range => mutant.location.start.line <= range.end && mutant.location.end.line >= range.start)));
-}
-
-/** Callers must include dependency lockfile, runner config, snapshots, policy, runtime and relevant environment. */
-export function cacheKey(inputs: Record<string, string>): string {
-  const required = ['lockfile', 'runnerConfig', 'snapshots', 'policy', 'toolchain', 'environment'];
-  if (required.some(key => !(key in inputs))) throw new Error('Cache key is missing a required invalidation input');
-  return createHash('sha256').update(JSON.stringify(Object.entries(inputs).sort(([a], [b]) => a.localeCompare(b)))).digest('hex');
 }

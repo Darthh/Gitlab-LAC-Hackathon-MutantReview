@@ -16,12 +16,11 @@ include:
   - template: Jobs/Secret-Detection.gitlab-ci.yml
   - local: ci/release.gitlab-ci.yml
 
-stages: [validate, test, review, govern, package, deploy, monitor, proof]
+stages: [validate, test, review, govern, package, deploy, monitor]
 
 variables:
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
   GIT_DEPTH: "0"
-  MUTANT_ACTION: "review"
   # The flow's service account. Set MUTANT_REVIEW_TOKEN (masked; Reporter role, api scope)
   # to let CI post findings and verify override comments.
   MUTANT_REVIEW_HANDLE: "@ai-mutant-review-evidence-triage-mutant-review"
@@ -113,23 +112,6 @@ mutation:gate:
   script:
     - npm run gate
   allow_failure: false
-  artifacts:
-    when: always
-    expire_in: 30 days
-    paths: [evidence/]
-
-# Manual diagnostic that stays usable while a gate fails: a local sandbox repair experiment.
-repair:sandbox-proof:
-  extends: .node
-  stage: proof
-  needs: []
-  rules:
-    - if: '$MUTANT_ACTION == "sandbox-proof" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
-      when: manual
-      allow_failure: false
-  script:
-    - npm run demo
-  timeout: 10 minutes
   artifacts:
     when: always
     expire_in: 30 days

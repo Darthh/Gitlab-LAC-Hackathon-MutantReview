@@ -206,6 +206,18 @@ export async function buildBrief(ranked: RankedFinding[], sources: Record<string
 
 // ---------- Verification by execution ----------
 
+/** Inverse of strykerRanges: `path:start-end` strings back to a mutation scope. */
+export function scopeFromRanges(ranges: string[]): MutationScope[] {
+  const scope: MutationScope[] = [];
+  for (const range of ranges) {
+    const [, path, start, end] = /^(.*):(\d+)-(\d+)$/.exec(range) ?? [];
+    if (!path) throw new Error(`Invalid range ${range}`);
+    const file = scope.find((item) => item.path === path) ?? (scope.push({ path, lines: [], change: 'modified' }), scope.at(-1)!);
+    file.lines.push({ start: Number(start), end: Number(end) });
+  }
+  return scope;
+}
+
 async function runTestFile(testPath: string, name: string, report: string) {
   const config = (await json('stryker.config.json')).vitest?.configFile ?? 'vitest.config.ts';
   const run = await execute(['node_modules/vitest/vitest.mjs', 'run', testPath, '--config', config, '--reporter=json', `--outputFile=${report}`], report.replace(/\.json$/, '.log'), 60_000);
@@ -215,13 +227,9 @@ async function runTestFile(testPath: string, name: string, report: string) {
 }
 
 async function mutantKilled(findings: RankedFinding[], name: string): Promise<Record<string, boolean>> {
-  const scope: MutationScope[] = [];
-  for (const finding of findings) {
-    const file = scope.find((item) => item.path === finding.path) ?? (scope.push({ path: finding.path, lines: [], change: 'modified' }), scope.at(-1)!);
-    file.lines.push({ start: finding.line, end: finding.line });
-  }
-  const { report } = await runStryker(scope.flatMap((file) => file.lines.map((line) => `${file.path}:${line.start}-${line.end}`)), { incremental: false, name });
-  const mutants = report ? normalizeStrykerReport(report as never, scope) : [];
+  const ranges = findings.map((finding) => `${finding.path}:${finding.line}-${finding.line}`);
+  const { report } = await runStryker(ranges, { incremental: false, name });
+  const mutants = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
   return Object.fromEntries(findings.map((finding) => [finding.fingerprint, mutants.find((mutant) => mutant.fingerprint === finding.fingerprint)?.status === 'Killed']));
 }
 
@@ -417,13 +425,7 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
     if (!await runTestFile(proposal.testPath, proposal.testName, `evidence/flow/apply-${proposal.finding.rank}.json`)) return fail(`\`${proposal.testName}\` no longer passes here; nothing was committed.`);
   }
   const { report } = await runStryker(payload.ranges, { incremental: false, name: 'apply' });
-  const scope: MutationScope[] = [];
-  for (const range of payload.ranges) {
-    const [, path, start, end] = /^(.*):(\d+)-(\d+)$/.exec(range)!;
-    const file = scope.find((item) => item.path === path) ?? (scope.push({ path: path!, lines: [], change: 'modified' }), scope.at(-1)!);
-    file.lines.push({ start: Number(start), end: Number(end) });
-  }
-  const after = report ? normalizeStrykerReport(report as never, scope) : [];
+  const after = report ? normalizeStrykerReport(report as never, scopeFromRanges(payload.ranges)) : [];
   const unkilled = selected.filter((proposal) => after.find((mutant) => mutant.fingerprint === proposal.finding.fingerprint)?.status !== 'Killed');
   if (!report || unkilled.length) return fail(`the re-run did not kill finding ${unkilled.map((item) => item.finding.rank).join(', ') || '(no report)'}; nothing was committed.`);
   const scoreAfter = mutationMetrics(after).score;

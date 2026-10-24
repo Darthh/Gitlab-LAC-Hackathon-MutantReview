@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { execute } from './runner.js';
-import { assertTestOnlyPatch } from '../../review-core/src/approval.js';
 
 export const testPath = 'packages/demo-domain/src/shipping.test.ts';
 export const proposedAssertion = "\nit('ships for free at exactly $100 (SHIPPING-001)', () => {\n  expect(shippingFee(10_000)).toBe(0);\n});\n";
@@ -14,7 +13,6 @@ export function renderPatch(originalTest: string): string {
 }
 
 export function validateFixtureProposal(proposal: { patch: string; patchHash: string; testPath: string; originalTest: string; repairedTest: string; repairedTestHash: string; originalTestHash: string }) {
-  assertTestOnlyPatch(proposal.patch, [testPath]);
   if (proposal.testPath !== testPath || proposal.patch !== renderPatch(proposal.originalTest) || digest(proposal.patch) !== proposal.patchHash || digest(proposal.originalTest) !== proposal.originalTestHash || digest(proposal.repairedTest) !== proposal.repairedTestHash || proposal.repairedTest !== proposal.originalTest + proposedAssertion) {
     throw new Error('Proposal content does not match the exact, additive fixture patch');
   }

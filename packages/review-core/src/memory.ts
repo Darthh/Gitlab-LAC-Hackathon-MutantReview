@@ -1,7 +1,19 @@
-import type { ApprovedLesson } from './preflight.js';
 import type { RankedFinding } from './triage.js';
 
-export interface MemoryLesson extends ApprovedLesson { examples: string[] }
+export interface MemoryLesson {
+  id: string;
+  repository: string;
+  module: string;
+  tags: string[];
+  pattern: string;
+  recommendation: string;
+  status: 'approved';
+  verified: true;
+  approvedBy: string;
+  approvedAt: string;
+  receiptId: string;
+  examples: string[];
+}
 
 const START = '<!-- mutant-review:lessons:start -->';
 const END = '<!-- mutant-review:lessons:end -->';

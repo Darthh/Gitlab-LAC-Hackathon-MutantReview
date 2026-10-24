@@ -1,9 +1,7 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { mutationMetrics, evaluateGate, applyOverride } from '../../review-core/src/report.js';
 import { updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
-import { verifySandbox } from './proof.js';
-import { runAssisted, recordLessonRetrieval, hydrateConfiguredEvidence } from './workflow.js';
-import { ciContext, demoContext, git, json, protectedPath, relevantLessons, runReview, save } from './review.js';
+import { ciContext, demoContext, git, json, protectedPath, runReview, save } from './review.js';
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
 
 async function review(demo: boolean) {
@@ -13,12 +11,6 @@ async function review(demo: boolean) {
   console.log(`Triage: ${triage.arid.length} arid mutant(s) filtered, ${triage.ranked.length} finding(s) to comment, ${triage.overflow} over budget. Mutants run ${savings.mutantsChangedLines}${savings.mutantsWholeFiles === null ? '' : ` of ${savings.mutantsWholeFiles} in the whole changed files`}.`);
   console.log('Evidence: evidence/latest.json');
   if (!baselinePassed || !complete) process.exitCode = 2;
-}
-
-async function lessons(query: string) {
-  const lessons = await relevantLessons(query);
-  const retrieval = await recordLessonRetrieval(query, lessons, Number(process.env.GITLAB_PROJECT_ID ?? process.env.CI_PROJECT_ID), git('rev-parse', 'HEAD'));
-  console.log(JSON.stringify({ query, lessons, retrieval, note: 'Only unchanged versioned approved lessons with a repair receipt are returned. Retrieval alone does not demonstrate application or actual Duo execution.' }, null, 2));
 }
 
 async function gate() {
@@ -77,21 +69,10 @@ async function main() {
     if (argument === 'notify') return flowNotify(rest.slice(1));
     throw new Error('Use: flow prepare|publish|notify [--handle @flow-account]');
   }
-  if (command === 'hydrate-evidence') { console.log(JSON.stringify(await hydrateConfiguredEvidence(git('rev-parse', 'HEAD')), null, 2)); return; }
-  if (['capabilities', 'publish', 'apply', 'verify', 'prepare-lesson', 'learn', 'export-receipt', 'export-console'].includes(command)) return runAssisted(command, rest);
   if (command === 'demo' || command === 'review') return review(command === 'demo');
   if (command === 'gate') return gate();
   if (command === 'memory') return memory(argument === '--check');
-  if (command === 'lessons') return lessons(argument ?? 'boundary');
-  if (command === 'sandbox-verify') {
-    const proposal = await json(argument ?? '.mutant-review/proposals/shipping.json');
-    const verification = await verifySandbox(proposal);
-    await save('evidence/verification/sandbox.json', verification);
-    console.log(JSON.stringify(verification, null, 2));
-    if (verification.status !== 'passed') process.exitCode = 1;
-    return;
-  }
-  console.log('Commands: demo | review (GitLab MR CI) | gate | flow prepare|publish|notify --handle @flow | memory [--check] | lessons [query] | sandbox-verify [proposal.json] | hydrate-evidence | capabilities | export-console | publish | apply | verify | prepare-lesson | learn | export-receipt');
+  console.log('Commands: demo | review (GitLab MR CI) | gate | flow prepare|publish|notify --handle @flow | memory [--check]');
 }
 
 main().catch(async (error: unknown) => {

@@ -55,7 +55,6 @@ export interface Evidence {
     }[];
   };
   metrics: Record<string, number | null>;
-  lessons: unknown[];
   integrations: { gitlab: string; duo: string };
   gate: { status: string; reasons: string[] };
 }
@@ -85,6 +84,4 @@ export interface Configuration {
   mrUrl: string | null;
   flowHandle: string | null;
   revision: string;
-  evidenceSource: string;
-  connected: boolean;
 }

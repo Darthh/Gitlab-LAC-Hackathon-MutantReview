@@ -13,6 +13,6 @@ Record at 1080p with browser zoom at 125%. Have these tabs ready: MR !1 (Changes
 | 1:55–2:15 | Reply `apply 1` → agent's commit (test, ledger, AGENTS.md) → "75% → 100%" reply → pipeline green | "Nothing is committed until a human says so. I reply apply 1. It re-checks my role and the proposal, commits the test, re-runs the mutants, and the gate turns green." |
 | 2:15–2:30 | AGENTS.md diff: "Untested boundary value" | "It also writes the lesson into AGENTS.md, which every GitLab Duo agent reads, so the next agent doesn't make the same mistake." |
 | 2:30–2:45 | Merge → main pipeline: SAST, package, Cloud Run deploy with smoke test → Front Desk ledger and compute-saved tiles | "Only gated code reaches main. It is scanned, packaged and deployed to Cloud Run with a smoke test and automatic rollback. Front Desk shows every useless test caught and the compute we didn't spend." |
-| 2:45–2:55 | `benchmarks/RESULTS.md` headline | "On recent merged PRs of a popular open-source TypeScript library, [headline number]. Mutant Review: tests that actually test something." |
+| 2:45–2:55 | `benchmarks/RESULTS.md` headline | "es-toolkit advertises 100% test coverage. In 11 of its last 25 merged PRs, a changed line could break without any test noticing. Mutant Review: tests that actually test something." |
 
 If a step fails live, show the CI job that proves it (`verify:hallucination-check`, `mutation:gate`) and say what the agent would do; never splice in a run that didn't happen.

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { gitlabOrigin, readBoundedText, validateEvidence } from './evidence-validation.js';
+import { validateEvidence } from './evidence-validation.js';
 
 // A captured actual engine run makes these parser tests work before a fresh demo run.
 // The application never serves this fixture; assertions mutate only trust boundaries.
@@ -50,10 +50,6 @@ describe('Front Desk evidence validation', () => {
     const value = copy(); value.verification.runs[0].assertionKilled = false;
     expect(() => validateEvidence(value)).toThrow('reproducible assertion-failure');
   });
-  it('does not count unapproved or unverified lesson suggestions', () => {
-    const value = copy(); value.lessons.push({ id: 'suggestion', status: 'draft' });
-    expect(() => validateEvidence(value)).toThrow('Evidence format');
-  });
 });
 
 describe('triage and savings', () => {
@@ -95,18 +91,5 @@ describe('triage and savings', () => {
     expect(() => validateEvidence(inflated)).toThrow('avoided mutants');
     const calls = copy(); calls.savings.aiCallsAvoided = 7;
     expect(() => validateEvidence(calls)).toThrow('savings do not match');
-  });
-});
-
-describe('configured GitLab links', () => {
-  it('accepts a plain HTTPS origin', () => expect(gitlabOrigin('https://gitlab.com/')).toBe('https://gitlab.com'));
-  it.each(['http://gitlab.com', 'https://token@gitlab.com', 'https://gitlab.com/group', 'https://gitlab.com/?token=secret', 'https://gitlab.com/#fragment'])('rejects URL settings that can disclose credentials or change the API target: %s', value => expect(() => gitlabOrigin(value)).toThrow());
-});
-
-describe('artifact transfer budget', () => {
-  it('decodes a bounded UTF-8 body and rejects oversized declared or streamed bytes', async () => {
-    expect(await readBoundedText(new Response('execution evidence'), 100)).toBe('execution evidence');
-    await expect(readBoundedText(new Response('x', { headers: { 'content-length': '1000' } }), 100)).rejects.toThrow('Evidence exceeds');
-    await expect(readBoundedText(new Response('x'.repeat(101)), 100)).rejects.toThrow('Evidence exceeds');
   });
 });

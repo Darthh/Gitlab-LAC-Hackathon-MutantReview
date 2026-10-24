@@ -49,23 +49,12 @@ import type {
   LedgerEntry,
   Mutant,
 } from "./evidence";
-import AssistedReceiptPanel from "./AssistedReceiptPanel";
 
-type Page = "overview" | "findings" | "verification" | "lessons" | "ledger";
-type ConnectionConfiguration = Configuration & {
-  evidenceJobUrl: string | null;
-  evidenceDelivery: {
-    mode: "local" | "artifact-api" | "signed-cache";
-    verifiedAt: string | null;
-    currentHeadCheckedAt: string | null;
-    currentHeadSha: string | null;
-  };
-};
+type Page = "overview" | "findings" | "verification" | "ledger";
 const navigation: { key: Page; label: string; icon: typeof Activity }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "findings", label: "Findings", icon: FlaskConical },
-  { key: "verification", label: "Repair receipts", icon: ReceiptText },
-  { key: "lessons", label: "Lessons", icon: BookOpen },
+  { key: "verification", label: "Verification", icon: ReceiptText },
   { key: "ledger", label: "Work ledger", icon: Activity },
 ];
 const formatTime = (ms: number | null) =>
@@ -83,17 +72,6 @@ const displayTime = (value: string | null | undefined) =>
         timeZone: "America/Los_Angeles",
       })} PT`
     : "Unavailable";
-function projectIdentity(value: string | null | undefined) {
-  try {
-    const parts = new URL(value || "").pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    return {
-      namespace: parts.slice(0, -1).join("/") || "GitLab workspace",
-      name: parts.at(-1) || "GitLab project",
-    };
-  } catch {
-    return { namespace: "GitLab workspace", name: "GitLab project" };
-  }
-}
 function Logo({ large = false }: { large?: boolean }) {
   return (
     <span className={`brand-mark ${large ? "large" : ""}`} aria-hidden="true">
@@ -147,7 +125,7 @@ function Empty({
 export default function App() {
   const [page, setPage] = useState<Page>("overview");
   const [evidence, setEvidence] = useState<Evidence | null>(null);
-  const [config, setConfig] = useState<ConnectionConfiguration | null>(null);
+  const [config, setConfig] = useState<Configuration | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<
@@ -235,9 +213,6 @@ export default function App() {
   const isMeasured = evidence?.mutation.status === "complete";
   const currentLabel = navigation.find((n) => n.key === page)!.label;
   const elapsed = evidence?.metrics.totalDurationMs ?? null;
-  const signedDelivery = config?.evidenceDelivery?.mode === "signed-cache";
-  const connectedProject = config?.connected && evidence?.source === "gitlab";
-  const identity = projectIdentity(projectLink);
 
   const gitlabLink = (
     label = "Open in GitLab",
@@ -491,8 +466,8 @@ export default function App() {
             m<span>r</span>
           </span>
           <span>
-            {connectedProject ? identity.namespace : "Demo workspace"}
-            <small>{connectedProject ? identity.name : "Local demonstration"}</small>
+            Demo workspace
+            <small>Local demonstration</small>
           </span>
           <ChevronDown size={14} />
         </button>
@@ -509,11 +484,6 @@ export default function App() {
               <span>{label}</span>
               {key === "findings" && survivors > 0 && (
                 <span className="nav-count">{survivors}</span>
-              )}
-              {key === "lessons" && (
-                <span className="nav-zero">
-                  {evidence?.lessons.length || 0}
-                </span>
               )}
             </button>
           ))}
@@ -561,7 +531,7 @@ export default function App() {
           <div className="profile">
             <span className="profile-avatar">D</span>
             <span>
-              {connectedProject ? identity.name : "Demo project"}
+              Demo project
               <small>Read-only evidence console</small>
             </span>
             <ShieldCheck size={16} />
@@ -584,7 +554,7 @@ export default function App() {
             <ChevronRight size={12} />
             <span className="crumb-project">
               <span className="project-dot" />
-              {connectedProject ? identity.name : "checkout-demo"}
+              checkout-demo
             </span>
             <ChevronRight size={12} />
             <b>{currentLabel}</b>
@@ -602,11 +572,7 @@ export default function App() {
             </button>
             <span className="topbar-divider" />
             <Badge tone="purple" dot>
-              {evidence?.source === "gitlab"
-                ? signedDelivery
-                  ? "Signed GitLab snapshot"
-                  : "GitLab evidence"
-                : "Local execution"}
+              {evidence?.source === "gitlab" ? "GitLab evidence" : "Local execution"}
             </Badge>
           </div>
         </header>
@@ -630,9 +596,7 @@ export default function App() {
                     ? "A specific behavioral change. The evidence behind it."
                     : page === "verification"
                       ? "Follow the path from a proposed assertion to executable proof."
-                      : page === "lessons"
-                        ? "Keep what was verified. Bring it to the next review."
-                        : "The actual work behind this review, with no invented savings."}
+                      : "The actual work behind this review, with no invented savings."}
               </p>
             </div>
             <div className="heading-actions">
@@ -685,29 +649,8 @@ export default function App() {
                     <code>{trimSha(evidence.provenance.headSha)}</code>
                   </span>
                   <span>
-                    {evidence.source === "gitlab" && config?.evidenceJobUrl ? (
-                      <a
-                        className="text-button"
-                        href={config.evidenceJobUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        CI job #{evidence.provenance.jobId}
-                        <ExternalLink size={12} />
-                      </a>
-                    ) : (
-                      <>
-                        <Clock3 size={13} />
-                        {new Date(evidence.createdAt).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                          timeZone: "America/Los_Angeles",
-                        })}{" "}
-                        PT
-                      </>
-                    )}
+                    <Clock3 size={13} />
+                    {displayTime(evidence.createdAt)}
                   </span>
                   <span className="revision-scope">
                     {evidence.scope.files.length} source file
@@ -720,14 +663,6 @@ export default function App() {
                       : "Partial scope"}
                   </Badge>
                 </div>
-                {signedDelivery && (
-                  <p className="small muted" role="status">
-                    Delivery: signed GitLab artifact snapshot. Authenticated capture{" "}
-                    {displayTime(config?.evidenceDelivery?.verifiedAt)}. Current MR head{" "}
-                    <code>{trimSha(config?.evidenceDelivery?.currentHeadSha || undefined)}</code>{" "}
-                    checked {displayTime(config?.evidenceDelivery?.currentHeadCheckedAt)}.
-                  </p>
-                )}
                 {page === "overview" && (
                   <>
                     <section className="insight-banner">
@@ -793,12 +728,12 @@ export default function App() {
                         foot="Changes your tests missed"
                       />
                       <Metric
-                        title="Verified lessons"
-                        value={String(evidence.lessons.length).padStart(2, "0")}
+                        title="Lessons in AGENTS.md"
+                        value={tally(evidence.savings?.lessonsInMemory)}
                         icon={<BookOpen size={16} />}
                         tone="neutral"
-                        subtitle="Awaiting approved repair"
-                        foot="Learned from verified evidence"
+                        subtitle="From approved repairs"
+                        foot="Read by every Duo agent"
                       />
                     </div>
                     <SavingsTiles
@@ -1017,7 +952,6 @@ export default function App() {
                 )}
                 {page === "verification" && (
                   <>
-                    <AssistedReceiptPanel />
                     <div className="notice">
                       <ShieldCheck size={18} />
                       <div>
@@ -1144,79 +1078,6 @@ export default function App() {
                         </div>
                       </section>
                     )}
-                  </>
-                )}
-                {page === "lessons" && (
-                  <>
-                    <div className="lesson-intro">
-                      <div>
-                        <span className="lesson-hero-icon">
-                          <BookOpen size={29} />
-                        </span>
-                        <h2>
-                          A better test today.
-                          <br />A useful lesson tomorrow.
-                        </h2>
-                        <p>
-                          Lessons enter the library only after a successful
-                          repair and explicit human approval. Future tasks
-                          retrieve only the lessons that apply.
-                        </p>
-                      </div>
-                      <div className="lesson-process">
-                        <span>
-                          <ShieldCheck size={16} />
-                          Verified repair
-                        </span>
-                        <ChevronRight size={17} />
-                        <span>
-                          <Check size={16} />
-                          Human approval
-                        </span>
-                        <ChevronRight size={17} />
-                        <span>
-                          <BookOpen size={16} />
-                          Reusable lesson
-                        </span>
-                      </div>
-                    </div>
-                    <AssistedReceiptPanel lessonsOnly />
-                    <section className="panel">
-                      <div className="panel-heading">
-                        <h2>Approved lesson library</h2>
-                        <Badge>{evidence.lessons.length} verified</Badge>
-                      </div>
-                      {evidence.lessons.length === 0 ? (
-                        <Empty title="Your first lesson starts with a verified repair">
-                          The inclusive-threshold finding is a candidate.
-                          Approve the exact repair, verify it, then approve the
-                          lesson in GitLab.
-                        </Empty>
-                      ) : (
-                        <div className="receipt-body">
-                          <pre>{JSON.stringify(evidence.lessons, null, 2)}</pre>
-                        </div>
-                      )}
-                    </section>
-                    <section className="lesson-candidate">
-                      <span className="icon-tile purple">
-                        <Sparkles size={18} />
-                      </span>
-                      <div>
-                        <Badge tone="purple">Candidate · not saved</Badge>
-                        <h3>
-                          Test below, at, and above an inclusive boundary.
-                        </h3>
-                        <p>
-                          For the next discount feature, derive the expected
-                          value at its own threshold from its written contract.
-                        </p>
-                        <span className="small muted">
-                          Retrieval is not the same as demonstrated application.
-                          No successful reuse recorded yet.
-                        </span>
-                      </div>
-                    </section>
                   </>
                 )}
                 {page === "ledger" && (
@@ -1424,59 +1285,21 @@ export default function App() {
             </div>
             {dialog === "connection" ? (
               <div className="modal-body">
-                <Badge tone="purple">
-                  {config?.connected
-                    ? signedDelivery
-                      ? "Signed GitLab cache configured"
-                      : "GitLab artifact adapter configured"
-                    : "Local execution mode"}
-                </Badge>
+                <Badge tone="purple">Read-only console</Badge>
                 <p>
-                  The console reads execution artifacts from one configured
-                  GitLab project. Approvals take place in GitLab.
+                  The console shows the evidence CI produced for this build.
+                  Reviews, approvals and commits happen on the merge request.
                 </p>
                 <dl className="connection-details">
                   <div>
-                    <dt>Evidence source</dt>
-                    <dd>{config?.evidenceSource || "local"}</dd>
-                  </div>
-                  <div>
-                    <dt>Artifact delivery</dt>
-                    <dd>
-                      {signedDelivery
-                        ? "Signed cache · maximum age 24 hours"
-                        : config?.evidenceDelivery?.mode === "artifact-api"
-                          ? "GitLab artifact API"
-                          : "Local execution files"}
-                    </dd>
-                  </div>
-                  {signedDelivery && (
-                    <>
-                      <div>
-                        <dt>Authenticated capture</dt>
-                        <dd>{displayTime(config?.evidenceDelivery?.verifiedAt)}</dd>
-                      </div>
-                      <div>
-                        <dt>Current MR head checked</dt>
-                        <dd>{displayTime(config?.evidenceDelivery?.currentHeadCheckedAt)}</dd>
-                      </div>
-                    </>
-                  )}
-                  <div>
-                    <dt>GitLab artifact access</dt>
-                    <dd>
-                      {config?.connected ? "Configured" : "Not configured"}
-                    </dd>
+                    <dt>Build revision</dt>
+                    <dd><code>{trimSha(config?.revision)}</code></dd>
                   </div>
                   <div>
                     <dt>Duo flow handle</dt>
                     <dd>{config?.flowHandle || "Not confirmed"}</dd>
                   </div>
                 </dl>
-                <p className="small muted">
-                  Configure the project, MR and evidence job on the server using
-                  .env.example. Credentials stay on the server.
-                </p>
                 <a
                   className="button primary"
                   href={
