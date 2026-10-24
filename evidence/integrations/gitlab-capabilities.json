@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-10-24T04:00:21.115Z",
+  "projectId": 88030103,
+  "projectUrl": "https://gitlab.com/Darthh2/mutant-review",
+  "requiredSuccessfulPipeline": null,
+  "mergeRequestReadable": false,
+  "duoExecution": "unverified",
+  "discussionWrite": "unverified",
+  "artifactAccess": "unverified",
+  "pipelineStart": "unverified",
+  "evidenceBoundary": "Read-only API inspection; write permission, flow execution and merge blocking require separate live checks."
+}

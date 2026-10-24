@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "supportedEnvironment": "TypeScript / Node >=22.12 / Vitest / StrykerJS",
+  "mutationThreshold": 90,
+  "requireBaseline": true,
+  "requireCompleteAnalysis": true,
+  "requireExactRevision": true,
+  "actionableSurvivorsRequireRepairOrWaiver": true,
+  "defaultRepair": "additive-approved-test-files-only",
+  "approvalExpiryHours": 24,
+  "budgets": {
+    "files": 5,
+    "changedLines": 100,
+    "mutants": 100,
+    "runtimeSeconds": 180,
+    "concurrency": 2,
+    "aiCalls": 3,
+    "repairAttempts": 2
+  },
+  "excludedPaths": ["**/*.test.ts", "**/*.spec.ts", "**/*.d.ts", "**/generated/**", "**/vendor/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
+  "protectedPaths": [".mutant-review/policy.json", ".gitlab-ci.yml", "packages/review-core/**", "packages/gitlab-adapter/**", "packages/cli/**", "package.json", "package-lock.json", "vitest.config.ts", "stryker.config.json"]
+}

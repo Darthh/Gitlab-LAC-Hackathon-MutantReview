@@ -1,0 +1,90 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+
+stages: [validate, review, govern, proof]
+
+default:
+  image: node:24.16.0-bookworm
+  before_script:
+    - npm ci --no-audit --no-fund
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  GIT_DEPTH: "0"
+  MUTANT_ACTION: "review"
+
+baseline:
+  stage: validate
+  script:
+    - npm run typecheck
+    - npm test
+    - npm run test:domain -- --coverage
+    - npm run build
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [evidence/, coverage/]
+
+# A blocking manual job is a bounded authorization to execute mutation analysis.
+# It does not approve a patch, lesson, merge, or deployment.
+mutation:review:
+  stage: review
+  needs: [baseline]
+  cache:
+    - key:
+        files: [package-lock.json]
+      paths: [.npm/]
+    - key: "mutant-review-$CI_PROJECT_ID-$CI_MERGE_REQUEST_IID-v1"
+      paths: [evidence/incremental/]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: false
+  script:
+    - npm run review
+  timeout: 10 minutes
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [evidence/]
+
+mutation:gate:
+  stage: govern
+  needs:
+    - job: mutation:review
+      artifacts: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+  script:
+    - npm run gate
+  allow_failure: false
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [evidence/]
+
+# This independently triggerable diagnostic remains usable when an MR gate fails.
+# It runs a temporary local repair experiment, without applying or approving it.
+repair:sandbox-proof:
+  stage: proof
+  needs: []
+  rules:
+    - if: '$MUTANT_ACTION == "sandbox-proof" && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")'
+      when: manual
+      allow_failure: false
+  script:
+    - npm run demo
+  timeout: 10 minutes
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths: [evidence/]

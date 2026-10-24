@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Exact human approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "actorId", "projectId", "mrIid", "headSha", "runId", "proposalId", "findings", "patchHash", "action", "approvedAt", "expiresAt"],
+  "properties": {
+    "eventId": { "type": "string", "minLength": 1 },
+    "actorId": { "type": "string", "minLength": 1 },
+    "projectId": { "type": "string", "minLength": 1 },
+    "mrIid": { "type": "integer", "minimum": 1 },
+    "headSha": { "type": "string", "pattern": "^[a-fA-F0-9]{40,64}$" },
+    "runId": { "type": "string", "minLength": 1 },
+    "proposalId": { "type": "string", "minLength": 1 },
+    "findings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "patchHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "action": { "enum": ["review", "apply", "verify", "learn", "override"] },
+    "approvedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "consumedAt": { "type": "string", "format": "date-time" },
+    "reason": { "type": "string", "minLength": 10 }
+  },
+  "$comment": "Shape validation is insufficient: current project membership, SHA, proposal/hash, action, expiry and atomic replay reservation must be checked at execution time."
+}

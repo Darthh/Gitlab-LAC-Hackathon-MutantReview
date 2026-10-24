@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "not-started",
+  "candidateRepository": "https://github.com/colinhacks/zod",
+  "licenseRequirement": "MIT at each selected revision",
+  "cutoff": "2026-10-23T23:59:59Z",
+  "selection": "Latest 25 consecutive merged PRs before cutoff that meet eligibility; publish every considered PR and exclusion reason.",
+  "eligibility": [
+    "Historical revision uses TypeScript and a Stryker-compatible Vitest runner",
+    "Historical lockfile installs successfully with the recorded supported Node toolchain",
+    "Historical unmodified tests and build pass",
+    "At least one eligible changed executable source line remains after policy exclusions"
+  ],
+  "scope": "Historical PR comparison base and pre-merge head, changed executable source only; never present-day tests against historical code",
+  "operators": "StrykerJS 10.1.1 default mutators; record generated operators per run",
+  "limits": { "files": 5, "changedLines": 200, "mutants": 100, "runtimeSeconds": 300, "concurrency": 2 },
+  "attempted": 0,
+  "completed": 0,
+  "consideredPullRequests": [],
+  "analyses": [],
+  "conclusion": "No historical analyses have been executed. No impact, precision, token savings, or cost savings are claimed."
+}
