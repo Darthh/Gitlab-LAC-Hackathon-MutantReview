@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T04:14:02.308Z",
+  "source": "GitLab public REST API and repository push options",
+  "projectId": 88030103,
+  "mergeRequest": {
+    "iid": 1,
+    "url": "https://gitlab.com/Darthh2/mutant-review/-/merge_requests/1",
+    "state": "opened",
+    "sourceBranch": "demo/shipping-boundary",
+    "targetBranch": "main",
+    "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+    "diffRefs": {
+      "base_sha": "6fc3ea19240ad7afd16571cd0a0aa83169d1f854",
+      "head_sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "start_sha": "df25c47d8f8e2223f9d3c5adaca7dd0b29b4da19"
+    },
+    "detailedMergeStatus": "ci_must_pass"
+  },
+  "pipelineAttempts": [
+    {
+      "id": 2983839784,
+      "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "status": "failed",
+      "ref": "refs/merge-requests/1/head",
+      "url": "https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983839784"
+    },
+    {
+      "id": 2983839776,
+      "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "status": "failed",
+      "ref": "demo/shipping-boundary",
+      "url": "https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983839776"
+    }
+  ],
+  "localValidation": {
+    "domainTestsPassed": 4,
+    "changedFiles": [
+      "packages/demo-domain/src/shipping.ts"
+    ],
+    "change": "Equivalent if/return implementation retaining the inclusive >= 10000 contract"
+  },
+  "evidenceBoundary": "MR creation and a four-test local baseline are verified. No merge, patch approval, Duo execution, mutation job, or lesson approval is established. CI execution is blocked by account phone verification."
+}

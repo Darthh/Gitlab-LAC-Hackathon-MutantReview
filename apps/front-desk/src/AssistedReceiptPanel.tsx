@@ -120,7 +120,7 @@ export default function AssistedReceiptPanel({
         <p className="assisted-description">
           MR !{receipt.mrIid} · {receipt.proposalId}. This is a separate
           GitLab-approved repair, verified locally against the immutable repair
-          commit. Its pipeline outcome remains unverified.
+          commit. The GitLab pipeline state is reported separately below.
         </p>
         <div
           className={`receipt-chain ${receipt.verification.status === "failed" ? "receipt-warning" : ""}`}
@@ -194,9 +194,15 @@ export default function AssistedReceiptPanel({
             <dt>Pipeline</dt>
             <dd>
               <a href={receipt.pipeline.url} target="_blank" rel="noreferrer">
-                #{receipt.pipeline.id} · outcome unverified{" "}
+                #{receipt.pipeline.id} ·{" "}
+                {receipt.pipeline.observedStatus
+                  ? `GitLab reports ${receipt.pipeline.observedStatus}`
+                  : "outcome unverified"}{" "}
                 <ArrowUpRight size={12} />
               </a>
+              <span className="small muted">
+                Local repair proof does not establish successful CI execution.
+              </span>
             </dd>
           </div>
           <div>

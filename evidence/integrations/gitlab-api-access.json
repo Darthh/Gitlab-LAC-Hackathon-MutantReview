@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-24T17:51:10Z",
+  "source": "authenticated project API read using the explicitly approved project-scoped credential",
+  "projectId": 88030103,
+  "mergeRequestIid": 1,
+  "credential": {
+    "scope": ["api"],
+    "role": "Developer",
+    "expiresAt": "2026-10-25T00:00:00Z",
+    "storage": "restricted local operator configuration outside the repository"
+  },
+  "confirmed": {
+    "projectReadable": true,
+    "mergeRequestReadable": true,
+    "requiredSuccessfulPipeline": true
+  },
+  "unverified": ["discussion write", "artifact read", "pipeline execution", "Duo execution"],
+  "blockers": ["GitLab still displays the phone-verification puzzle and SMS form", "Trial activation still requires first and last name"]
+}
