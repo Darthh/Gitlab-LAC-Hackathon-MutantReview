@@ -380,11 +380,16 @@ const mutantOf = (finding: RankedFinding) => ({ path: finding.path, line: findin
 export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle: string, note: Note, selection: number[]): Promise<string> {
   const fail = async (message: string) => { await reply(adapter, mr, `@${note.author.username} ${message}`, 'apply-refused'); return message; };
   const notes = await adapter.listMergeRequestNotes(mr.iid);
-  // GitLab lets only Developer+ trigger a flow. If this token may not read roles, accept
-  // the command only when it is the newest comment, i.e. the one that started this run.
+  // Fail closed. If this token may not read the author's role, require GitLab's own effective
+  // permission for this run (the triggering person's composite identity) to be Developer+, and
+  // the command to be the comment that started the run.
   const level = await memberLevel(adapter, note);
-  const startedThisRun = Boolean(process.env.GITLAB_TOKEN) && notes.find((item) => !item.system)?.id === note.id;
-  if (level === null ? !startedThisRun : level < 30) return fail('applying tests needs an active human account with the Developer role or higher.');
+  let allowed = level !== null && level >= 30;
+  if (level === null) {
+    const effective = await adapter.tokenAccessLevel().catch(() => null);
+    allowed = Boolean(process.env.GITLAB_TOKEN) && effective !== null && effective >= 30 && notes.find((item) => !item.system)?.id === note.id;
+  }
+  if (!allowed) return fail('applying tests needs an active human account with the Developer role or higher.');
   let payload: ProposalPayload | null = null, proposalNote: Note | undefined;
   // Proposals are trusted only when this flow's own service account posted them (usernames are unique).
   const agent = handle.slice(1).toLowerCase();

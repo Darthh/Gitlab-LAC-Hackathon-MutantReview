@@ -294,7 +294,7 @@ export class GitLabAdapter {
       globalUser?: boolean;
     } = {},
   ): Promise<T> {
-    if (options.globalUser && !/^\/users\/[1-9]\d*$/.test(path))
+    if (options.globalUser && !/^\/users\/[1-9]\d*$|^\/user$/.test(path))
       throw new Error(
         "Only the note author user lookup can leave project scope",
       );
@@ -593,10 +593,18 @@ export class GitLabAdapter {
     return Number.isFinite(time) ? time : null;
   }
 
-  /** Idempotent by exact title: an existing open issue is returned instead of a duplicate. */
+  /** Effective access of this token on the project. For a Duo flow this is the triggering person's composite identity. */
+  async tokenAccessLevel(): Promise<number | null> {
+    const project = await this.request<{ permissions?: { project_access?: { access_level: number } | null; group_access?: { access_level: number } | null } }>("");
+    const levels = [project.permissions?.project_access?.access_level, project.permissions?.group_access?.access_level].filter((level): level is number => Number.isSafeInteger(level));
+    return levels.length ? Math.max(...levels) : null;
+  }
+
+  /** Idempotent per title, but only issues this token's own user opened count, so nobody can squat the title. */
   async ensureIssue(title: string, description: string, labels: string[]) {
-    const open = await this.request<Array<{ iid: number; title: string; web_url: string }>>(`/issues?state=opened&search=${encodeURIComponent(title)}&in=title&per_page=20`);
-    const existing = open.find((issue) => issue.title === title);
+    const me = await this.request<{ id: number }>("/user", { globalUser: true });
+    const open = await this.request<Array<{ iid: number; title: string; web_url: string; author: { id: number } }>>(`/issues?state=opened&search=${encodeURIComponent(title)}&in=title&per_page=20`);
+    const existing = open.find((issue) => issue.title === title && issue.author?.id === me.id);
     if (existing) return existing;
     return this.request<{ iid: number; title: string; web_url: string }>("/issues", { method: "POST", body: { title, description, labels: labels.join(",") } });
   }

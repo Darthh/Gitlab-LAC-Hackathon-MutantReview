@@ -16,7 +16,7 @@ Google solved a version of this years ago: mutation-test only the changed lines 
 
 ## What the reviewer sees
 
-The summary comment `flow publish` posts on the demo MR (`@mutant-review` stands for the flow's service account, `@ai-mutant-review-evidence-triage-mutant-review` in the demo project):
+An example of the summary comment `flow publish` writes, for the demo MR's measured result (`@mutant-review` stands for the flow's service account, `@ai-mutant-review-evidence-triage-mutant-review` in the demo project):
 
 ```text
 Mutant Review: 1 change on your changed lines that no test would notice

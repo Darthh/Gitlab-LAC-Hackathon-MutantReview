@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { checkDraft, decodePayload, encodePayload, flowApply, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
 
@@ -68,9 +68,10 @@ describe('apply authorization (refusals never execute or commit)', () => {
     proposals: [{ ...good, finding, testName: 'ships free at exactly $100' }], rejected: [], equivalent: [] };
   const proposalNote = (author = 'ai-mutant-review', body = `summary\n${encodePayload(payload)}`) => ({ id: 10, body, system: false, created_at: '2026-10-24T11:00:00Z', author: { id: 2, username: author } });
   const command = { id: 11, body: `${handle} apply 1`, system: false, created_at: '2026-10-24T12:00:00Z', author: { id: 9, username: 'dev' } };
-  const run = async (notes: unknown[], level: number | 'forbidden' = 30, selection = [1]) => {
+  const run = async (notes: unknown[], level: number | 'forbidden' = 30, selection = [1], effective = 30) => {
     const replies: string[] = [];
     const adapter = {
+      tokenAccessLevel: async () => effective,
       listMergeRequestNotes: async () => notes,
       accountKind: async () => { if (level === 'forbidden') throw new Error('GitLab request failed (403)'); return 'human'; },
       currentMember: async (id: number) => ({ id, access_level: level, state: 'active' }),
@@ -87,9 +88,16 @@ describe('apply authorization (refusals never execute or commit)', () => {
     expect((await run([command, stale])).result).toMatch(/code changed/);
   });
   it('refuses findings without a verified test', async () => expect((await run([command, proposalNote()], 30, [2])).result).toMatch(/only verified findings/));
-  it('refuses an unreadable role unless the command started this run', async () => {
+  it('fails closed when the role is unreadable, unless GitLab vouches for this run', async () => {
     const newer = { ...command, id: 12, body: 'thanks!' };
-    expect((await run([newer, command, proposalNote()], 'forbidden')).result).toMatch(/Developer role/);
+    const stale = proposalNote('ai-mutant-review', encodePayload({ ...payload, headSha: 'b'.repeat(40) }));
+    expect((await run([command, stale], 'forbidden')).result).toMatch(/Developer role/); // no flow token
+    vi.stubEnv('GITLAB_TOKEN', 'flow-token');
+    try {
+      expect((await run([newer, command, stale], 'forbidden')).result).toMatch(/Developer role/); // not the trigger
+      expect((await run([command, stale], 'forbidden', [1], 20)).result).toMatch(/Developer role/); // run lacks Developer
+      expect((await run([command, stale], 'forbidden', [1], 30)).result).toMatch(/code changed/); // authorized, then stale
+    } finally { vi.unstubAllEnvs(); }
   });
   it('replies to the author with the reason and the agent marker', async () => {
     const { reply } = await run([command, proposalNote('mallory')]);
