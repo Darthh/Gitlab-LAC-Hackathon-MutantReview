@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T18:24:02.791Z",
+  "source": "Public and authenticated read-only GitLab REST API",
+  "project": {
+    "id": 88030103,
+    "canonicalUrl": "https://gitlab.com/mutant-review1/mutant-review",
+    "visibility": "public",
+    "namespace": {
+      "id": 145666501,
+      "kind": "group",
+      "path": "mutant-review1"
+    }
+  },
+  "transferComplete": true,
+  "mergeRequest": {
+    "iid": 1,
+    "state": "opened",
+    "canonicalUrl": "https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1",
+    "headSha": "a287ca71fdfdb451e44b63302ab543f865b74aff",
+    "expectedHeadPreserved": true,
+    "mergedAt": null,
+    "detailedMergeStatus": "ci_must_pass"
+  },
+  "pipelineHistory": [
+    {
+      "id": 2984978409,
+      "sha": "a287ca71fdfdb451e44b63302ab543f865b74aff",
+      "status": "failed",
+      "url": "https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2984978409"
+    },
+    {
+      "id": 2984952053,
+      "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "status": "failed",
+      "url": "https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2984952053"
+    },
+    {
+      "id": 2983839784,
+      "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "status": "failed",
+      "url": "https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2983839784"
+    },
+    {
+      "id": 2983839776,
+      "sha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
+      "status": "failed",
+      "url": "https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2983839776"
+    }
+  ],
+  "tokenReads": [
+    {
+      "kind": "Developer/api",
+      "configured": true,
+      "projectHttpStatus": 401,
+      "mergeRequestHttpStatus": 401,
+      "jobMetadataHttpStatus": 401,
+      "actorHttpStatus": 401,
+      "actor": null
+    },
+    {
+      "kind": "Reporter/read_api",
+      "configured": true,
+      "projectHttpStatus": 401,
+      "mergeRequestHttpStatus": 401,
+      "jobMetadataHttpStatus": 401,
+      "actorHttpStatus": 401,
+      "actor": null
+    }
+  ],
+  "secretsManager": {
+    "preTransferProvisioning": "unknown",
+    "preTransferSecretCount": null,
+    "valuesRead": false,
+    "evidenceBoundary": "The user explicitly approved the transfer warning; metadata queries did not establish zero secrets. No post-transfer absence claim is made."
+  }
+}
