@@ -4,6 +4,8 @@ export interface GitLabConfig {
   baseUrl: string;
   projectId: number;
   token?: string;
+  /** Explicit OAuth support for the documented Duo GITLAB_TOKEN runtime variable. */
+  tokenType?: 'private-token' | 'bearer';
   fetch?: typeof fetch;
 }
 export interface MergeRequest {
@@ -123,6 +125,7 @@ export class GitLabAdapter {
   readonly projectId: number;
   readonly baseUrl: string;
   private readonly token?: string;
+  private readonly tokenType: 'private-token' | 'bearer';
   private readonly requestFetch: typeof fetch;
 
   constructor(config: GitLabConfig) {
@@ -133,21 +136,41 @@ export class GitLabAdapter {
     this.baseUrl = url.origin;
     this.projectId = positiveId(config.projectId);
     this.token = config.token;
+    this.tokenType = config.tokenType ?? 'private-token';
     this.requestFetch = config.fetch ?? fetch;
   }
 
-  private async request<T>(path: string, options: { method?: string; body?: unknown; raw?: boolean } = {}): Promise<T> {
-    const response = await this.requestFetch(`${this.baseUrl}/api/v4/projects/${this.projectId}${path}`, {
+  private async request<T>(path: string, options: { method?: string; body?: unknown; raw?: boolean; globalUser?: boolean } = {}): Promise<T> {
+    if (options.globalUser && !/^\/users\/[1-9]\d*$/.test(path)) throw new Error('Only the note author user lookup can leave project scope');
+    const prefix = options.globalUser ? '/api/v4' : `/api/v4/projects/${this.projectId}`;
+    const response = await this.requestFetch(`${this.baseUrl}${prefix}${path}`, {
       method: options.method ?? 'GET',
-      headers: { ...(this.token ? { 'PRIVATE-TOKEN': this.token } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { ...(this.token ? this.tokenType === 'bearer' ? { Authorization: `Bearer ${this.token}` } : { 'PRIVATE-TOKEN': this.token } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
       body: options.body ? JSON.stringify(options.body) : undefined,
       redirect: 'error', signal: AbortSignal.timeout(20_000),
     });
     // Deliberately omit upstream bodies: proxy errors can contain sensitive request details.
     if (!response.ok) throw new Error(`GitLab request failed (${response.status})`);
     if (Number(response.headers.get('content-length') ?? 0) > 10_000_000) throw new Error('GitLab response exceeds evidence budget');
-    const text = await response.text();
-    if (text.length > 10_000_000) throw new Error('GitLab response exceeds evidence budget');
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    let bytes = 0;
+    if (reader) {
+      try {
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          bytes += chunk.value.byteLength;
+          if (bytes > 10_000_000) {
+            await reader.cancel();
+            throw new Error('GitLab response exceeds evidence budget');
+          }
+          text += decoder.decode(chunk.value, { stream: true });
+        }
+        text += decoder.decode();
+      } finally { reader.releaseLock(); }
+    }
     return (options.raw ? text : JSON.parse(text)) as T;
   }
 
@@ -170,6 +193,12 @@ export class GitLabAdapter {
     if (note.id !== noteId || !note.author || !Number.isSafeInteger(note.author.id) || note.author.id < 1 ||
       note.system === true || note.author.bot === true || typeof note.body !== 'string' || !Number.isFinite(Date.parse(note.created_at)) ||
       !Number.isFinite(Date.parse(note.updated_at))) throw new Error('GitLab note is not an authenticated human approval event');
+    // MR note author payloads can omit bot. Establish the account kind separately;
+    // absence of a bot flag is not evidence that an approval came from a human account.
+    const author = await this.request<{ id: number; bot?: boolean; state?: string; locked?: boolean }>(`/users/${note.author.id}`, { globalUser: true });
+    if (author.id !== note.author.id || author.bot !== false || author.state !== 'active' || author.locked !== false) {
+      throw new Error('Approval author cannot be established as an active unlocked human account');
+    }
     return note;
   }
 
@@ -192,7 +221,7 @@ export class GitLabAdapter {
   }
 
   async readArtifact(jobId: number, artifact = 'evidence/latest.json'): Promise<unknown> {
-    if (!['evidence/latest.json', 'evidence/repair-receipt.json'].includes(artifact)) throw new Error('Artifact path is not allowlisted');
+    if (!['evidence/latest.json', 'evidence/repair-receipt.json', 'evidence/assisted-receipt.json'].includes(artifact)) throw new Error('Artifact path is not allowlisted');
     const text = await this.request<string>(`/jobs/${positiveId(jobId)}/artifacts/${artifact}`, { raw: true });
     return JSON.parse(text);
   }
@@ -210,6 +239,26 @@ export class GitLabAdapter {
       throw new Error('Artifact provenance does not match its project, job, pipeline, and source revision');
     }
     return evidence;
+  }
+
+  /**
+   * Duo jobs do not inherit arbitrary custom CI variables. Discover a bounded,
+   * unambiguous MR/run using the actual checkout SHA and the fixed runtime project.
+   */
+  async findEvidenceJobForHead(checkoutSha: string): Promise<{ mrIid: number; jobId: number }> {
+    if (!sha.test(checkoutSha)) throw new Error('Evidence discovery requires an exact checkout revision');
+    const mergeRequests = await this.request<Array<{ iid: number; sha: string; state: string }>>('/merge_requests?state=opened&per_page=20&order_by=updated_at&sort=desc');
+    const matching = mergeRequests.filter((mr) => mr.sha === checkoutSha && mr.state === 'opened');
+    if (matching.length !== 1) throw new Error('No unique open MR matches the checkout SHA within the 20-MR discovery budget');
+    const mr = await this.currentMergeRequest(matching[0]!.iid);
+    if (mr.sha !== checkoutSha) throw new Error('MR head changed during evidence discovery');
+    const pipelines = await this.request<Array<{ id: number; sha: string }>>(`/merge_requests/${mr.iid}/pipelines?per_page=5`);
+    for (const pipeline of pipelines.filter((candidate) => candidate.sha === checkoutSha)) {
+      const jobs = await this.request<Array<{ id: number; name: string; status: string }>>(`/pipelines/${positiveId(pipeline.id)}/jobs?per_page=100`);
+      const job = jobs.find((candidate) => candidate.name === 'mutation:review' && candidate.status === 'success');
+      if (job) return { mrIid: mr.iid, jobId: positiveId(job.id) };
+    }
+    throw new Error('No completed mutation:review job matches the checkout SHA within the five-pipeline discovery budget');
   }
 
   async publishFindings(iid: number, expectedHead: string, summary: string, findings: FindingComment[]) {

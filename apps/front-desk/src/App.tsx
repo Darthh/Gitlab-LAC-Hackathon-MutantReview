@@ -39,6 +39,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { Configuration, Evidence, Finding, Mutant } from "./evidence";
+import AssistedReceiptPanel from "./AssistedReceiptPanel";
 
 type Page = "overview" | "findings" | "verification" | "lessons" | "ledger";
 const navigation: { key: Page; label: string; icon: typeof Activity }[] = [
@@ -214,6 +215,28 @@ export default function App() {
       </button>
     );
   function CodeComparison({ mutant }: { mutant?: Mutant }) {
+    const snippet = (code: string, changed: boolean) =>
+      code.split(/(>=|>|\b\d[\d_]*\b|\breturn\b)/g).map((token, index) => {
+        if (token === ">=" || token === ">")
+          return (
+            <mark key={index} className={changed ? "mutant-op" : "original-op"}>
+              {token}
+            </mark>
+          );
+        if (/^\d/.test(token))
+          return (
+            <span key={index} className="code-orange">
+              {token}
+            </span>
+          );
+        if (token === "return")
+          return (
+            <span key={index} className="code-purple">
+              {token}
+            </span>
+          );
+        return token;
+      });
     return (
       <div className="code-comparison">
         <div className="code-pane">
@@ -222,16 +245,16 @@ export default function App() {
               <span className="tiny-dot green-dot" />
               Original implementation
             </span>
-            <Badge tone="dark">Tests pass</Badge>
+            <Badge tone="dark">
+              Baseline {evidence?.baseline.status || "unavailable"}
+            </Badge>
           </div>
           <pre>
-            <span className="line-number">4</span>
+            <span className="line-number">{mutant?.line || "—"}</span>
             <code>
-              <span className="code-purple">return</span> subtotalCents{" "}
-              <mark className="original-op">&gt;=</mark>{" "}
-              <span className="code-orange">10_000</span> ?{" "}
-              <span className="code-orange">0</span> :{" "}
-              <span className="code-orange">500</span>;
+              {mutant
+                ? snippet(mutant.original, false)
+                : "No targeted mutation evidence"}
             </code>
           </pre>
         </div>
@@ -244,19 +267,15 @@ export default function App() {
             <Badge tone="dark-amber">{mutant?.status || "Not run"}</Badge>
           </div>
           <pre>
-            <span className="line-number">4</span>
+            <span className="line-number">{mutant?.line || "—"}</span>
             <code>
-              <span className="code-purple">return</span> subtotalCents{" "}
-              <mark className="mutant-op">&gt;</mark>{" "}
-              <span className="code-orange">10_000</span> ?{" "}
-              <span className="code-orange">0</span> :{" "}
-              <span className="code-orange">500</span>;
+              {mutant ? snippet(mutant.replacement, true) : "Not run"}
             </code>
           </pre>
         </div>
         <div className="code-footer">
           <Code2 size={13} />
-          <span>Equality operator</span>
+          <span>{mutant?.operator || "Operator unavailable"}</span>
           <span className="code-foot-divider" />
           <span>Same tests. Different behavior.</span>
         </div>
@@ -402,7 +421,10 @@ export default function App() {
       <a className="skip-link" href="#main">
         Skip to review
       </a>
-      <aside className={`sidebar ${mobileNav ? "open" : ""}`}>
+      <aside
+        id="main-navigation"
+        className={`sidebar ${mobileNav ? "open" : ""}`}
+      >
         <a
           href="#"
           className="brand"
@@ -505,6 +527,8 @@ export default function App() {
             <button
               className="icon-button mobile-menu"
               aria-label="Toggle navigation"
+              aria-expanded={mobileNav}
+              aria-controls="main-navigation"
               onClick={() => setMobileNav((v) => !v)}
             >
               <Menu size={20} />
@@ -525,7 +549,9 @@ export default function App() {
               aria-label="Search evidence"
             >
               <Search size={16} />
-              <kbd>⌘ K</kbd>
+              <kbd>
+                {navigator.userAgent.includes("Mac") ? "⌘ K" : "Ctrl K"}
+              </kbd>
             </button>
             <span className="topbar-divider" />
             <Badge tone="purple" dot>
@@ -914,6 +940,7 @@ export default function App() {
                 )}
                 {page === "verification" && (
                   <>
+                    <AssistedReceiptPanel />
                     <div className="notice">
                       <ShieldCheck size={18} />
                       <div>
@@ -1076,6 +1103,7 @@ export default function App() {
                         </span>
                       </div>
                     </div>
+                    <AssistedReceiptPanel lessonsOnly />
                     <section className="panel">
                       <div className="panel-heading">
                         <h2>Approved lesson library</h2>
@@ -1124,7 +1152,7 @@ export default function App() {
                       </div>
                       <div>
                         <Zap size={19} />
-                        <span>Fresh mutations</span>
+                        <span>Stryker mutations</span>
                         <strong>
                           {evidence.metrics.freshExecutions ?? "—"}
                         </strong>
@@ -1163,9 +1191,26 @@ export default function App() {
                           {
                             icon: FlaskConical,
                             title: "Stryker mutation analysis",
-                            description: `${evidence.mutation.mutants.length} generated · ${evidence.mutation.counts.killed} assertion kills · ${survivors} survived`,
+                            description: `${evidence.mutation.mutants.length} generated · ${evidence.mutation.counts.killed} test-detected · ${survivors} survived`,
                             value: formatTime(evidence.mutation.durationMs),
                             status: evidence.mutation.status,
+                          },
+                          {
+                            icon: ShieldCheck,
+                            title: "Targeted sandbox verification",
+                            description: `${evidence.verification.runs?.length ?? 0} fresh original / targeted mutant pairs. Separate from Stryker executions.`,
+                            value: evidence.verification.runs
+                              ? formatTime(
+                                  evidence.verification.runs.reduce(
+                                    (sum, run) =>
+                                      sum +
+                                      run.original.durationMs +
+                                      run.mutant.durationMs,
+                                    0,
+                                  ),
+                                )
+                              : "Unavailable",
+                            status: evidence.verification.status,
                           },
                           {
                             icon: RefreshCw,

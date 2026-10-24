@@ -1,10 +1,12 @@
-import { mkdir, open, readFile, readdir, realpath } from 'node:fs/promises';
+import { mkdir, open, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { GitLabAdapter, exactPatchHash, exactLessonHash, validateTestChanges, type ExactPatchProposal, type ExactPatchApproval, type ExactLessonProposal } from '../../gitlab-adapter/src/index.js';
 import { FileApprovalLedger } from '../../gitlab-adapter/src/ledger.js';
 import { parseCommand } from '../../review-core/src/approval.js';
 import { validateTriage, type Triage } from '../../review-core/src/triage.js';
 import type { NormalizedMutant } from '../../review-core/src/types.js';
+import type { ApprovedLesson } from '../../review-core/src/preflight.js';
 import { digest } from './proof.js';
 import { fixtureFeatures, verifyCommittedFixture } from './committed-proof.js';
 
@@ -23,6 +25,17 @@ interface SavedProposal {
   evidence: Evidence;
   patch: string;
   posted?: boolean;
+  lessonRetrieval?: LessonRetrieval;
+  appliedLessonIds?: string[];
+}
+interface LessonRetrieval {
+  id: string;
+  source: 'versioned-approved-lessons';
+  projectId: number;
+  sourceHeadSha: string;
+  query: string;
+  lessons: ApprovedLesson[];
+  createdAt: string;
 }
 interface Applied {
   id: string;
@@ -41,9 +54,23 @@ interface Verified {
   pipelineStatus: string;
   verifiedAt: string;
 }
+interface SavedLesson {
+  id: string;
+  branch: string;
+  web_url: string;
+  lesson: { id: string; status: 'approved'; verified: true; approvedBy: string; approvedAt: string; receiptId: string; recommendation: string; tags: string[] };
+  approval: ExactPatchApproval;
+  receiptHash: string;
+}
 
 const ALLOWED_TESTS = Object.keys(fixtureFeatures);
-const readJson = async <T>(path: string): Promise<T> => JSON.parse(await readFile(path, 'utf8')) as T;
+const readJson = async <T>(path: string): Promise<T> => {
+  const content = await readFile(path, 'utf8');
+  try { return JSON.parse(content) as T; } catch { throw new Error('Structured JSON is malformed; file contents are omitted'); }
+};
+const readOptional = async <T>(path: string): Promise<T | null> => {
+  try { return await readJson<T>(path); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
+};
 const id = (value: string | undefined) => {
   if (!value || !/^[a-zA-Z0-9_-]{1,100}$/.test(value)) throw new Error('Expected a concrete proposal identifier');
   return value;
@@ -79,7 +106,7 @@ export async function writeImmutable(path: string, value: unknown) {
 /** Strict additive unified-diff reader. Hunk coordinates and all original context must agree. */
 export function applyAppendPatch(patch: string, originals: Record<string, string>) {
   if (patch.includes('\r') || /^(?:GIT binary patch|Binary files|rename |old mode|new mode|deleted file mode|\\ No newline)/m.test(patch)) throw new Error('Unsupported patch encoding or operation');
-  const rows = patch.trimEnd().split('\n');
+  const rows = (patch.endsWith('\n') ? patch.slice(0, -1) : patch).split('\n');
   const files: { path: string; before: string; after: string }[] = [];
   let cursor = 0;
   while (cursor < rows.length) {
@@ -132,7 +159,8 @@ export async function approvalFromNote(adapter: GitLabAdapter, proposal: ExactPa
   if (command.action !== action || command.proposalId !== proposal.id || command.patchHash !== proposal.patchHash) throw new Error('Note does not authorize this exact action and proposal hash');
   const approvedAt = note.updated_at || note.created_at;
   const time = Date.parse(approvedAt);
-  if (!Number.isFinite(time) || time < Date.parse(after) || time > now.getTime() || now.getTime() - time >= 3_600_000) throw new Error('Approval note predates the proposal, is expired, or has an invalid timestamp');
+  const earliest = Date.parse(after);
+  if (![time, earliest, now.getTime()].every(Number.isFinite) || time < earliest || time > now.getTime() || now.getTime() - time >= 3_600_000) throw new Error('Approval note predates the proposal, is expired, or has an invalid timestamp');
   const member = await adapter.currentMember(note.author.id);
   const expiry = member.expires_at ? Date.parse(`${member.expires_at}T23:59:59Z`) : null;
   if (member.id !== note.author.id || member.access_level < 40 || !Number.isInteger(member.access_level) || (member.state && member.state !== 'active') || (expiry !== null && (!Number.isFinite(expiry) || expiry < now.getTime()))) throw new Error('Approval author is not a currently authorized maintainer');
@@ -147,7 +175,85 @@ function configuredAdapter(write: boolean) {
   return new GitLabAdapter({ baseUrl: process.env.GITLAB_URL ?? 'https://gitlab.com', projectId: numberId(process.env.GITLAB_PROJECT_ID), token });
 }
 
+/** Read-only flow hydration. A failure removes previous evidence so no stale fixture can be interpreted. */
+export async function hydrateEvidence(adapter: GitLabAdapter, mrIid: number, jobId: number, checkoutSha: string, output = 'evidence/latest.json') {
+  await rm(output, { force: true });
+  const mr = await adapter.currentMergeRequest(mrIid);
+  if (mr.sha !== checkoutSha) throw new Error('Flow checkout does not match the current MR source revision');
+  const evidence = await adapter.readEvidenceArtifact(jobId, mr.sha) as Evidence;
+  if (evidence.source !== 'gitlab' || Number(evidence.provenance.projectId) !== adapter.projectId || Number(evidence.provenance.mrIid) !== mrIid || evidence.provenance.headSha !== mr.sha || Number(evidence.provenance.jobId) !== jobId || evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || !Array.isArray(evidence.mutation.mutants)) throw new Error('Flow evidence is incomplete, stale, or does not match the configured MR/job');
+  await mkdir(resolve(output, '..'), { recursive: true });
+  const temporary = `${output}.${randomUUID()}.pending`;
+  await writeFile(temporary, JSON.stringify(evidence, null, 2) + '\n');
+  await rename(temporary, output);
+  return { status: 'hydrated', projectId: adapter.projectId, mrIid, headSha: mr.sha, jobId };
+}
+
+export async function hydrateConfiguredEvidence(checkoutSha: string) {
+  // Remove stale data even when configuration itself is missing or invalid.
+  await rm('evidence/latest.json', { force: true });
+  const adapter = new GitLabAdapter({
+    baseUrl: process.env.GITLAB_URL ?? process.env.DUO_WORKFLOW_GIT_HTTP_BASE_URL ?? process.env.GITLAB_BASE_URL ?? 'https://gitlab.com',
+    projectId: numberId(process.env.GITLAB_PROJECT_ID ?? process.env.CI_PROJECT_ID),
+    token: process.env.GITLAB_READ_TOKEN ?? process.env.GITLAB_TOKEN,
+    tokenType: process.env.GITLAB_READ_TOKEN ? 'private-token' : 'bearer',
+  });
+  if (Boolean(process.env.GITLAB_MR_IID) !== Boolean(process.env.GITLAB_EVIDENCE_JOB_ID)) throw new Error('Explicit hydration requires both GITLAB_MR_IID and GITLAB_EVIDENCE_JOB_ID');
+  const context = process.env.GITLAB_MR_IID ? { mrIid: numberId(process.env.GITLAB_MR_IID), jobId: numberId(process.env.GITLAB_EVIDENCE_JOB_ID) } : await adapter.findEvidenceJobForHead(checkoutSha);
+  return hydrateEvidence(adapter, context.mrIid, context.jobId, checkoutSha);
+}
+
+/** Retrieval is a separate recorded event, never a claim that an agent applied the lesson. */
+export async function recordLessonRetrieval(query: string, lessons: ApprovedLesson[], projectId: number, headSha: string) {
+  if (!lessons.length || !process.env.MUTANT_REVIEW_STATE_DIR) return null;
+  if (!Number.isSafeInteger(projectId) || projectId < 1 || !/^[a-f0-9]{40}$/.test(headSha)) throw new Error('Tracked lesson retrieval requires the configured project and exact checkout SHA');
+  const state = await trustedStateDirectory(process.env.MUTANT_REVIEW_STATE_DIR);
+  const retrieval: LessonRetrieval = { id: `retrieval-${randomUUID()}`, source: 'versioned-approved-lessons', projectId, sourceHeadSha: headSha, query, lessons, createdAt: new Date().toISOString() };
+  await writeImmutable(join(state, 'retrievals', `${retrieval.id}.json`), retrieval);
+  return { id: retrieval.id, lessonIds: lessons.map((lesson) => lesson.id), sourceHeadSha: headSha, status: 'retrieved', note: 'Retrieval is recorded; application and a real Duo session have not been established.' };
+}
+
+/** Public projection of trusted operator receipts; contains no credentials or operational state paths. */
+export async function exportAssistedReceipt(state: string, proposalId: string, latestAttempt?: Verified) {
+  const saved = await readJson<SavedProposal>(join(state, 'proposals', `${id(proposalId)}.json`));
+  const applied = await readJson<Applied>(join(state, 'applied', `${proposalId}.json`));
+  const verified = latestAttempt ?? await readOptional<Verified>(join(state, 'verified', `${proposalId}.json`)) ?? await readOptional<Verified>(join(state, 'verification-attempts', proposalId, '2.json')) ?? await readJson<Verified>(join(state, 'verification-attempts', proposalId, '1.json'));
+  const lesson = verified.verification.status === 'passed' ? await readOptional<SavedLesson>(join(state, 'lessons', `${proposalId}.json`)) : null;
+  const proposal = saved.proposal;
+  if (proposal.patchHash !== exactPatchHash(proposal) || verified.repairCommitSha !== applied.id || verified.verification.patchHash !== proposal.patchHash || !['passed', 'failed'].includes(verified.verification.status)) throw new Error('Trusted receipts do not establish this exact repair attempt');
+  const pipeline = verified.pipeline as { id: number; sha: string; web_url: string };
+  const receipt = {
+    schemaVersion: 1,
+    source: 'gitlab-assisted-local-verification',
+    proposalId,
+    projectId: String(proposal.projectId),
+    mrIid: proposal.mergeRequestIid,
+    sourceHeadSha: proposal.sourceHeadSha,
+    runId: proposal.runId,
+    patchHash: proposal.patchHash,
+    proposal,
+    proposalPatch: saved.patch,
+    testPath: proposal.files[0]!.path,
+    repair: { commitSha: applied.id, branch: applied.branch, url: applied.web_url, approvedBy: String(applied.approval.actorId), approvedAt: applied.approval.approvedAt, approvalEventId: applied.approval.eventId },
+    verification: { ...verified.verification, approvedBy: String(verified.approval.actorId), approvedAt: verified.approval.approvedAt, approvalEventId: verified.approval.eventId },
+    pipeline: { id: pipeline.id, sha: pipeline.sha, url: pipeline.web_url, status: 'started-or-existing-outcome-unverified' },
+    ...(saved.lessonRetrieval && saved.appliedLessonIds?.length ? { lessonApplication: { retrievalId: saved.lessonRetrieval.id, lessonIds: saved.appliedLessonIds, sourceRevision: saved.lessonRetrieval.sourceHeadSha, whyApplies: [...saved.triage.suggestedTests.map((test) => test.rationale), ...saved.triage.uncertainty].join('\n'), status: verified.verification.status === 'passed' ? 'applied-and-verified' : 'retrieved', repairCommitSha: applied.id, provenance: 'submitted-structured-triage', duoExecution: 'unverified' } } : {}),
+    ...(lesson ? { lesson: { id: lesson.lesson.id, status: lesson.lesson.status, verified: lesson.lesson.verified, approvedBy: lesson.lesson.approvedBy, approvedAt: lesson.lesson.approvedAt, receiptId: lesson.lesson.receiptId, commitSha: lesson.id, branch: lesson.branch, url: lesson.web_url, recommendation: lesson.lesson.recommendation, tags: lesson.lesson.tags, sourceReceiptHash: lesson.receiptHash } } : {}),
+    createdAt: new Date().toISOString(),
+  };
+  await mkdir('evidence', { recursive: true });
+  const temporary = `evidence/assisted-receipt-${randomUUID()}.json`;
+  await writeFile(temporary, JSON.stringify(receipt, null, 2) + '\n');
+  await rename(temporary, 'evidence/assisted-receipt.json');
+  return receipt;
+}
+
 export async function runAssisted(command: string, args: string[]) {
+  if (command === 'export-receipt') {
+    const state = await trustedStateDirectory(process.env.MUTANT_REVIEW_STATE_DIR);
+    console.log(JSON.stringify(await exportAssistedReceipt(state, id(args[0])), null, 2));
+    return;
+  }
   const adapter = configuredAdapter(command !== 'capabilities');
   if (command === 'capabilities') {
     console.log(JSON.stringify(await adapter.capabilityCheck(args[0] ? numberId(args[0]) : undefined), null, 2));
@@ -172,10 +278,14 @@ export async function runAssisted(command: string, args: string[]) {
     if (files.length !== 1) throw new Error('The demonstration supports one feature per approved proposal');
     const feature = fixtureFeatures[files[0]!.path as keyof typeof fixtureFeatures];
     const targeted = survivors.filter((mutant) => triage.mutantFingerprints.includes(mutant.fingerprint));
-    if (!targeted.every((mutant) => mutant.path === feature.sourcePath && mutant.replacement === feature.replacement)) throw new Error('Proposal does not target the supported exact threshold mutation');
+    if (!targeted.every((mutant) => mutant.path === feature.sourcePath && mutant.original === feature.original && mutant.replacement === feature.replacement && mutant.operator === 'EqualityOperator')) throw new Error('Proposal does not target the supported exact threshold mutation');
     const body = { id: `proposal-${digest(`${evidence.runId}:${triage.findingId}:${triage.proposedPatch}`).slice(0, 20)}`, projectId: adapter.projectId, mergeRequestIid: iid, sourceHeadSha: mr.sha, runId: evidence.runId, findingIds: [triage.findingId], files };
     const proposal: ExactPatchProposal = { ...body, patchHash: exactPatchHash(body) };
-    const saved: SavedProposal = { createdAt: new Date().toISOString(), proposal, triage, evidence, patch: triage.proposedPatch };
+    const retrieval = args[3] ? await readJson<LessonRetrieval>(join(state, 'retrievals', `${id(args[3])}.json`)) : null;
+    const rationale = [...triage.suggestedTests.map((test) => test.rationale), ...triage.uncertainty].join('\n');
+    const appliedLessonIds = retrieval?.lessons.filter((lesson) => rationale.includes(lesson.id)).map((lesson) => lesson.id) ?? [];
+    if (retrieval && (retrieval.projectId !== adapter.projectId || retrieval.sourceHeadSha !== mr.sha || retrieval.source !== 'versioned-approved-lessons' || !appliedLessonIds.length || !Number.isFinite(Date.parse(retrieval.createdAt)) || Date.parse(retrieval.createdAt) > Date.now())) throw new Error('Lesson retrieval does not match this project/source revision or is not cited in the proposed test rationale');
+    const saved: SavedProposal = { createdAt: new Date().toISOString(), proposal, triage, evidence, patch: triage.proposedPatch, ...(retrieval ? { lessonRetrieval: retrieval, appliedLessonIds } : {}) };
     await writeImmutable(join(state, 'proposals', `${proposal.id}.json`), saved);
     const summary = `## Mutant Review\n\n${triage.behavioralGap}\n\nRequirement: ${triage.requirementReference}\n\nMeasured evidence: job ${jobId}, run ${evidence.runId}.\n\nInterpretation is submitted structured triage; a Duo session is not inferred from this file.\n\nExact proposed test patch:\n\n\`\`\`diff\n${triage.proposedPatch}\n\`\`\`\n\nProposal: \`${proposal.id}\`\n\nExact content/revision SHA-256: \`${proposal.patchHash}\`\n\nA maintainer can authorize this exact test-only commit by posting:\n\n\`${handle} apply ${proposal.id} ${proposal.patchHash}\`\n\nThis creates an isolated repair branch. It does not update this MR, approve verification, save a lesson, merge, or deploy.`;
     await adapter.publishFindings(iid, mr.sha, summary, [{ id: triage.findingId, body: `${triage.behavioralGap}\n\nRequirement: ${triage.requirementReference}\n\nUncertainty: ${triage.uncertainty.join('; ') || 'No additional uncertainty submitted.'}`, path: targeted[0]!.path, line: targeted[0]!.location.start.line }]);
@@ -204,14 +314,19 @@ export async function runAssisted(command: string, args: string[]) {
   }
   const applied = await readJson<Applied>(join(state, 'applied', `${proposalId}.json`));
   if (command === 'verify') {
+    if (await readOptional(join(state, 'verified', `${proposalId}.json`))) throw new Error('This exact repair already has a successful verification receipt; export-receipt can display it without another execution');
     const approval = await approvalFromNote(adapter, proposal, 'verify', noteId, handle, applied.committedAt);
     if (await adapter.readBranchHead(applied.branch) !== applied.id) throw new Error('Repair branch advanced; a new proposal and approval are required');
     const attemptDirectory = join(state, 'verification-attempts', proposalId);
-    const attempts = await readdir(attemptDirectory).catch(() => []);
-    if (attempts.length >= 2) throw new Error('Verification repair-attempt budget exhausted; prepare a new proposal');
-    const attempt = attempts.length + 1;
-    const attemptEvent = `verify-${proposal.patchHash}-${attempt}`;
-    if (!await ledger.reserve(attemptEvent) || !await ledger.reserve(approval.eventId)) throw new Error('Verification approval or attempt already consumed');
+    if (!await ledger.reserve(approval.eventId)) throw new Error('Verification approval was already consumed');
+    let attempt = 0;
+    let attemptEvent = '';
+    for (let candidate = 1; candidate <= 2; candidate++) {
+      const event = `verify-${proposal.patchHash}-${candidate}`;
+      if (await ledger.reserve(event)) { attempt = candidate; attemptEvent = event; break; }
+    }
+    if (!attempt) { await ledger.record(approval.eventId, 'rejected'); throw new Error('Verification repair-attempt budget exhausted; prepare a new proposal'); }
+    await writeImmutable(join(attemptDirectory, `${attempt}-started.json`), { status: 'reserved', approval, startedAt: new Date().toISOString() });
     try {
       const verification = await verifyCommittedFixture(adapter, proposal, applied.id, `evidence/approved/${proposalId}/attempt-${attempt}`);
       if ((await adapter.currentMergeRequest(proposal.mergeRequestIid)).sha !== proposal.sourceHeadSha || await adapter.readBranchHead(applied.branch) !== applied.id) throw new Error('A recorded revision changed during verification; renewed approval is required');
@@ -222,9 +337,14 @@ export async function runAssisted(command: string, args: string[]) {
       if (verification.status === 'passed') await writeImmutable(join(state, 'verified', `${proposalId}.json`), receipt);
       await ledger.record(approval.eventId, verification.status === 'passed' ? 'committed' : 'rejected', applied.id);
       await ledger.record(attemptEvent, verification.status === 'passed' ? 'committed' : 'rejected', applied.id);
+      await exportAssistedReceipt(state, proposalId, receipt);
       console.log(JSON.stringify({ stage: verification.status === 'passed' ? 'repair verified by local execution of GitLab commit contents' : 'repair rejected', receipt, next: verification.status === 'passed' ? `Run prepare-lesson ${proposalId} to inspect a candidate before separate lesson approval.` : 'A revised patch requires a new approval.' }, null, 2));
       if (verification.status !== 'passed') process.exitCode = 1;
-    } catch (error) { await ledger.record(approval.eventId, 'rejected'); await ledger.record(attemptEvent, 'rejected'); throw error; }
+    } catch (error) {
+      await writeImmutable(join(attemptDirectory, `${attempt}-error.json`), { status: 'failed', approval, error: error instanceof Error ? error.message : 'Verification execution failed', failedAt: new Date().toISOString() });
+      await Promise.allSettled([ledger.record(approval.eventId, 'rejected'), ledger.record(attemptEvent, 'rejected')]);
+      throw error;
+    }
     return;
   }
   const verified = await readJson<Verified>(join(state, 'verified', `${proposalId}.json`));
@@ -245,6 +365,7 @@ export async function runAssisted(command: string, args: string[]) {
     const approval = await approvalFromNote(adapter, { ...draft.proposal, files: [] }, 'learn', noteId, handle, draft.createdAt);
     const lesson = await adapter.commitApprovedLesson(draft.proposal, approval, ledger);
     await writeImmutable(join(state, 'lessons', `${proposalId}.json`), { ...lesson, approval, receiptHash });
+    await exportAssistedReceipt(state, proposalId);
     console.log(JSON.stringify({ stage: 'lesson saved on separate branch', lesson, next: 'Human review and merge remain required. Retrieval is available only after the approved lesson enters the checked-out repository.' }, null, 2));
     return;
   }

@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { GitLabAdapter, ExactPatchProposal } from '../../gitlab-adapter/src/index.js';
-import { applyAppendPatch, approvalFromNote, trustedStateDirectory, writeImmutable } from './workflow.js';
-import { executionEnvironment } from './runner.js';
+import { applyAppendPatch, approvalFromNote, hydrateEvidence, recordLessonRetrieval, trustedStateDirectory, writeImmutable } from './workflow.js';
+import { execute, executionEnvironment } from './runner.js';
 
 const testPath = 'packages/demo-domain/src/shipping.test.ts';
 const before = "import { it, expect } from 'vitest';\n";
@@ -28,6 +28,10 @@ describe('unified patch execution binding', () => {
   it('rejects forged hunk coordinates and counts', () => {
     expect(() => applyAppendPatch(patch.replace('+2,3', '+22,3'), { [testPath]: before })).toThrow();
     expect(() => applyAppendPatch(patch.replace('+2,3', '+2,8'), { [testPath]: before })).toThrow();
+  });
+  it('preserves significant whitespace in the exact displayed addition', () => {
+    const value = patch.replace('+2,3', '+2,4') + '+  \n';
+    expect(applyAppendPatch(value, { [testPath]: before })[0]!.after.endsWith('});\n  \n')).toBe(true);
   });
   it('rejects an assertion inserted before existing test behavior', () => {
     expect(() => applyAppendPatch(patch.replace('-1,0 +2,3', '-0,0 +1,3'), { [testPath]: before })).toThrow('preserve existing');
@@ -62,6 +66,10 @@ describe('authoritative GitLab note authorization', () => {
     await expect(approvalFromNote(fakeAdapter({ level: 30 }), proposal, 'apply', 7, '@actual-flow', '2026-10-24T03:50:00Z', now)).rejects.toThrow('maintainer');
     await expect(approvalFromNote(fakeAdapter({ state: 'blocked' }), proposal, 'apply', 7, '@actual-flow', '2026-10-24T03:50:00Z', now)).rejects.toThrow('maintainer');
   });
+  it('rejects malformed trusted timestamps rather than bypassing date comparisons', async () => {
+    await expect(approvalFromNote(fakeAdapter(), proposal, 'apply', 7, '@actual-flow', 'invalid', now)).rejects.toThrow();
+    await expect(approvalFromNote(fakeAdapter(), proposal, 'apply', 7, '@actual-flow', '2026-10-24T03:50:00Z', new Date('invalid'))).rejects.toThrow();
+  });
 });
 
 describe('durable operator state and execution credentials', () => {
@@ -86,5 +94,58 @@ describe('durable operator state and execution credentials', () => {
     expect(environment.CI_JOB_TOKEN).toBeUndefined();
     expect(environment.AWS_SECRET_ACCESS_KEY).toBeUndefined();
     expect(environment.NODE_OPTIONS).toBeUndefined();
+  });
+  it('stops timed-out execution instead of leaving the proof pending', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mutant-review-timeout-test-'));
+    const run = await execute(['-e', 'setInterval(() => {}, 1000)'], join(root, 'timeout.log'), 200);
+    expect(run.timedOut).toBe(true);
+    expect(run.exitCode).not.toBe(0);
+  });
+});
+
+describe('read-only GitLab flow artifact hydration (mock transport)', () => {
+  const evidence = {
+    runId: 'measured-run', source: 'gitlab',
+    provenance: { projectId: '5', mrIid: 2, headSha: proposal.sourceHeadSha, baseSha: 'c'.repeat(40), jobId: '9' },
+    baseline: { status: 'passed' }, scope: { complete: true }, mutation: { status: 'complete', mutants: [] },
+  };
+  function adapter(data: unknown = evidence) {
+    return { projectId: 5, currentMergeRequest: async () => ({ sha: proposal.sourceHeadSha }), readEvidenceArtifact: async () => data } as unknown as GitLabAdapter;
+  }
+  it('hydrates the exact configured MR/job/head and returns compact provenance', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mutant-review-hydration-test-'));
+    const output = join(root, 'latest.json');
+    await expect(hydrateEvidence(adapter(), 2, 9, proposal.sourceHeadSha, output)).resolves.toEqual({ status: 'hydrated', projectId: 5, mrIid: 2, headSha: proposal.sourceHeadSha, jobId: 9 });
+    expect(JSON.parse(await readFile(output, 'utf8'))).toEqual(evidence);
+  });
+  it('removes stale evidence when checkout or live source revision is incorrect', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mutant-review-hydration-stale-test-'));
+    const output = join(root, 'latest.json');
+    await writeFile(output, JSON.stringify({ source: 'stale local fixture' }));
+    await expect(hydrateEvidence(adapter(), 2, 9, 'b'.repeat(40), output)).rejects.toThrow('checkout');
+    await expect(readFile(output, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+  it('rejects mismatched MR provenance and incomplete mutation execution', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mutant-review-hydration-invalid-test-'));
+    await expect(hydrateEvidence(adapter({ ...evidence, provenance: { ...evidence.provenance, mrIid: 3 } }), 2, 9, proposal.sourceHeadSha, join(root, 'wrong-mr.json'))).rejects.toThrow('incomplete, stale');
+    await expect(hydrateEvidence(adapter({ ...evidence, scope: { complete: false } }), 2, 9, proposal.sourceHeadSha, join(root, 'incomplete.json'))).rejects.toThrow('incomplete, stale');
+  });
+  it('does not create a learned-use record for an empty approved lesson set', async () => {
+    await expect(recordLessonRetrieval('boundary', [], 5, proposal.sourceHeadSha)).resolves.toBeNull();
+  });
+  it('journals an actual retrieval separately from successful application', async () => {
+    const state = await mkdtemp(join(tmpdir(), 'mutant-review-retrieval-test-'));
+    vi.stubEnv('MUTANT_REVIEW_STATE_DIR', state);
+    try {
+      const lesson = { id: 'lesson-boundary', repository: 'mutant-review', module: 'demo-domain', tags: ['inclusive-threshold'], pattern: 'Inclusive monetary boundary', recommendation: 'Test below, at and above the threshold using the current contract.', status: 'approved' as const, verified: true, approvedBy: '42', approvedAt: '2026-10-24T03:55:00Z', receiptId: 'c'.repeat(64) };
+      const retrieval = await recordLessonRetrieval('boundary', [lesson], 5, proposal.sourceHeadSha);
+      expect(retrieval?.status).toBe('retrieved');
+      expect(retrieval?.lessonIds).toEqual(['lesson-boundary']);
+      const journal = JSON.parse(await readFile(join(state, 'retrievals', `${retrieval!.id}.json`), 'utf8'));
+      expect(journal.sourceHeadSha).toBe(proposal.sourceHeadSha);
+      expect(journal.projectId).toBe(5);
+      expect(journal.lessons[0].id).toBe('lesson-boundary');
+      expect(journal).not.toHaveProperty('successfullyApplied');
+    } finally { vi.unstubAllEnvs(); }
   });
 });

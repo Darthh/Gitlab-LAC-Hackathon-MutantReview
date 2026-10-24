@@ -7,7 +7,7 @@ import { preflight, retrieveLessons, type ApprovedLesson } from '../../review-co
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
 import { digest, makeProposal, verifySandbox } from './proof.js';
-import { runAssisted } from './workflow.js';
+import { runAssisted, recordLessonRetrieval, hydrateConfiguredEvidence } from './workflow.js';
 
 const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }).trim();
 const json = async (path: string) => JSON.parse(await readFile(path, 'utf8'));
@@ -19,7 +19,12 @@ async function relevantLessons(query: string) {
   const names = await readdir('.mutant-review/lessons').catch(() => []);
   const records: ApprovedLesson[] = [];
   for (const name of names.filter((name) => name.endsWith('.json'))) {
-    try { records.push(await json(`.mutant-review/lessons/${name}`)); } catch { /* malformed lesson is never approved evidence */ }
+    try {
+      const path = `.mutant-review/lessons/${name}`;
+      const content = await readFile(path, 'utf8');
+      const versioned = execFileSync('git', ['show', `HEAD:${path}`], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      if (content === versioned) records.push(JSON.parse(content));
+    } catch { /* Uncommitted or malformed lesson data is never approved versioned evidence. */ }
   }
   return retrieveLessons(records, { repository: process.env.CI_PROJECT_PATH ?? 'mutant-review', module: 'demo-domain', symbol: query, tags: ['inclusive-threshold', query], source: await readFile('packages/demo-domain/src/shipping.ts', 'utf8') });
 }
@@ -141,12 +146,15 @@ async function review(demo: boolean) {
 }
 
 async function lessons(query: string) {
-  console.log(JSON.stringify({ query, lessons: await relevantLessons(query), note: 'Only versioned, approved lessons with a repair receipt are returned. Retrieval alone does not demonstrate application.' }, null, 2));
+  const lessons = await relevantLessons(query);
+  const retrieval = await recordLessonRetrieval(query, lessons, Number(process.env.GITLAB_PROJECT_ID ?? process.env.CI_PROJECT_ID), git('rev-parse', 'HEAD'));
+  console.log(JSON.stringify({ query, lessons, retrieval, note: 'Only unchanged versioned approved lessons with a repair receipt are returned. Retrieval alone does not demonstrate application or actual Duo execution.' }, null, 2));
 }
 
 async function main() {
   const [command = 'help', argument] = process.argv.slice(2);
-  if (['capabilities', 'publish', 'apply', 'verify', 'prepare-lesson', 'learn'].includes(command)) return runAssisted(command, process.argv.slice(3));
+  if (command === 'hydrate-evidence') { console.log(JSON.stringify(await hydrateConfiguredEvidence(git('rev-parse', 'HEAD')), null, 2)); return; }
+  if (['capabilities', 'publish', 'apply', 'verify', 'prepare-lesson', 'learn', 'export-receipt'].includes(command)) return runAssisted(command, process.argv.slice(3));
   if (command === 'demo' || command === 'review') return review(command === 'demo');
   if (command === 'gate') {
     const evidence = await json('evidence/latest.json');
@@ -168,7 +176,7 @@ async function main() {
     if (verification.status !== 'passed') process.exitCode = 1;
     return;
   }
-  console.log('Commands: demo | review (GitLab MR CI only) | gate | sandbox-verify [proposal.json] | lessons [query] | capabilities [MR IID] | publish <MR IID> <job ID> <triage.json> | apply <proposal ID> <note ID> | verify <proposal ID> <note ID> | prepare-lesson <proposal ID> | learn <repair proposal ID> <note ID>');
+  console.log('Commands: demo | review (GitLab MR CI only) | hydrate-evidence | gate | sandbox-verify [proposal.json] | lessons [query] | capabilities [MR IID] | publish <MR IID> <job ID> <triage.json> [retrieval ID] | apply <proposal ID> <note ID> | verify <proposal ID> <note ID> | prepare-lesson <proposal ID> | learn <repair proposal ID> <note ID> | export-receipt <proposal ID>');
 }
 
 main().catch(async (error: unknown) => {

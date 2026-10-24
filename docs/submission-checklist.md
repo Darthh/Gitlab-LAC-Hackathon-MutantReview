@@ -16,7 +16,7 @@
 - [ ] Confirm tenant schema acceptance, Duo access, runner tools, and actual service-account handle.
 - [ ] Capture a Duo session producing a structured proposal grounded in measured evidence and the contract.
 - [ ] Exercise current-diff discussion creation with at most three inline findings.
-- [ ] Wire authenticated note/event ingestion and trusted durable approval reservation.
+- [ ] Exercise trusted operator CLI note re-fetching and durable approval reservation against the live tenant; add automatic event ingestion only if needed.
 - [ ] Have an authorized human approve the exact visible proposal/hash.
 - [ ] Commit the exact approved tests, integrate them into the MR through a separate human action, and verify the resulting SHA.
 - [ ] Capture separate verification approval and fresh original-pass/exact-mutant-assertion-fail/clean-rerun evidence.

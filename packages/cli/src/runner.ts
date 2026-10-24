@@ -19,10 +19,21 @@ export async function execute(args: string[], log: string, timeoutMs = 180_000):
   const started = Date.now();
   await mkdir(dirname(resolve(log)), { recursive: true });
   return await new Promise((resolvePromise, reject) => {
-    const child = spawn(process.execPath, args, { cwd: process.cwd(), shell: false, windowsHide: true, env: executionEnvironment() });
+    const child = spawn(process.execPath, args, { cwd: process.cwd(), shell: false, windowsHide: true, env: executionEnvironment(), detached: process.platform !== 'win32' });
     let output = '';
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (!child.pid) return;
+      if (process.platform === 'win32') {
+        // Numeric PID arguments only. Stop runner descendants as well as the parent.
+        const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { shell: false, windowsHide: true, env: executionEnvironment() });
+        killer.on('error', () => child.kill('SIGKILL'));
+        killer.on('exit', (code) => { if (code !== 0) child.kill('SIGKILL'); });
+      } else {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
+      }
+    }, timeoutMs);
     const collect = (chunk: Buffer) => { if (output.length < 2_000_000) output += chunk.toString(); };
     child.stdout.on('data', collect);
     child.stderr.on('data', collect);

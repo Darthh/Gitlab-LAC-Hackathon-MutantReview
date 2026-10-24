@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { GitLabAdapter } from "../../../packages/gitlab-adapter/src/index.js";
 import { shippingFee } from "../../../packages/demo-domain/src/shipping.js";
 import { gitlabOrigin, validateEvidence } from "./evidence-validation.js";
+import { validateAssistedReceipt } from "./assisted-receipt-validation.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = express();
@@ -179,16 +180,64 @@ app.get(["/api/evidence", "/api/evidence/download"], async (req, res) => {
     res.json(data);
   } catch (error) {
     const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
-    res
-      .status(missing ? 404 : 502)
-      .json({
-        error: missing
-          ? "No execution evidence yet. Run npm run demo in the project, then refresh."
-          : publicEvidenceError(error),
-      });
+    res.status(missing ? 404 : 502).json({
+      error: missing
+        ? "No execution evidence yet. Run npm run demo in the project, then refresh."
+        : publicEvidenceError(error),
+    });
   }
 });
 app.get("/api/health", (_req, res) => res.json({ status: "ok", revision }));
+app.get(
+  ["/api/assisted-receipt", "/api/assisted-receipt/download"],
+  async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      if (configurationError || !adapter)
+        throw new Error("Invalid GitLab receipt configuration");
+      let input: unknown;
+      if (remoteJob) {
+        if (!jobId) throw new Error("Invalid GitLab receipt configuration");
+        input = await adapter.readArtifact(
+          jobId,
+          "evidence/assisted-receipt.json",
+        );
+      } else {
+        const filename = resolve(root, "evidence/assisted-receipt.json");
+        if ((await stat(filename)).size > 5_000_000)
+          throw new Error("Assisted receipt exceeds the evidence budget");
+        input = JSON.parse(await readFile(filename, "utf8"));
+      }
+      const receipt = validateAssistedReceipt(input, {
+        projectId: String(adapter.projectId),
+        mergeRequestIid: mrIid,
+        gitlabOrigin: upstreamOrigin,
+      });
+      if (req.path.endsWith("/download"))
+        res.attachment(
+          `mutant-review-approved-${receipt.proposalId.replace(/[^a-zA-Z0-9-]/g, "")}.json`,
+        );
+      res.json(receipt);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const missing =
+        (error as NodeJS.ErrnoException).code === "ENOENT" ||
+        message === "GitLab request failed (404)";
+      const safe =
+        message.startsWith("Assisted receipt rejected: ") ||
+        message === "Assisted receipt format is unsupported or malformed.";
+      res
+        .status(missing ? 404 : 502)
+        .json({
+          error: missing
+            ? "No approved repair receipt has been exported yet."
+            : safe
+              ? message
+              : "The approved repair receipt could not be validated or read. Check server artifact access and receipt configuration.",
+        });
+    }
+  },
+);
 app.get("/api/checkout", (req, res) => {
   const raw = req.query.subtotal;
   const subtotal =

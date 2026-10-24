@@ -50,6 +50,8 @@ The public GitLab project is [Darthh2/mutant-review](https://gitlab.com/Darthh2/
 - `.gitlab/duo`: bounded custom flow and execution environment.
 - `.mutant-review`: policy and structured evidence schemas.
 
+The assisted CLI is available through `npm run mr -- <command>`; its exact patch approvals use authenticated GitLab notes and durable operator state outside this checkout. `hydrate-evidence` validates and loads one GitLab job artifact before a Duo task; `publish`, `apply`, `verify`, `prepare-lesson`, `learn`, and `export-receipt` keep the stages separate. API execution requires a project-scoped credential; repository-only Git authentication is insufficient.
+
 Read [setup](docs/setup.md), [architecture](docs/architecture.md), [limitations](docs/limitations.md), the [timed demo](docs/demo.md), and the [submission checklist](docs/submission-checklist.md). [Benchmark methodology](benchmarks/README.md) records the actual completed sample separately from the planned study.
 
 MIT licensed. No real payment services are used.

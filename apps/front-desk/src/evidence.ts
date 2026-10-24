@@ -42,6 +42,12 @@ export interface Evidence {
     mutantFails: boolean;
     cleanRerun: boolean;
     logs: unknown[];
+    runs?: {
+      attempt: number;
+      original: { durationMs: number; exitCode: number | null };
+      mutant: { durationMs: number; exitCode: number | null };
+      assertionKilled: boolean;
+    }[];
   };
   metrics: Record<string, number | null>;
   lessons: unknown[];

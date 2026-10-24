@@ -29,8 +29,10 @@ describe('project-restricted GitLab adapter', () => {
     expect(await api.readArtifact(13)).toEqual({ runId: 'run-1' });
     expect(fake.mock.calls[0]?.[0]).toBe('https://gitlab.example/api/v4/projects/7/jobs/13/artifacts/evidence/latest.json');
     expect((fake.mock.calls[0]?.[1] as RequestInit)?.redirect).toBe('error');
+    expect(await api.readArtifact(13, 'evidence/assisted-receipt.json')).toEqual({ runId: 'run-1' });
+    expect(fake.mock.calls[1]?.[0]).toBe('https://gitlab.example/api/v4/projects/7/jobs/13/artifacts/evidence/assisted-receipt.json');
     await expect(api.readArtifact(13, '../../secrets')).rejects.toThrow('allowlisted');
-    expect(fake).toHaveBeenCalledTimes(1);
+    expect(fake).toHaveBeenCalledTimes(2);
   });
   it('rejects cross-project and fork MRs', async () => {
     const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7,
@@ -42,10 +44,29 @@ describe('project-restricted GitLab adapter', () => {
       fetch: vi.fn(async () => new Response('secret=do-not-leak', { status: 403 })) });
     await expect(api.currentMergeRequest(2)).rejects.toThrow('GitLab request failed (403)');
   });
+  it('enforces evidence size while streaming when content length is omitted', async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(10_000_001)); },
+      cancel() { cancelled = true; },
+    });
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7,
+      fetch: vi.fn(async () => new Response(body)) });
+    await expect(api.capabilityCheck()).rejects.toThrow('evidence budget');
+    expect(cancelled).toBe(true);
+  });
   it('reports an omitted project merge setting as unknown, not disabled', async () => {
     const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7,
       fetch: vi.fn(async () => json({ id: 7, web_url: 'https://gitlab.example/team/shop' })) });
     expect((await api.capabilityCheck()).requiredSuccessfulPipeline).toBeNull();
+  });
+  it('supports documented Duo OAuth bearer authentication without exposing it in URLs', async () => {
+    const fake = vi.fn(async (_input: string | URL | Request, _options?: RequestInit) => json({ id: 7, web_url: 'https://gitlab.example/team/shop' }));
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, token: 'fixture-oauth-token', tokenType: 'bearer', fetch: fake });
+    await api.capabilityCheck();
+    expect(fake.mock.calls[0]?.[0]).toBe('https://gitlab.example/api/v4/projects/7');
+    expect(fake.mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: 'Bearer fixture-oauth-token' });
+    expect(fake.mock.calls[0]?.[1]?.headers).not.toHaveProperty('PRIVATE-TOKEN');
   });
   it('limits inline comments to three and falls back when diff coordinates cannot be mapped', async () => {
     const writes: Record<string, unknown>[] = [];
@@ -100,18 +121,59 @@ describe('project-restricted GitLab adapter', () => {
   it('reads actor identity from the actual GitLab note and rejects bot or system notes', async () => {
     const note = { id: 10, author: { id: 11, username: 'reviewer', bot: false }, body: '@flow apply proposal hash',
       created_at: '2026-10-23T12:00:00Z', updated_at: '2026-10-23T12:00:00Z', system: false };
-    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: vi.fn(async () => json(note)) });
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: vi.fn(async (input: string | URL | Request) => json(String(input).endsWith('/users/11') ? { id: 11, bot: false, state: 'active', locked: false } : note)) });
     expect((await api.readMergeRequestNote(2, 10)).author.id).toBe(11);
     note.author.bot = true;
     await expect(api.readMergeRequestNote(2, 10)).rejects.toThrow('human approval');
     note.author.bot = false; note.system = true;
     await expect(api.readMergeRequestNote(2, 10)).rejects.toThrow('human approval');
   });
+  it('never treats an omitted note bot flag as proof of a human author', async () => {
+    const note = { id: 10, author: { id: 11, username: 'unknown-kind' }, body: '@flow apply proposal hash',
+      created_at: '2026-10-23T12:00:00Z', updated_at: '2026-10-23T12:00:00Z', system: false };
+    const fake = vi.fn(async (input: string | URL | Request) => json(String(input).endsWith('/users/11')
+      ? { id: 11, state: 'active', locked: false } : note));
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: fake });
+    await expect(api.readMergeRequestNote(2, 10)).rejects.toThrow('human account');
+    expect(fake.mock.calls[1]?.[0]).toBe('https://gitlab.example/api/v4/users/11');
+  });
   it('refuses branch-pipeline creation if the recorded repair branch advanced', async () => {
     const fake = vi.fn(async () => json({ commit: { id: 'b'.repeat(40) } }));
     const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: fake });
     await expect(api.ensureBranchPipeline('mutant-review/repair', head)).rejects.toThrow('head changed');
     expect(fake).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('bounded flow evidence discovery', () => {
+  it('selects only a completed mutation job at the unique current MR checkout revision', async () => {
+    const fake = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/merge_requests?')) return json([{ iid: 2, sha: head, state: 'opened' }, { iid: 3, sha: 'b'.repeat(40), state: 'opened' }]);
+      if (url.endsWith('/merge_requests/2')) return json(mr);
+      if (url.endsWith('/pipelines?per_page=5')) return json([{ id: 90, sha: 'b'.repeat(40) }, { id: 89, sha: head }]);
+      return json([{ id: 13, name: 'mutation:review', status: 'success' }]);
+    });
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: fake });
+    expect(await api.findEvidenceJobForHead(head)).toEqual({ mrIid: 2, jobId: 13 });
+    expect(fake.mock.calls.some(([input]) => String(input).includes('/pipelines/90/jobs'))).toBe(false);
+  });
+  it('rejects ambiguous MRs rather than guessing from the goal text', async () => {
+    const fake = vi.fn(async () => json([{ iid: 2, sha: head, state: 'opened' }, { iid: 3, sha: head, state: 'opened' }]));
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: fake });
+    await expect(api.findEvidenceJobForHead(head)).rejects.toThrow('unique open MR');
+    expect(fake).toHaveBeenCalledTimes(1);
+  });
+  it('cannot hydrate from a manual or failed mutation job', async () => {
+    const fake = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/merge_requests?')) return json([{ iid: 2, sha: head, state: 'opened' }]);
+      if (url.endsWith('/merge_requests/2')) return json(mr);
+      if (url.endsWith('/pipelines?per_page=5')) return json([{ id: 89, sha: head }]);
+      return json([{ id: 13, name: 'mutation:review', status: 'manual' }, { id: 12, name: 'mutation:review', status: 'failed' }]);
+    });
+    const api = new GitLabAdapter({ baseUrl: 'https://gitlab.example', projectId: 7, fetch: fake });
+    await expect(api.findEvidenceJobForHead(head)).rejects.toThrow('No completed mutation');
   });
 });
 

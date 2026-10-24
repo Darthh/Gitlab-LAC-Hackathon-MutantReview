@@ -3014,3 +3014,222 @@ td code {
     font-size: 13px;
   }
 }
+.assisted-record {
+  margin-bottom: 24px;
+}
+.assisted-description {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #887397;
+  margin-bottom: 20px;
+  max-width: 90ch;
+}
+.receipt-chain {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: #f5faf6;
+  border: 1px solid #dcebdd;
+  padding: 16px;
+  border-radius: 6px;
+}
+.receipt-chain span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: #5b9470;
+}
+.receipt-patch-details {
+  margin: 20px 0;
+  color: #8b74a4;
+  font-size: 11px;
+}
+.receipt-patch-details summary {
+  cursor: pointer;
+}
+.receipt-patch-details pre {
+  padding: 15px;
+  background: #f7f3fc;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.9;
+}
+.receipt-warning {
+  background: #fff9ed;
+  border-color: #ecdbb5;
+  color: #a88d5a;
+}
+.evidence-details a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a6ab6;
+}
+.assisted-record h3 {
+  font-size: 14px;
+  color: #806493;
+}
+.assisted-record .receipt-body > .small {
+  font-size: 10px;
+  line-height: 1.8;
+}
+@media (max-width: 700px) {
+  .receipt-chain {
+    grid-template-columns: 1fr 1fr;
+  }
+  .assisted-description {
+    font-size: 10px;
+  }
+  .receipt-chain span {
+    font-size: 9px;
+  }
+}
+/* Text contrast is independent of the softer decorative icon and border palette. */
+.brand-subtitle,
+.workspace-select small,
+.profile small,
+.nav-caption,
+.nav-zero,
+.crumb-workspace,
+.search-trigger kbd {
+  color: #766d82;
+}
+.workspace-avatar {
+  color: #6953a8;
+}
+.nav-item {
+  color: #70677d;
+}
+.nav-item.active {
+  color: #654bb3;
+}
+.nav-count {
+  color: #6449ad;
+}
+.profile-avatar {
+  color: #74608e;
+}
+.page-heading p,
+.page-kicker,
+.revision-bar,
+.revision-bar b,
+.metric-label,
+.metric p,
+.file-location,
+.finding-body > p,
+.finding-note,
+.advisory-label,
+.boundary-label,
+.boundary-result,
+.test-panel-footer,
+.page-footer,
+.workflow-step small,
+.gate-card p,
+.gate-footnote,
+.trust-strip div > span,
+.muted {
+  color: #74667e;
+}
+.page-kicker > span:not(.project-square) {
+  color: #8a7d97;
+}
+.metric-subtitle,
+.metric.neutral .metric-subtitle {
+  color: #7b658e;
+}
+.metric.green .metric-subtitle,
+.boundary-status {
+  color: #3c7d59;
+}
+.metric.amber .metric-subtitle {
+  color: #946d28;
+}
+.insight-copy p,
+.insight-banner > .text-button {
+  color: #8b6a31;
+}
+.badge,
+.badge.neutral {
+  color: #786a88;
+}
+.badge.purple {
+  color: #7353ae;
+}
+.badge.green {
+  color: #33754e;
+}
+.badge.amber,
+.workflow-step.current .badge {
+  color: #8b641d;
+}
+.badge.red {
+  color: #a15149;
+}
+.line-tag {
+  color: #847094;
+}
+.line-number {
+  color: #9d95b1;
+}
+.workflow-step.pending b,
+.workflow-step.pending small,
+.workflow-footer > span,
+.gate-card h3 {
+  color: #7e6a92;
+}
+.workflow-step.current b,
+.boundary.missing .boundary-label,
+.boundary.missing .boundary-result,
+.boundary.missing .boundary-status {
+  color: #8f6b30;
+}
+.boundary.missing strong {
+  color: #98722f;
+}
+.step-node {
+  color: #8b749f;
+}
+.trust-strip b {
+  color: #78628e;
+}
+.text-button,
+.panel-actions .text-button,
+.trust-strip .text-button {
+  color: #7050a5;
+}
+.panel-actions > span {
+  color: #80678e;
+}
+.agent-status p,
+.agent-status > .small {
+  color: #806b94;
+}
+.boundary strong {
+  color: #775a8b;
+}
+.connection-details dt,
+.connection-details dd,
+.modal-body,
+.modal-body > p,
+.modal-body .small,
+.evidence-details dt,
+.evidence-details dd,
+.empty-state p,
+.lesson-intro p,
+.lesson-candidate p,
+.ledger-row p,
+.proof-card p,
+.table-caption {
+  color: #7c668e;
+}
+.ledger-row > .small,
+.policy-section .small {
+  color: #816b93;
+}
+.receipt-chain span {
+  color: #3e7d57;
+}
+.receipt-warning p {
+  color: #886728;
+}

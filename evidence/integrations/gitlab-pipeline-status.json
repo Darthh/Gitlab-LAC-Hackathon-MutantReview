@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T04:05:24.064Z",
+  "source": "GitLab public REST API",
+  "projectId": 88030103,
+  "pipeline": {
+    "id": 2983816811,
+    "sha": "12fb58c38cad1533c21563b0b85aa04ece7abcdb",
+    "ref": "main",
+    "status": "failed",
+    "url": "https://gitlab.com/Darthh2/mutant-review/-/pipelines/2983816811",
+    "startedAt": null,
+    "yamlErrors": null
+  },
+  "jobs": [],
+  "evidenceBoundary": "Pipeline failed before any job started. Signed-in project UI identified Phone Number Verification as the execution blocker. No GitLab test, build, mutation, artifact, or gate execution is established.",
+  "signedInUiBlocker": "Phone Number Verification"
+}
