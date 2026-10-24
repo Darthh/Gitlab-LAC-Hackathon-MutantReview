@@ -78,6 +78,13 @@ function trustedProjectLink(value: string): string | null {
 let metadata: { projectUrl: string | null; expiresAt: number } | null = null;
 let metadataRequest: Promise<string | null> | null = null;
 async function projectLink(): Promise<string | null> {
+  // A local proof has no remote artifact to validate; its known project link needs no network roundtrip.
+  if (
+    !remoteJob &&
+    adapter?.projectId === 88030103 &&
+    upstreamOrigin === "https://gitlab.com"
+  )
+    return publicProject;
   if (metadata && metadata.expiresAt > Date.now()) return metadata.projectUrl;
   if (metadataRequest) return metadataRequest;
   metadataRequest = (async () => {
@@ -226,15 +233,13 @@ app.get(
       const safe =
         message.startsWith("Assisted receipt rejected: ") ||
         message === "Assisted receipt format is unsupported or malformed.";
-      res
-        .status(missing ? 404 : 502)
-        .json({
-          error: missing
-            ? "No approved repair receipt has been exported yet."
-            : safe
-              ? message
-              : "The approved repair receipt could not be validated or read. Check server artifact access and receipt configuration.",
-        });
+      res.status(missing ? 404 : 502).json({
+        error: missing
+          ? "No approved repair receipt has been exported yet."
+          : safe
+            ? message
+            : "The approved repair receipt could not be validated or read. Check server artifact access and receipt configuration.",
+      });
     }
   },
 );
