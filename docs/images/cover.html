@@ -8,7 +8,6 @@
   :root { --purple: #7060d6; --purple-dark: #4f41b3; --ink: #1d1b2c; --muted: #6e6f80; --border: #e4e2ef; --green: #2f7d62; --amber: #a3701c; --bg: #f6f5fb; }
   * { box-sizing: border-box; margin: 0; }
   body { width: 1280px; height: 720px; background: var(--bg); font-family: "DM Sans", sans-serif; color: var(--ink); overflow: hidden; position: relative; }
-  .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 40px 40px; opacity: .45; mask-image: linear-gradient(90deg, transparent 0%, #000 55%, #000 100%); }
   .wrap { position: relative; display: grid; grid-template-columns: 1fr 520px; gap: 56px; padding: 0 72px; height: 600px; align-items: center; }
   .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 22px; letter-spacing: -.01em; }
   .mark { width: 44px; height: 44px; border-radius: 12px; background: var(--purple); color: #fff; display: grid; place-items: center; }
@@ -38,7 +37,6 @@
 </style>
 </head>
 <body>
-<div class="grid"></div>
 <div class="wrap">
   <div>
     <div class="brand"><span class="mark"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M9 6c20 10-6 10 14 20M23 6C3 16 29 16 9 26M10 10h12M12 16h8M10 22h12" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/></svg></span>Mutant Review</div>
