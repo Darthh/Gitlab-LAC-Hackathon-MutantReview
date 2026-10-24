@@ -42,6 +42,15 @@ import type { Configuration, Evidence, Finding, Mutant } from "./evidence";
 import AssistedReceiptPanel from "./AssistedReceiptPanel";
 
 type Page = "overview" | "findings" | "verification" | "lessons" | "ledger";
+type ConnectionConfiguration = Configuration & {
+  evidenceJobUrl: string | null;
+  evidenceDelivery: {
+    mode: "local" | "artifact-api" | "signed-cache";
+    verifiedAt: string | null;
+    currentHeadCheckedAt: string | null;
+    currentHeadSha: string | null;
+  };
+};
 const navigation: { key: Page; label: string; icon: typeof Activity }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "findings", label: "Findings", icon: FlaskConical },
@@ -54,6 +63,27 @@ const formatTime = (ms: number | null) =>
 const percent = (n: number | null | undefined) =>
   n == null ? "—" : `${Number(n.toFixed(1))}%`;
 const trimSha = (s: string | undefined) => s?.slice(0, 8) || "Unavailable";
+const displayTime = (value: string | null | undefined) =>
+  value
+    ? `${new Date(value).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "America/Los_Angeles",
+      })} PT`
+    : "Unavailable";
+function projectIdentity(value: string | null | undefined) {
+  try {
+    const parts = new URL(value || "").pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    return {
+      namespace: parts.slice(0, -1).join("/") || "GitLab workspace",
+      name: parts.at(-1) || "GitLab project",
+    };
+  } catch {
+    return { namespace: "GitLab workspace", name: "GitLab project" };
+  }
+}
 function Logo({ large = false }: { large?: boolean }) {
   return (
     <span className={`brand-mark ${large ? "large" : ""}`} aria-hidden="true">
@@ -107,7 +137,7 @@ function Empty({
 export default function App() {
   const [page, setPage] = useState<Page>("overview");
   const [evidence, setEvidence] = useState<Evidence | null>(null);
-  const [config, setConfig] = useState<Configuration | null>(null);
+  const [config, setConfig] = useState<ConnectionConfiguration | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState<
@@ -193,6 +223,9 @@ export default function App() {
   const isMeasured = evidence?.mutation.status === "complete";
   const currentLabel = navigation.find((n) => n.key === page)!.label;
   const elapsed = evidence?.metrics.totalDurationMs ?? null;
+  const signedDelivery = config?.evidenceDelivery?.mode === "signed-cache";
+  const connectedProject = config?.connected && evidence?.source === "gitlab";
+  const identity = projectIdentity(projectLink);
 
   const gitlabLink = (
     label = "Open in GitLab",
@@ -446,7 +479,8 @@ export default function App() {
             m<span>r</span>
           </span>
           <span>
-            Demo workspace<small>Personal project</small>
+            {connectedProject ? identity.namespace : "Demo workspace"}
+            <small>{connectedProject ? identity.name : "Local demonstration"}</small>
           </span>
           <ChevronDown size={14} />
         </button>
@@ -515,7 +549,8 @@ export default function App() {
           <div className="profile">
             <span className="profile-avatar">D</span>
             <span>
-              Demo project<small>Read-only evidence console</small>
+              {connectedProject ? identity.name : "Demo project"}
+              <small>Read-only evidence console</small>
             </span>
             <ShieldCheck size={16} />
           </div>
@@ -537,7 +572,7 @@ export default function App() {
             <ChevronRight size={12} />
             <span className="crumb-project">
               <span className="project-dot" />
-              checkout-demo
+              {connectedProject ? identity.name : "checkout-demo"}
             </span>
             <ChevronRight size={12} />
             <b>{currentLabel}</b>
@@ -556,7 +591,9 @@ export default function App() {
             <span className="topbar-divider" />
             <Badge tone="purple" dot>
               {evidence?.source === "gitlab"
-                ? "GitLab evidence"
+                ? signedDelivery
+                  ? "Signed GitLab snapshot"
+                  : "GitLab evidence"
                 : "Local execution"}
             </Badge>
           </div>
@@ -636,15 +673,29 @@ export default function App() {
                     <code>{trimSha(evidence.provenance.headSha)}</code>
                   </span>
                   <span>
-                    <Clock3 size={13} />
-                    {new Date(evidence.createdAt).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      timeZone: "America/Los_Angeles",
-                    })}{" "}
-                    PT
+                    {evidence.source === "gitlab" && config?.evidenceJobUrl ? (
+                      <a
+                        className="text-button"
+                        href={config.evidenceJobUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        CI job #{evidence.provenance.jobId}
+                        <ExternalLink size={12} />
+                      </a>
+                    ) : (
+                      <>
+                        <Clock3 size={13} />
+                        {new Date(evidence.createdAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          timeZone: "America/Los_Angeles",
+                        })}{" "}
+                        PT
+                      </>
+                    )}
                   </span>
                   <span className="revision-scope">
                     {evidence.scope.files.length} source file
@@ -657,6 +708,14 @@ export default function App() {
                       : "Partial scope"}
                   </Badge>
                 </div>
+                {signedDelivery && (
+                  <p className="small muted" role="status">
+                    Delivery: signed GitLab artifact snapshot. Authenticated capture{" "}
+                    {displayTime(config?.evidenceDelivery?.verifiedAt)}. Current MR head{" "}
+                    <code>{trimSha(config?.evidenceDelivery?.currentHeadSha || undefined)}</code>{" "}
+                    checked {displayTime(config?.evidenceDelivery?.currentHeadCheckedAt)}.
+                  </p>
+                )}
                 {page === "overview" && (
                   <>
                     <section className="insight-banner">
@@ -1344,7 +1403,9 @@ export default function App() {
               <div className="modal-body">
                 <Badge tone="purple">
                   {config?.connected
-                    ? "GitLab artifact adapter configured"
+                    ? signedDelivery
+                      ? "Signed GitLab cache configured"
+                      : "GitLab artifact adapter configured"
                     : "Local execution mode"}
                 </Badge>
                 <p>
@@ -1356,6 +1417,28 @@ export default function App() {
                     <dt>Evidence source</dt>
                     <dd>{config?.evidenceSource || "local"}</dd>
                   </div>
+                  <div>
+                    <dt>Artifact delivery</dt>
+                    <dd>
+                      {signedDelivery
+                        ? "Signed cache · maximum age 24 hours"
+                        : config?.evidenceDelivery?.mode === "artifact-api"
+                          ? "GitLab artifact API"
+                          : "Local execution files"}
+                    </dd>
+                  </div>
+                  {signedDelivery && (
+                    <>
+                      <div>
+                        <dt>Authenticated capture</dt>
+                        <dd>{displayTime(config?.evidenceDelivery?.verifiedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt>Current MR head checked</dt>
+                        <dd>{displayTime(config?.evidenceDelivery?.currentHeadCheckedAt)}</dd>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <dt>GitLab artifact access</dt>
                     <dd>
@@ -1374,7 +1457,7 @@ export default function App() {
                 <a
                   className="button primary"
                   href={
-                    projectLink || "https://gitlab.com/Darthh2/mutant-review"
+                    projectLink || "https://gitlab.com/mutant-review1/mutant-review"
                   }
                   target="_blank"
                   rel="noreferrer"

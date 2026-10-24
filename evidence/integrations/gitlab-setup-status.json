@@ -1,105 +1,123 @@
 {
-  "schemaVersion": 1,
-  "checkedAt": "2026-10-24T18:15:29.303Z",
-  "source": "Authenticated project API, signed-in owner UI, metadata-only GraphQL, and official GitLab policy source",
-  "project": {
-    "id": 88030103,
-    "url": "https://gitlab.com/Darthh2/mutant-review",
-    "namespace": "Darthh2",
-    "namespaceKind": "user",
-    "transferExecuted": false,
-    "currentMergeRequestHeadSha": "a287ca71fdfdb451e44b63302ab543f865b74aff"
-  },
-  "trialGroup": {
-    "id": 145666501,
-    "url": "https://gitlab.com/mutant-review1",
-    "visibility": "public",
-    "plan": "Ultimate trial",
-    "status": "active",
-    "expiresOnAsDisplayed": "2026-11-23"
-  },
-  "ci": {
-    "pipelineId": 2984952053,
-    "headSha": "c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91",
-    "baselineJobId": 17440247401,
-    "mutationJobId": 17440247402,
-    "gateJobId": 17440247403,
-    "baselineStatus": "success",
-    "mutationStatus": "success",
-    "gateStatus": "failed",
-    "scope": {
-      "path": "packages/demo-domain/src/shipping.ts",
-      "startLine": 4,
-      "endLine": 5,
-      "changedLines": 2,
-      "complete": true
-    },
-    "branchCoverage": 100,
-    "mutationScore": 75,
-    "killed": 3,
-    "survived": 1,
-    "timedOut": 0,
-    "invalid": 0,
-    "noCoverage": 0,
-    "pending": 0,
-    "operatorActorId": 43702566,
-    "operatorActorIsBot": true,
-    "requiredSuccessfulPipeline": true,
-    "mergeRequestDetailedStatus": "ci_must_pass"
-  },
-  "duo": {
-    "customFlowEnabled": false,
-    "executed": false,
-    "serviceAccountHandle": null,
-    "blocker": "Current project remains in a personal namespace; current GitLab StageCheck rejects personal namespaces for AI Catalog availability.",
-    "policySource": "https://gitlab.com/gitlab-org/gitlab/-/blob/master/ee/lib/gitlab/llm/stage_check.rb"
-  },
-  "transferReview": {
-    "approval": "pending",
-    "targetGroupId": 145666501,
-    "uiWarning": "Project transfer permanently deletes any GitLab Secrets Manager secrets.",
-    "secretsManagerProvisioning": "unknown",
-    "secretCount": null,
-    "developerMetadataQuery": "permission-or-resource error",
-    "ownerMetadataQuery": "permission-or-resource error",
-    "requestedSecretNames": false,
-    "requestedSecretValues": false,
-    "interpretation": "Null count is not evidence of zero secrets."
-  },
-  "consoleReadCredential": {
-    "intendedRole": "Reporter",
-    "intendedScope": "read_api",
-    "intendedExpiry": "2026-10-25T00:00:00Z",
-    "approval": "pending",
-    "issued": false,
-    "writeCredentialInConsole": false,
-    "blocker": "Anonymous report access does not authorize the job metadata read used for provenance checks."
-  },
-  "localExample": {
-    "source": "Original ternary shipping fixture",
-    "mutants": 5,
-    "killed": 4,
-    "survived": 1,
-    "mutationScore": 80,
-    "evidenceBoundary": "Separate source and scope from the CI MR; no controlled performance comparison is claimed."
-  },
-  "assistedStages": {
-    "humanPatchApproval": false,
-    "repairCommitted": false,
-    "separateVerificationApproval": false,
-    "approvedLessonSaved": false,
-    "laterLessonApplicationDemonstrated": false,
-    "merged": false,
-    "deployed": false
-  },
-  "evidenceBoundary": "CI execution and trial activation are verified. Transfer and read-token approval remain pending. No credential values or secret names/values are included.",
-  "sourceSync": {
-    "commitSha": "a287ca71fdfdb451e44b63302ab543f865b74aff",
-    "method": "normal merge of main6d34bb9 into demo source branch",
-    "domainFilesChanged": false,
-    "domainTestsPassedLocally": 4,
-    "mergeRequestMerged": false,
-    "earlierMutationArtifactIsCurrent": false,
-    "freshMutationReview": "awaiting explicit authorization after source scope confirmation"
-  }
+    "schemaVersion":  1,
+    "checkedAt":  "2026-10-24T18:37:15.644Z",
+    "source":  "Authenticated project API, signed-in owner UI, metadata-only GraphQL, and official GitLab policy source",
+    "project":  {
+                    "id":  88030103,
+                    "url":  "https://gitlab.com/mutant-review1/mutant-review",
+                    "namespace":  "mutant-review1",
+                    "namespaceKind":  "group",
+                    "transferExecuted":  true,
+                    "currentMergeRequestHeadSha":  "a287ca71fdfdb451e44b63302ab543f865b74aff"
+                },
+    "trialGroup":  {
+                       "id":  145666501,
+                       "url":  "https://gitlab.com/mutant-review1",
+                       "visibility":  "public",
+                       "plan":  "Ultimate trial",
+                       "status":  "active",
+                       "expiresOnAsDisplayed":  "2026-11-23"
+                   },
+    "ci":  {
+               "pipelineId":  2984978409,
+               "headSha":  "a287ca71fdfdb451e44b63302ab543f865b74aff",
+               "baselineJobId":  17440386475,
+               "mutationJobId":  17440386476,
+               "gateJobId":  17440386477,
+               "baselineStatus":  "success",
+               "mutationStatus":  "success",
+               "gateStatus":  "failed",
+               "scope":  {
+                             "path":  "packages/demo-domain/src/shipping.ts",
+                             "startLine":  4,
+                             "endLine":  5,
+                             "changedLines":  2,
+                             "complete":  true
+                         },
+               "branchCoverage":  100,
+               "mutationScore":  75,
+               "killed":  3,
+               "survived":  1,
+               "timedOut":  0,
+               "invalid":  0,
+               "noCoverage":  0,
+               "pending":  0,
+               "operatorActorId":  43702566,
+               "operatorActorIsBot":  true,
+               "requiredSuccessfulPipeline":  true,
+               "mergeRequestDetailedStatus":  "ci_must_pass"
+           },
+    "duo":  {
+                "customFlowEnabled":  false,
+                "executed":  false,
+                "serviceAccountHandle":  null,
+                "blocker":  "Mention-only enablement awaits action-time confirmation for GitLab Developer service account.",
+                "policySource":  "https://gitlab.com/gitlab-org/gitlab/-/blob/master/ee/lib/gitlab/llm/stage_check.rb",
+                "flowDefinitionSaved":  true,
+                "flowDefinitionUrl":  "https://gitlab.com/explore/ai-catalog/flows/1019555",
+                "acceptedVersion":  "1.0.0",
+                "tenantSchemaLimit":  "max_cycles rejected; omitted from imported definition; no eight-cycle enforcement claimed."
+            },
+    "transferReview":  {
+                           "approval":  "explicitly-approved",
+                           "targetGroupId":  145666501,
+                           "uiWarning":  "Project transfer permanently deletes any GitLab Secrets Manager secrets.",
+                           "secretsManagerProvisioning":  "unknown",
+                           "secretCount":  null,
+                           "developerMetadataQuery":  "permission-or-resource error",
+                           "ownerMetadataQuery":  "permission-or-resource error",
+                           "requestedSecretNames":  false,
+                           "requestedSecretValues":  false,
+                           "interpretation":  "Null count is not evidence of zero secrets.",
+                           "executed":  true
+                       },
+    "consoleReadCredential":  {
+                                  "intendedRole":  "Reporter",
+                                  "intendedScope":  "read_api",
+                                  "intendedExpiry":  "2026-10-25T00:00:00Z",
+                                  "approval":  "explicitly-approved",
+                                  "earlierTokenRevoked":  true,
+                                  "active":  false,
+                                  "replacementIssued":  false,
+                                  "writeCredentialInConsole":  false,
+                                  "blocker":  "Access token limit reached when restoring second project token; only one active project token allowed on this trial.",
+                                  "deliveryPlan":  "Trusted operator authenticated artifact export, signed Ed25519 cache, public-key-only Front Desk with current public MR head recheck.",
+                                  "deliveryVerified":  true,
+                                  "deliveryEvidence":  "evidence/integrations/gitlab-console-delivery.json"
+                              },
+    "localExample":  {
+                         "source":  "Original ternary shipping fixture",
+                         "mutants":  5,
+                         "killed":  4,
+                         "survived":  1,
+                         "mutationScore":  80,
+                         "evidenceBoundary":  "Separate source and scope from the CI MR; no controlled performance comparison is claimed."
+                     },
+    "assistedStages":  {
+                           "humanPatchApproval":  false,
+                           "repairCommitted":  false,
+                           "separateVerificationApproval":  false,
+                           "approvedLessonSaved":  false,
+                           "laterLessonApplicationDemonstrated":  false,
+                           "merged":  false,
+                           "deployed":  false
+                       },
+    "evidenceBoundary":  "Actual CI, trial activation, project transfer and saved tenant-accepted flow definition. Enablement and Duo execution remain pending. No credentials or secret names/values included.",
+    "sourceSync":  {
+                       "commitSha":  "a287ca71fdfdb451e44b63302ab543f865b74aff",
+                       "method":  "normal merge of main6d34bb9 into demo source branch",
+                       "domainFilesChanged":  false,
+                       "domainTestsPassedLocally":  4,
+                       "mergeRequestMerged":  false,
+                       "earlierMutationArtifactIsCurrent":  false,
+                       "freshMutationReview":  "completed at a287ca71 in pipeline 2984978409; 75%, gate failed"
+                   },
+    "operatorCredential":  {
+                               "role":  "Developer",
+                               "scope":  "api",
+                               "expiry":  "2026-10-25T00:00:00Z",
+                               "equivalentReplacement":  true,
+                               "projectReadVerified":  true,
+                               "inFrontDesk":  false
+                           }
 }

@@ -7,6 +7,7 @@ import { GitLabAdapter } from "../../../packages/gitlab-adapter/src/index.js";
 import { shippingFee } from "../../../packages/demo-domain/src/shipping.js";
 import { gitlabOrigin, validateEvidence } from "./evidence-validation.js";
 import { validateAssistedReceipt } from "./assisted-receipt-validation.js";
+import { loadSignedEvidence } from "./signed-evidence.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = express();
@@ -29,7 +30,11 @@ try {
 
 const remoteJob = process.env.GITLAB_EVIDENCE_JOB_ID?.trim();
 const mrSetting = process.env.GITLAB_MR_IID?.trim();
-const publicProject = "https://gitlab.com/Darthh2/mutant-review";
+const evidenceCacheFile = process.env.GITLAB_EVIDENCE_CACHE_FILE?.trim();
+const evidencePublicKeyFile = process.env.GITLAB_EVIDENCE_PUBLIC_KEY_FILE?.trim();
+const signedCacheMode = !!(evidenceCacheFile || evidencePublicKeyFile);
+const gitlabMode = !!(remoteJob || signedCacheMode);
+const publicProject = "https://gitlab.com/mutant-review1/mutant-review";
 const configuredHandle = process.env.GITLAB_FLOW_HANDLE?.trim();
 const flowHandle =
   configuredHandle && /^@[a-zA-Z0-9_.-]+$/.test(configuredHandle)
@@ -52,10 +57,12 @@ try {
   );
   if (remoteJob) jobId = positiveSetting(remoteJob);
   if (mrSetting) mrIid = positiveSetting(mrSetting);
+  if (signedCacheMode && (!evidenceCacheFile || !evidencePublicKeyFile || !jobId || !mrIid))
+    throw new Error("Signed cache requires a public key and configured project, MR, and job");
   adapter = new GitLabAdapter({
     baseUrl: upstreamOrigin,
     projectId,
-    token: process.env.GITLAB_READ_TOKEN,
+    token: signedCacheMode ? undefined : process.env.GITLAB_READ_TOKEN,
   });
 } catch {
   configurationError = true;
@@ -80,7 +87,7 @@ let metadataRequest: Promise<string | null> | null = null;
 async function projectLink(): Promise<string | null> {
   // A local proof has no remote artifact to validate; its known project link needs no network roundtrip.
   if (
-    !remoteJob &&
+    !gitlabMode &&
     adapter?.projectId === 88030103 &&
     upstreamOrigin === "https://gitlab.com"
   )
@@ -116,21 +123,55 @@ async function projectLink(): Promise<string | null> {
 app.get("/api/config", async (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const projectUrl = await projectLink();
+  let evidenceJobUrl: string | null = null;
+  let evidenceDelivery: {
+    mode: "signed-cache" | "artifact-api" | "local";
+    verifiedAt: string | null;
+    currentHeadCheckedAt: string | null;
+    currentHeadSha: string | null;
+  } = {
+    mode: signedCacheMode ? "signed-cache" : remoteJob ? "artifact-api" : "local",
+    verifiedAt: null,
+    currentHeadCheckedAt: null,
+    currentHeadSha: null,
+  };
+  if (gitlabMode && projectUrl) {
+    try {
+      const state = await loadEvidenceState();
+      evidenceJobUrl = `${projectUrl}/-/jobs/${state.evidence.provenance.jobId}`;
+      evidenceDelivery = state.delivery;
+    } catch {
+      /* A configured job is not a validated execution source. */
+    }
+  }
   res.json({
     projectUrl,
+    evidenceJobUrl,
+    evidenceDelivery,
     mrUrl:
       projectUrl && mrIid ? `${projectUrl}/-/merge_requests/${mrIid}` : null,
     flowHandle,
     revision,
-    evidenceSource: remoteJob ? "gitlab" : "local",
-    connected: !!(remoteJob && adapter && !configurationError),
+    evidenceSource: gitlabMode ? "gitlab" : "local",
+    connected: !!(gitlabMode && adapter && !configurationError),
     configurationError: configurationError
-      ? "Check numeric GitLab project, MR, job, and HTTPS origin settings on the server."
+      ? "Check GitLab project, MR, job, HTTPS origin, and paired signed-cache settings on the server."
       : null,
   });
 });
 
-async function loadEvidence() {
+async function loadEvidenceState() {
+  if (signedCacheMode) {
+    if (configurationError || !adapter || !evidenceCacheFile || !evidencePublicKeyFile || !jobId || !mrIid)
+      throw new Error("Invalid GitLab evidence configuration. Check the server settings.");
+    return loadSignedEvidence({
+      cacheFile: evidenceCacheFile,
+      publicKeyFile: evidencePublicKeyFile,
+      projectId: adapter.projectId,
+      mrIid,
+      jobId,
+    }, adapter);
+  }
   if (remoteJob) {
     if (configurationError || !adapter || !jobId)
       throw new Error(
@@ -150,7 +191,11 @@ async function loadEvidence() {
     const current = await adapter.currentMergeRequest(
       evidence.provenance.mrIid!,
     );
-    return validateEvidence(evidence, { ...expected, headSha: current.sha });
+    const checkedAt = new Date().toISOString();
+    return {
+      evidence: validateEvidence(evidence, { ...expected, headSha: current.sha }),
+      delivery: { mode: "artifact-api" as const, verifiedAt: checkedAt, currentHeadCheckedAt: checkedAt, currentHeadSha: current.sha },
+    };
   }
   const filename = resolve(root, "evidence/latest.json");
   if ((await stat(filename)).size > 5_000_000)
@@ -158,7 +203,14 @@ async function loadEvidence() {
   const raw = await readFile(filename, "utf8");
   if (Buffer.byteLength(raw, "utf8") > 5_000_000)
     throw new Error("Evidence exceeds the 5 MB limit.");
-  return validateEvidence(JSON.parse(raw), { source: "local" });
+  return {
+    evidence: validateEvidence(JSON.parse(raw), { source: "local" }),
+    delivery: { mode: "local" as const, verifiedAt: null, currentHeadCheckedAt: null, currentHeadSha: null },
+  };
+}
+
+async function loadEvidence() {
+  return (await loadEvidenceState()).evidence;
 }
 
 function publicEvidenceError(error: unknown): string {
@@ -168,6 +220,7 @@ function publicEvidenceError(error: unknown): string {
     message ===
       "Evidence format is unsupported or malformed. Regenerate the run." ||
     message === "Evidence exceeds the 5 MB limit." ||
+    message === "Signed evidence cache could not be verified, has expired, or does not match the current MR head. Refresh the authenticated artifact capture." ||
     message ===
       "Invalid GitLab evidence configuration. Check the server settings."
   )
@@ -186,7 +239,7 @@ app.get(["/api/evidence", "/api/evidence/download"], async (req, res) => {
       );
     res.json(data);
   } catch (error) {
-    const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
+    const missing = !gitlabMode && (error as NodeJS.ErrnoException).code === "ENOENT";
     res.status(missing ? 404 : 502).json({
       error: missing
         ? "No execution evidence yet. Run npm run demo in the project, then refresh."
@@ -200,6 +253,10 @@ app.get(
   async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     try {
+      if (signedCacheMode) {
+        res.status(404).json({ error: "The signed review snapshot contains no approved repair receipt." });
+        return;
+      }
       if (configurationError || !adapter)
         throw new Error("Invalid GitLab receipt configuration");
       let input: unknown;

@@ -38,7 +38,9 @@ The shipping contract grants free shipping for orders of **at least $100**. Orig
 
 The local proof is executed, reproducible evidence. It is **not** an approved repair, a committed test change, a completed Duo session, an approved lesson, or demonstrated later reuse. The interface labels these stages separately and remains read-only.
 
-The public GitLab project is [Darthh2/mutant-review](https://gitlab.com/Darthh2/mutant-review). GitHub remains this checkout’s configured origin. GitLab adapters, a custom-flow configuration, a blocking manual review job and the mutation gate are implemented; live CI and Duo acceptance are tracked separately in the setup documentation. Historical benchmarks and deployment are not claimed as completed.
+The public GitLab project is [mutant-review1/mutant-review](https://gitlab.com/mutant-review1/mutant-review). GitHub remains this checkout’s configured origin. GitLab adapters, a custom-flow configuration, a blocking manual review job and the mutation gate are implemented; live CI and Duo acceptance are tracked separately in the setup documentation. Historical benchmarks and deployment are not claimed as completed.
+
+Front Desk can also serve an authenticated GitLab artifact capture through a signed cache. Configure `GITLAB_EVIDENCE_CACHE_FILE` and `GITLAB_EVIDENCE_PUBLIC_KEY_FILE` with the exact project, MR and job IDs from `.env.example`. A trusted operator creates the capture after authenticating the job provenance. The public server verifies its Ed25519 signature, artifact digest, 24-hour freshness limit, and current public MR head before deeply validating the execution evidence. This mode uses the public verification key and anonymous MR metadata; its interface shows **Signed GitLab snapshot**, the authenticated capture time, and the current-head check time. Direct GitLab artifact API access and local proof mode remain available.
 
 ## Structure
 

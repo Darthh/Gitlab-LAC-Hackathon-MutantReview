@@ -11,13 +11,17 @@
 
 ## GitLab and assisted workflow
 
-- [x] Create public MIT GitLab project: https://gitlab.com/Darthh2/mutant-review (ID 88030103).
+- [x] Create public MIT GitLab project: https://gitlab.com/mutant-review1/mutant-review (ID 88030103).
 - [x] Push the implementation to GitLab and preserve visible pipeline history, including actual [MR pipeline 2984952053](https://gitlab.com/Darthh2/mutant-review/-/pipelines/2984952053).
 - [x] Run the real MR baseline and bounded mutation review at exact head `c6d5ae3d101660a2ef5cc28ab35b4e65994b7c91`: complete source lines 4–5, 100% branch coverage, three kills and one survivor, 75% score.
 - [x] Record operator-bot provenance for the bounded manual execution; do not treat it as human patch approval.
 - [x] Activate the separate public trial group `mutant-review1` (`145666501`); Ultimate trial expires November 23, 2026.
-- [ ] Obtain explicit transfer approval before moving personal-namespace project `88030103`; Secrets Manager provisioning/count is unknown and the UI warns of permanent deletion. No transfer has occurred.
-- [ ] Obtain approval for and issue the separate Reporter/read_api console credential; the prepared form is not an issued token.
+- [x] Explicitly approve and complete transfer to the public trial group, preserving project ID, MR and CI history. Pre-transfer Secrets Manager count remains unknown.
+- [x] Obtain approval for the Reporter/read_api console credential. Earlier scoped tokens were revoked; restoring the reader failed with Access token limit reached. Do not put the sole operator write token in Front Desk.
+- [x] Run a fresh bounded review at current head `a287ca71fdfdb451e44b63302ab543f865b74aff`: pipeline 2984978409, mutation job 17440386476, same measured 75% score, gate 17440386477 failed.
+- [x] Save tenant-accepted flow definition 1019555. Remove unsupported max_cycles; acceptance does not prove execution.
+- [x] Validate signed-cache console delivery with the actual authenticated artifact, public verification key and current MR head; API evidence/download 200, pending receipt 404.
+- [ ] Complete the separately confirmed Mention-only service-account enablement.
 - [ ] Confirm tenant schema acceptance, Duo access, runner tools, and actual service-account handle.
 - [ ] Capture a Duo session producing a structured proposal grounded in measured evidence and the contract.
 - [ ] Exercise current-diff discussion creation with at most three inline findings.

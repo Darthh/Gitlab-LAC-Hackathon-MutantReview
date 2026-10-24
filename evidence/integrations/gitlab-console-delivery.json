@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-24T18:39:38.036Z",
+  "validationSource": "credential-free HTTP checks of the local Front Desk server",
+  "consoleUrl": "http://localhost:4173",
+  "delivery": {
+    "mode": "signed-cache",
+    "verifiedAt": "2026-10-24T18:37:48.603Z",
+    "currentHeadCheckedAt": "2026-10-24T18:39:37.299Z",
+    "currentHeadSha": "a287ca71fdfdb451e44b63302ab543f865b74aff"
+  },
+  "projectUrl": "https://gitlab.com/mutant-review1/mutant-review",
+  "mrUrl": "https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1",
+  "evidenceJobUrl": "https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386476",
+  "provenance": {
+    "projectId": "88030103",
+    "mrIid": 1,
+    "headSha": "a287ca71fdfdb451e44b63302ab543f865b74aff",
+    "pipelineId": "2984978409",
+    "jobId": "17440386476",
+    "runId": "run-2026-10-24T18-16-54-264Z"
+  },
+  "measurements": {
+    "branchCoverage": 100,
+    "baselineTests": 4,
+    "mutationScore": 75,
+    "counts": {
+      "killed": 3,
+      "survived": 1,
+      "noCoverage": 0,
+      "timedOut": 0,
+      "invalid": 0,
+      "ignored": 0,
+      "pending": 0
+    },
+    "gate": "failed"
+  },
+  "checks": {
+    "configHttpStatus": 200,
+    "evidenceHttpStatus": 200,
+    "downloadHttpStatus": 200,
+    "downloadMatchesDisplayedRun": true,
+    "approvedReceiptHttpStatus": 404,
+    "approvedReceiptMessage": "The signed review snapshot contains no approved repair receipt.",
+    "requestCredentials": "none",
+    "signatureAndArtifactBindingValidatedByServer": true,
+    "currentPublicMrHeadMatchesArtifact": true
+  },
+  "incompleteStages": {
+    "repairVerification": "not_run",
+    "duoExecution": "not_executed",
+    "approvedLessons": 0,
+    "demonstratedLessonApplications": 0
+  },
+  "evidenceBoundary": "Actual GitLab CI execution delivered through an authenticated signed capture, with a fresh anonymous MR head check. This is local console delivery; no public deployment or completed Duo session is established."
+}

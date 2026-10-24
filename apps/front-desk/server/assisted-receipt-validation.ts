@@ -142,7 +142,7 @@ export const assistedReceiptSchema = z.object({
       retrievalId: label,
       lessonIds: z.array(label).min(1).max(5),
       sourceRevision: sha,
-      whyApplies: label,
+      whyApplies: z.string().min(1).max(20_100),
       status: z.enum(["retrieved", "applied-and-verified"]),
       repairCommitSha: sha,
       provenance: z.literal("submitted-structured-triage"),

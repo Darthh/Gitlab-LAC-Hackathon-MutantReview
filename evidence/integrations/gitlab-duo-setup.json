@@ -1,0 +1,24 @@
+{
+    "schemaVersion":  1,
+    "checkedAt":  "2026-10-24T18:39:29.8390453Z",
+    "source":  "Signed-in GitLab AI Catalog UI",
+    "projectId":  88030103,
+    "flowId":  1019555,
+    "flowUrl":  "https://gitlab.com/explore/ai-catalog/flows/1019555",
+    "version":  "1.0.0",
+    "visibility":  "private",
+    "managedBy":  "mutant-review1/mutant-review",
+    "definitionPath":  ".gitlab/duo/mutant-review.yml",
+    "definitionSha256":  "d609ad1cb269fdefbfb1d30df879057552f305e8b54277406e1d2b46859a371a",
+    "tenantSchemaAccepted":  true,
+    "removedUnsupportedField":  "components/2/max_cycles",
+    "enabled":  false,
+    "executionVerified":  false,
+    "actualServiceAccountHandle":  null,
+    "preparedTriggers":  [
+                             "Mention"
+                         ],
+    "enablementApproval":  "pending",
+    "serviceAccountRoleAsDisplayed":  "Developer",
+    "evidenceBoundary":  "A saved schema-accepted definition, not a completed Duo execution or repair approval."
+}

@@ -15,11 +15,11 @@ Open `http://localhost:4173`. The console reads `evidence/latest.json` produced 
 
 ## GitLab project and access
 
-The public demonstration project is [Darthh2/mutant-review](https://gitlab.com/Darthh2/mutant-review), numeric project ID `88030103`. The October 24 authenticated API check confirmed required successful pipelines and hosted runners are enabled. Anonymous project responses omit the merge-check field, so the earlier public probe correctly records it as unavailable (`null`). Real baseline, mutation, and gate jobs have now executed, as recorded below. Duo execution and approved repair remain uncompleted stages. This checkout's configured `origin` is GitHub; its GitLab remote is separate.
+The public demonstration project is [mutant-review1/mutant-review](https://gitlab.com/mutant-review1/mutant-review), numeric project ID `88030103`. The October 24 authenticated API check confirmed required successful pipelines and hosted runners are enabled. Anonymous project responses omit the merge-check field, so the earlier public probe correctly records it as unavailable (`null`). Real baseline, mutation, and gate jobs have now executed, as recorded below. Duo execution and approved repair remain uncompleted stages. This checkout's configured `origin` is GitHub; its GitLab remote is separate.
 
-An Ultimate trial is active for the separate public group [mutant-review1](https://gitlab.com/mutant-review1), group ID `145666501`, with UI expiry November 23, 2026. Project `88030103` is still in the personal namespace `Darthh2`; it has not been transferred. GitLab's current [StageCheck implementation](https://gitlab.com/gitlab-org/gitlab/-/blob/master/ee/lib/gitlab/llm/stage_check.rb) rejects personal namespaces for AI Catalog availability. The missing flow controls therefore remain a real setup blocker for this project.
+An Ultimate trial is active for the public group [mutant-review1](https://gitlab.com/mutant-review1), group ID `145666501`, with UI expiry November 23, 2026. The explicitly approved transfer is complete: project ID, MR head and pipeline history were preserved. The project now appears in the AI Catalog's managed-project selector.
 
-The transfer is awaiting explicit approval because GitLab warns that project transfer permanently deletes any Secrets Manager secrets. Metadata-only queries, including the signed-in Owner query, returned permission/resource errors; provisioning and secret count remain **unknown**, not zero. No secret names or values were read. A separate Reporter/`read_api` token form is prepared for Front Desk but is also awaiting approval; no read token has been issued. The trusted operator's Developer/`api` credential is kept out of the public console.
+The user approved GitLab's warning that project transfer permanently deletes any Secrets Manager secrets. Pre-transfer metadata-only queries, including the signed-in Owner query, left provisioning and secret count **unknown**, not zero. No secret names or values were read. Both earlier scoped tokens were subsequently shown as revoked. An equivalent Developer/`api` operator token was restored with the same October 24, 5 PM Pacific expiry. Restoring the separately approved Reporter/`read_api` token failed with **Access token limit reached**. The sole write credential remains outside Front Desk; the console can use a signed artifact cache exported by the trusted operator.
 
 Use `.env.example` as a variable reference. Set the values in your shell or runtime configuration; the server does not need browser credentials.
 
@@ -64,7 +64,7 @@ The manual review job was played as an explicitly authorized bounded engineering
 
 The original local ternary fixture remains a separate measured example: five generated mutants, four killed, one survivor, **80%** score. The CI MR uses equivalent `if`/`return` source and a changed-line scope, yielding **75%**. Do not replace one measurement with the other or present them as a controlled performance comparison.
 
-The source branch was subsequently synchronized with main through normal merge commit `a287ca71fdfdb451e44b63302ab543f865b74aff`, preserving all four domain source/test files. That is a source update, not an MR merge or test repair. Artifact `17440247402` belongs to the earlier measured revision and must be treated as stale for the updated MR head until a new bounded review completes.
+The source branch was subsequently synchronized with main through normal merge commit `a287ca71fdfdb451e44b63302ab543f865b74aff`, preserving all four domain source/test files. That is a source update, not an MR merge or test repair. A fresh [pipeline 2984978409](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2984978409) completed at that exact current head: baseline `17440386475` and mutation `17440386476` succeeded; gate `17440386477` failed. It reproduced 100% branch coverage, three kills and one survivor, and a 75% score. The current raw and normalized snapshots end in `17440386476.json`; the earlier artifact remains historical.
 
 Push the repository to the GitLab project and enable a compatible runner. Open an MR that changes the shipping implementation. The pipeline runs baseline tests and measured coverage, then blocks on `mutation:review`. Playing that job authorizes a bounded mutation run only. It cannot approve a repair, lesson, merge, or deployment. The next job evaluates the deterministic gate and preserves diagnostics on failure.
 
@@ -76,7 +76,7 @@ To run a diagnostic proof independently of a failed MR pipeline, create a web/AP
 
 ## Enable the Duo custom flow
 
-1. Confirm the trial group's Agent Platform and custom-flow settings, then resolve the current personal-project namespace blocker through an explicitly approved setup action. The group trial is active; no Duo session or actual configured service-account handle has been established yet.
+1. Confirm the trial group's Agent Platform and custom-flow settings. The group trial and project transfer are complete; the managed-project selector recognizes this project. No Duo session or actual configured service-account handle has been established yet.
 2. Import `.gitlab/duo/mutant-review.yml` into a custom flow in the AI Catalog and enable it for this project. `.gitlab/duo/agent-config.yml` supplies the Node execution environment. Accepting a schema in documentation is different from this tenant accepting and executing it.
 3. Inspect the tenant's actual `run_command` tool schema. The primary flow uses the capability-selected shell form `command`. If the tenant exposes structured `program` and `args` instead, import `.gitlab/duo/mutant-review.structured.yml`. Both forms are present in GitLab's [official command-tool implementation](https://gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/-/blob/main/duo_workflow_service/tools/command.py); they are different schemas under the same tool name. Confirm `DeterministicStepComponent`, `AgentComponent`, `read_file`, and `list_dir` are supported. Do not replace them with guessed Human Input syntax.
 4. Configure a mention trigger and record the real service-account handle in `GITLAB_FLOW_HANDLE`. Never advertise `@mutant-review` as a configured account until verified.
@@ -85,7 +85,21 @@ To run a diagnostic proof independently of a failed MR pipeline, create a web/AP
 
 The prepared flow follows GitLab's [custom-flow YAML restrictions](https://docs.gitlab.com/user/duo_agent_platform/flows/custom_flows_schema/) and [flow registry v1 reference](https://gitlab.com/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/-/blob/main/docs/flow_registry/v1.md). It does not claim unsupported per-prompt model selection, an exact provider-request count, or native built-in `review`/`apply` commands.
 
-Public access to the report file does not establish access to authoritative job metadata: the independent anonymous probe could read the artifact but received `401` for the job record. Front Desk keeps those provenance checks. Live console connection therefore awaits the separately approved read credential; no write-token fallback or skipped metadata check is used.
+Public access to the report file does not establish access to authoritative job metadata: the independent anonymous probe could read the artifact but received `401` for the job record. Front Desk keeps those provenance checks. The trial's one-active-project-token limit prevents a separate read credential while retaining the operator token. Signed-cache delivery validates job metadata and the artifact in the trusted operator, signs the immutable snapshot with an external Ed25519 key, then gives Front Desk only the cache and public verification key. The console checks the signature, digest, age, configured IDs, deep report schema and current public MR head. It labels the result as cached evidence and receives no API credential.
+
+To refresh a capture, invoke the trusted CLI with an external operator configuration containing the project-scoped write credential and absolute `MUTANT_REVIEW_STATE_DIR`:
+
+```sh
+node --env-file=/private/operator.env --import tsx packages/cli/src/index.ts export-console 1 17440386476
+```
+
+The command prints the cache path, public key path, capture timestamp and exact provenance. Set the two returned paths as `GITLAB_EVIDENCE_CACHE_FILE` and `GITLAB_EVIDENCE_PUBLIC_KEY_FILE` in a separate Front Desk environment, alongside the exact project/MR/job IDs. Give that runtime neither the operator environment nor its signing key. The capture expires after 24 hours and is rejected immediately if the public MR head differs; refresh after each actual new mutation artifact.
+
+The October 24 local production server successfully served job `17440386476` through this path: API evidence and download returned 200, measured score 75%, branch coverage 100%, and current head `a287ca71`. The pending approved-repair receipt correctly returned 404. The sanitized check is `evidence/integrations/gitlab-console-delivery.json`.
+
+The tenant rejected `/components/2/max_cycles` as a disallowed property on October 24, despite its presence in the current reference. The imported definitions omit that field. No enforced eight-cycle budget is claimed; schema acceptance alone does not establish tool execution.
+
+The revised definition was accepted and saved as private [flow 1019555, version 1.0.0](https://gitlab.com/explore/ai-catalog/flows/1019555), managed by this project. The enablement dialog is prepared with **Mention only**; Assign and Assign reviewer were removed. Enabling GitLab's Developer service account is awaiting action-time approval. No flow run or service-account handle is established by saving this definition.
 
 ### Evidence hydration in a real flow job
 

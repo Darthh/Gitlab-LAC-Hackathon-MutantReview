@@ -154,7 +154,7 @@ async function lessons(query: string) {
 async function main() {
   const [command = 'help', argument] = process.argv.slice(2);
   if (command === 'hydrate-evidence') { console.log(JSON.stringify(await hydrateConfiguredEvidence(git('rev-parse', 'HEAD')), null, 2)); return; }
-  if (['capabilities', 'publish', 'apply', 'verify', 'prepare-lesson', 'learn', 'export-receipt'].includes(command)) return runAssisted(command, process.argv.slice(3));
+  if (['capabilities', 'publish', 'apply', 'verify', 'prepare-lesson', 'learn', 'export-receipt', 'export-console'].includes(command)) return runAssisted(command, process.argv.slice(3));
   if (command === 'demo' || command === 'review') return review(command === 'demo');
   if (command === 'gate') {
     const evidence = await json('evidence/latest.json');
@@ -176,7 +176,7 @@ async function main() {
     if (verification.status !== 'passed') process.exitCode = 1;
     return;
   }
-  console.log('Commands: demo | review (GitLab MR CI only) | hydrate-evidence | gate | sandbox-verify [proposal.json] | lessons [query] | capabilities [MR IID] | publish <MR IID> <job ID> <triage.json> [retrieval ID] | apply <proposal ID> <note ID> | verify <proposal ID> <note ID> | prepare-lesson <proposal ID> | learn <repair proposal ID> <note ID> | export-receipt <proposal ID>');
+  console.log('Commands: demo | review (GitLab MR CI only) | hydrate-evidence | gate | sandbox-verify [proposal.json] | lessons [query] | capabilities [MR IID] | export-console <MR IID> <job ID> | publish <MR IID> <job ID> <triage.json> [retrieval ID] | apply <proposal ID> <note ID> | verify <proposal ID> <note ID> | prepare-lesson <proposal ID> | learn <repair proposal ID> <note ID> | export-receipt <proposal ID>');
 }
 
 main().catch(async (error: unknown) => {

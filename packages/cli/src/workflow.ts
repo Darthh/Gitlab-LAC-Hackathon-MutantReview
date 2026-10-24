@@ -19,6 +19,7 @@ import {
   type ExactLessonProposal,
 } from "../../gitlab-adapter/src/index.js";
 import { FileApprovalLedger } from "../../gitlab-adapter/src/ledger.js";
+import { writeEvidenceCache } from "../../gitlab-adapter/src/evidence-cache.js";
 import { parseCommand } from "../../review-core/src/approval.js";
 import { validateTriage, type Triage } from "../../review-core/src/triage.js";
 import type { NormalizedMutant } from "../../review-core/src/types.js";
@@ -35,6 +36,7 @@ interface Evidence {
     headSha: string;
     baseSha: string;
     jobId: string | number;
+    pipelineId?: string | number;
     pipelineUrl?: string | null;
   };
   baseline: { status: string };
@@ -410,6 +412,52 @@ export async function hydrateConfiguredEvidence(checkoutSha: string) {
   return hydrateEvidence(adapter, context.mrIid, context.jobId, checkoutSha);
 }
 
+/** An authenticated read export, not a review, patch, verification, or lesson approval. */
+export async function exportConsoleEvidence(
+  adapter: GitLabAdapter,
+  mrIid: number,
+  jobId: number,
+  stateDirectory: string,
+  now = new Date(),
+) {
+  const positive = (value: unknown): number | null => {
+    if (typeof value === "string" && !/^[1-9]\d*$/.test(value)) return null;
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  };
+  if (positive(mrIid) !== mrIid || positive(jobId) !== jobId || !Number.isFinite(now.getTime())) {
+    throw new Error("Console export requires valid MR/job identifiers and verification time");
+  }
+  const mr = await adapter.currentMergeRequest(mrIid);
+  const evidence = await adapter.readEvidenceArtifact(jobId, mr.sha) as Evidence | null;
+  const provenance = evidence?.provenance;
+  const pipelineId = positive(provenance?.pipelineId);
+  if (mr.iid !== mrIid || !/^[a-f0-9]{40}$/i.test(mr.sha) || evidence?.source !== "gitlab" ||
+    !provenance || positive(provenance.projectId) !== adapter.projectId || positive(provenance.mrIid) !== mrIid ||
+    positive(provenance.jobId) !== jobId || provenance.headSha !== mr.sha || pipelineId === null) {
+    throw new Error("Authenticated console evidence does not match exact project/MR/job/head/pipeline provenance");
+  }
+  if ((await adapter.currentMergeRequest(mrIid)).sha !== mr.sha) {
+    throw new Error("MR head changed during console export; a fresh authenticated export is required");
+  }
+  const state = await trustedStateDirectory(stateDirectory);
+  const payload = {
+    schemaVersion: 1 as const,
+    source: "authenticated-gitlab-artifact-cache" as const,
+    verifiedAt: now.toISOString(),
+    projectId: adapter.projectId,
+    mrIid,
+    jobId,
+    headSha: mr.sha,
+    pipelineId: String(pipelineId),
+    evidence,
+  };
+  const written = await writeEvidenceCache(payload, join(state, "console", "evidence.json"), join(state, "console", "keys"));
+  return { ...written, provenance: { source: payload.source, projectId: payload.projectId, mrIid, jobId,
+    headSha: payload.headSha, pipelineId: payload.pipelineId } };
+}
+
 /** Retrieval is a separate recorded event, never a claim that an agent applied the lesson. */
 export async function recordLessonRetrieval(
   query: string,
@@ -601,6 +649,11 @@ export async function runAssisted(command: string, args: string[]) {
   const state = await trustedStateDirectory(
     process.env.MUTANT_REVIEW_STATE_DIR,
   );
+  if (command === "export-console") {
+    if (args.length !== 2) throw new Error("Use export-console <MR IID> <evidence job ID>");
+    console.log(JSON.stringify(await exportConsoleEvidence(adapter, numberId(args[0]), numberId(args[1]), state), null, 2));
+    return;
+  }
   const handle = process.env.GITLAB_FLOW_HANDLE;
   if (!handle || !/^@[a-zA-Z0-9_.-]+$/.test(handle))
     throw new Error(
