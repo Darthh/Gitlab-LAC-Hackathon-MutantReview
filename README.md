@@ -4,7 +4,18 @@
 
 Mutant Review is a GitLab Duo agent that mutation-tests **only the lines a merge request changes**, shows the reviewer at most three changes no test would notice, drafts a test for each, and **proves every AI-drafted test by running it against the mutant before a human ever sees it**. A human replies `@mutant-review apply 1 and 3`; the agent commits those tests, re-runs the mutants, and teaches the repository's `AGENTS.md` so the next agent doesn't write the same useless test.
 
-[GitLab project](https://gitlab.com/mutant-review1/mutant-review) · [Demo MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) · [Pipelines](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) · [Benchmark](benchmarks/RESULTS.md) · [3-minute demo script](docs/demo.md) · MIT
+[![pipeline](https://gitlab.com/mutant-review1/mutant-review/badges/main/pipeline.svg)](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+[GitLab project](https://gitlab.com/mutant-review1/mutant-review) · [Demo MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) · [Pipelines](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) · [Benchmark](benchmarks/RESULTS.md) · [3-minute demo script](docs/demo.md)
+
+![Front Desk: 100% branch coverage, merge gate blocked, and the es-toolkit benchmark](docs/images/front-desk-overview.png)
+
+### Judging in 60 seconds
+
+1. **The gap:** [MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) has 100% branch coverage and green tests, and its [mutation gate](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477) still blocks the merge: `>=` can become `>` without a single test failing.
+2. **The proof it matters:** in 11 of the last 25 merged PRs of es-toolkit, a library that advertises 100% coverage, a changed line could break unnoticed ([RESULTS.md](benchmarks/RESULTS.md)).
+3. **The agent:** [`.gitlab/duo/mutant-review.yml`](.gitlab/duo/mutant-review.yml) is one deterministic step, one model call and one more deterministic step. Every AI-drafted test is run against its mutant before a human sees it.
+4. **Try the core claim:** `npm ci && npm run test:e2e` keeps the real boundary test, rejects a plausible but useless one, then applies the approved test and moves the score from 80% to 100%.
 
 ---
 
@@ -89,6 +100,8 @@ flowchart LR
 ## Front Desk
 
 A read-only console (React + Express) for the reviewer and the team lead: the changed-line score and gate, the ranked findings and the arid mutants filtered out, the **ledger of useless tests caught and repaired** (and AI drafts rejected), and **compute saved**: mutants avoided by diff scoping, mutants filtered before any model call, model calls avoided, and lessons in agent memory. It deploys to Cloud Run from `main`.
+
+![Front Desk findings: the triaged surviving mutant with its why, priority and location](docs/images/front-desk-findings.png)
 
 ## Run it
 

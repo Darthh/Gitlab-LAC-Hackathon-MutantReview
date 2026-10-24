@@ -334,11 +334,11 @@ export async function flowPrepare(args: string[]) {
   console.log(brief);
 }
 
-export async function flowPublish(args: string[]) {
+export async function flowPublish(args: string[], connect: () => Promise<GitLabAdapter> = flowAdapter) {
   const handle = flowHandle(args);
   const state = await json(`${WORK}/flow.json`).catch(() => null) as FlowState | null;
   if (!state || state.mode !== 'review') { console.log('Nothing to publish.'); return; }
-  const adapter = await flowAdapter();
+  const adapter = await connect();
   const mr = await adapter.currentMergeRequest(state.mrIid);
   if (mr.sha !== state.headSha) throw new Error('MR head changed while drafting; mention the agent again for a fresh review');
   const evidence = await json(`${WORK}/evidence.json`);

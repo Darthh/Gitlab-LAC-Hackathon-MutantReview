@@ -728,18 +728,20 @@ export default function App() {
                         foot="Changes your tests missed"
                       />
                       <Metric
-                        title="Lessons in AGENTS.md"
-                        value={tally(evidence.savings?.lessonsInMemory)}
-                        icon={<BookOpen size={16} />}
-                        tone="neutral"
-                        subtitle="From approved repairs"
-                        foot="Read by every Duo agent"
+                        title="Merge gate"
+                        value={evidence.gate.status === "passed" ? "Pass" : evidence.gate.status === "failed" ? "Blocked" : "Hold"}
+                        icon={evidence.gate.status === "passed" ? <ShieldCheck size={16} /> : <ShieldX size={16} />}
+                        tone={evidence.gate.status === "passed" ? "green" : "amber"}
+                        subtitle={
+                          evidence.gate.status === "passed"
+                            ? "Every changed line protected"
+                            : /(\d+)% project policy/.test(evidence.gate.reasons.join(" "))
+                              ? `Below the ${/(\d+)% project policy/.exec(evidence.gate.reasons.join(" "))![1]}% policy`
+                              : "Needs a test or an override"
+                        }
+                        foot="Changed-line score vs policy"
                       />
                     </div>
-                    <SavingsTiles
-                      savings={evidence.savings}
-                      policy={evidence.triage?.policy}
-                    />
                     <BenchmarkTiles />
                     <div className="content-columns">
                       <div className="main-column">
