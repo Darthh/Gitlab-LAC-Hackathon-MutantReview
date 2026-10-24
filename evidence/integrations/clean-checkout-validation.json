@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "kind": "clean-checkout-validation",
+  "validatedAt": "2026-10-24T18:42:43.220Z",
+  "commit": "a1f186f551723b98e9e4c74a83344a2b3023f344",
+  "worktree": ".local/clean-install-a1f186f",
+  "detachedHead": true,
+  "trackedFilesUnchanged": true,
+  "installedFromLockfile": true,
+  "lockfile": {
+    "path": "package-lock.json",
+    "sha256": "bc7ab657b6588eee354094585e0ecef4a83e2101194d4b46d6c59a07009aa579",
+    "unchanged": true
+  },
+  "runtime": {
+    "node": "v24.16.0",
+    "npm": "11.16.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "environment": {
+    "credentialsProvided": false,
+    "projectEnvironmentFilesLoaded": false,
+    "userAndGlobalNpmConfigurationLoaded": false,
+    "processEnvironment": "OS essentials plus CI=true, NO_COLOR=1, and unused npm user/global config paths"
+  },
+  "checks": [
+    {
+      "command": "npm ci --no-audit --no-fund",
+      "exitCode": 0,
+      "result": "passed",
+      "packagesInstalled": 381
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "result": "passed",
+      "detail": "TypeScript no-emit check and Vite production build succeeded."
+    },
+    {
+      "command": "npm test",
+      "exitCode": 0,
+      "result": "passed",
+      "testFilesPassed": 13,
+      "testsPassed": 192,
+      "vitestDurationSeconds": 21.85
+    }
+  ],
+  "installWarnings": [
+    "npm reported deprecated glob@10.5.0.",
+    "npm reported esbuild@0.28.2 and esbuild@0.27.7 postinstall scripts not covered by allowScripts; install, build, and tests still succeeded."
+  ],
+  "remotePipeline": {
+    "id": 2985010436,
+    "url": "https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2985010436",
+    "sha": "a1f186f551723b98e9e4c74a83344a2b3023f344",
+    "ref": "main",
+    "source": "push",
+    "status": "success",
+    "observationSource": "Public GitLab REST API, independently verified by the root agent",
+    "scope": "Successful main-branch baseline pipeline; this does not establish MR mutation-job execution."
+  },
+  "limitations": [
+    "These commands establish clean local installation, build, and automated tests for the recorded commit.",
+    "They do not establish a live Duo session, an approved repair workflow, deployment, or benchmark outcomes."
+  ]
+}

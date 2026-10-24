@@ -2,8 +2,8 @@
 
 ## Local implementation
 
-- [ ] Install with the committed lockfile from a clean checkout.
-- [ ] Run automated tests and TypeScript/build checks.
+- [x] Install with the committed lockfile from a clean detached checkout at `a1f186f`; 381 packages, unchanged lockfile.
+- [x] Run automated tests and TypeScript/build checks: 192 tests across 13 files and production build passed. Main pipeline 2985010436 succeeded separately.
 - [ ] Run `npm run demo`; preserve the actual coverage, raw report, normalized report, logs, and local proof receipt.
 - [ ] Confirm `npm run gate` fails for the intentional surviving boundary mutation.
 - [ ] Inspect the dashboard's local/pending/inconclusive labels and evidence downloads.
