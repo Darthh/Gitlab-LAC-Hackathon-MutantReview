@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkDraft, decodePayload, encodePayload, flowApply, inert, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
+import { checkDraft, decodePayload, encodePayload, flowApply, inert, lostProtectionSection, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
+import { lessonCategory } from '../../review-core/src/memory.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
 import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 
@@ -74,6 +75,39 @@ describe('proposal payload', () => {
       footprint: footprintReceipt({ review: [scoped, dry], changedLinesRun: scoped, wholeFileDryRun: dry, changedMutants: 10, wholeFileMutants: 40, env: { CI_RUNNER_DESCRIPTION: '1-green.saas-linux-small-arm64.runners-manager.gitlab.com' } }) };
     const line = summaryBody(evidence, [finding], payload, handle, 90).split('\n\n').at(-1)!;
     expect(line).toMatch(/^<sub>Footprint of this review: \*\*\d+ mgCO2e\*\* \(SCI per review, 36 CPU-s measured, us-central1 grid\); changed-line scoping ran 10 of 40 mutants, avoiding ~\d+% of the mutation energy \(projected\)\.<\/sub>$/);
+  });
+});
+
+describe('lost protection in the MR comment', () => {
+  const lost = {
+    fingerprint: 'e'.repeat(64), path: 'src/shipping.ts', line: 4, baseLine: 4, location: { start: { line: 4, column: 10 }, end: { line: 4, column: 33 } },
+    operator: 'ConditionalExpression', original: 'subtotalCents >= 10_000', replacement: 'false', status: 'Survived' as const,
+    caughtBy: [{ id: '1', name: 'shipping fee ships for free above the threshold', file: 'src/shipping.test.ts', line: 9, failure: 'expected 500 to be +0', fate: 'weakened' as const }],
+    testDiff: { file: 'src/shipping.test.ts', name: 'shipping fee ships for free above the threshold', lines: [
+      { kind: ' ' as const, text: "  it('ships for free above the threshold', () => {" }, { kind: '-' as const, text: '    expect(shippingFee(10_001)).toBe(0);' },
+      { kind: '+' as const, text: '    expect(shippingFee(10_001)).toBeLessThanOrEqual(500);' }, { kind: ' ' as const, text: '  });' }] },
+    why: 'On the target branch, the test failed.',
+  };
+  const lostFinding: RankedFinding = { ...finding, fingerprint: lost.fingerprint, operator: 'ConditionalExpression', original: lost.original, replacement: 'false', origin: 'lost-protection' };
+  it('leads with what the test edit removed, the catching test and the diff', () => {
+    const evidence = { mutation: { score: null, counts: { killed: 0, survived: 0, noCoverage: 0 } }, gate: { status: 'failed' }, triage: { arid: [], overflow: 0 }, protection: { lost: [lost] } };
+    const body = summaryBody(evidence, [lostFinding], { proposals: [], rejected: [], equivalent: [] }, handle, 90);
+    expect(body.split('\n\n').slice(0, 3)).toEqual([
+      "## Mutant Review: this MR's test changes stopped 1 change(s) from being noticed",
+      'No changed source lines to mutate. Gate: **failed**.',
+      '### Lost protection',
+    ]);
+    expect(body).toContain('`shipping fee ships for free above the threshold` (`src/shipping.test.ts`) failed on the target branch ("expected 500 to be +0"). This MR changed that test and it no longer fails.');
+    expect(body).toContain('```diff\n   it(\'ships for free above the threshold\', () => {\n-    expect(shippingFee(10_001)).toBe(0);\n+    expect(shippingFee(10_001)).toBeLessThanOrEqual(500);');
+    expect(body).toContain('| **lost protection:** `subtotalCents >= 10_000` → `false` |');
+  });
+  it('says nothing when no protection was lost', () => {
+    expect(lostProtectionSection(null)).toBe('');
+    expect(lostProtectionSection({ lost: [] })).toBe('');
+  });
+  it('teaches agents not to loosen tests when a restoring test is approved', () => {
+    expect(lessonCategory(lostFinding)).toMatchObject({ tag: 'weakened-test', pattern: 'A test edit removed protection the target branch had' });
+    expect(lessonCategory({ ...lostFinding, origin: undefined })).toMatchObject({ tag: 'branch' });
   });
 });
 
