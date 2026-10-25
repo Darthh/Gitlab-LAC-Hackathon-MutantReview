@@ -4,7 +4,7 @@ Paste-ready. Replace bracketed items only with results you have actually observe
 
 **Name:** Mutant Review
 **Tagline:** Your tests passed. Would they notice the code breaking?
-**Path / level:** Path A (Start Fresh), Assisted. Also entering Most Creative and Most Stages Covered.
+**Path / level:** Path A (Start Fresh), Assisted. Also entering Most Creative, Most Stages Covered and **Most Environmentally Impactful** (opt in on the form; the SCI analysis is below and in `docs/sustainability.md`).
 **Images:** cover / YouTube thumbnail `docs/images/cover.png` (1280×720); gallery `docs/images/front-desk-overview.png`, `docs/images/front-desk-findings.png`.
 
 ## Inspiration
@@ -19,20 +19,32 @@ When a developer mentions the agent, a GitLab Duo custom flow makes one model ca
 
 Nothing is committed until a human replies `@mutant-review apply 1 and 3`. Only humans can fire a mention trigger, and the flow's composite identity can't exceed that person's permissions. The agent re-checks the role, the proposal author and hash and the MR head, commits the tests, re-runs Stryker on the same lines and posts the score change. The same commit writes the lesson into `AGENTS.md`, which every GitLab Duo agent reads, so the mistake isn't repeated. The mutation gate is a required pipeline job: the score must clear 90%, or a Maintainer must override with a written reason, which is audited and opens a test-debt issue. Only gated code reaches `main`, which is scanned, packaged and deployed to Google Cloud Run with a smoke test and automatic rollback. The Front Desk console shows every useless test caught and repaired, AI drafts rejected, and the compute and model calls saved.
 
+The cheapest useless test is the one never pushed. The same engine runs as an MCP server with two read-only tools: `mutation_check` mutation-tests an agent's uncommitted changes and `verify_test` executes its draft test against the mutant. `.gitlab/duo/mcp.json` registers it for GitLab Duo Agentic Chat and the Software Development Flow, and `AGENTS.md` tells every agent to use it before finishing, so an AI coding agent checks its own tests before a pipeline or a reviewer ever sees them.
+
+Every review also measures its own carbon footprint with the Green Software Foundation's SCI standard: real CPU time from the process tree, Cloud Carbon Footprint's power model, Google's grid intensity for the GitLab runner's region and the embodied share of the host. The footprint appears in the MR comment, in GitLab's native metrics widget next to the mutation score, and on Front Desk's Footprint page, alongside the projected cost of the whole-file run that changed-line scoping avoided. Surviving mutants also appear in GitLab's Code Quality widget, so a fixed one shows as resolved.
+
 ## How we built it
 
 - **GitLab Duo Agent Platform:** a custom flow (Flow Registry v1) with a deterministic `prepare` step, one `AgentComponent` that drafts tests, and a deterministic `verify_and_publish` step; Mention and Assign-reviewer triggers; composite-identity `GITLAB_TOKEN`; `agent-config.yml` execution environment; `AGENTS.md` as shared agent memory.
-- **GitLab CI/CD:** changed-line review, findings comment, required mutation gate with audited override, SAST and secret detection, an e2e "hallucination check" job, container registry, Cloud Run deploy with environment tracking, scheduled monitor.
+- **GitLab CI/CD:** changed-line review, findings comment, required mutation gate with audited override (and a warning, not a block, when there is nothing to mutate), Code Quality and metrics report artifacts for the MR widgets, interruptible jobs and `rules: changes` so docs-only MRs spend no mutation time, SAST and secret detection, an e2e "hallucination check" job, container registry, Cloud Run deploy with environment tracking, scheduled monitor, a manual energy-benchmark job.
+- **MCP:** a dependency-free stdio MCP server (`mutation_check`, `verify_test`) registered for GitLab Duo Agentic Chat via `.gitlab/duo/mcp.json` and for Claude Code via `.mcp.json`.
+- **Sustainability:** an SCI model (`footprint.ts`, pure, hand-checked in tests) fed by measured CPU time of every Stryker and Vitest process tree.
 - **Code:** TypeScript on Node 24. `review-core` is pure functions (diff scope, scoring, gate, arid triage, command parsing, memory); `gitlab-adapter` is the only API client; Front Desk is React + Express.
 - **Google Cloud:** Cloud Run via Cloud Build, keyless Workload Identity Federation from GitLab OIDC.
 
 ## DevSecOps stages
 
-Plan (test-debt issues on override), Create (agent commits approved tests), Verify (changed-line mutation testing, verified drafts), Secure (SAST, secret detection, protected evaluator paths, credential-free draft execution), Package (container registry), Release (Cloud Run with rollback), Configure (policy, flow and agent memory as code), Monitor (scheduled smoke monitor, Front Desk), Govern (required gate, audited overrides, repair ledger).
+Plan (test-debt issues on override), Create (agent commits approved tests; agents self-check before pushing over MCP), Verify (changed-line mutation testing, verified drafts, Code Quality widget), Secure (SAST, secret detection, protected evaluator paths, credential-free draft execution), Package (container registry), Release (Cloud Run with rollback), Configure (policy, flow, MCP and agent memory as code), Monitor (scheduled smoke monitor, per-MR SCI footprint in the metrics widget, Front Desk), Govern (required gate, audited overrides, repair ledger).
 
 ## Measured impact
 
 es-toolkit (MIT, 11k stars) calls itself "battle-tested with 100% test coverage". We ran the gate over its last 25 merged PRs: 11 shipped a changed line where a behaviour change survived every test, 178 surviving mutants in total. Changed-line scoping ran 1,057 mutants instead of 4,088 (74% avoided), 18 seconds median per PR. A survivor is a change no test noticed, not a proven bug, and these were not human-reviewed; every exclusion is published in benchmarks/RESULTS.md. On the demo MR: 100% branch coverage, 75% changed-line mutation score, merge blocked until a one-line boundary test was approved, then 100%.
+
+## Sustainability (Most Environmentally Impactful)
+
+Mutation testing re-runs tests for every mutant, so it is usually too expensive to leave on. Mutant Review's design keeps it cheap, and every review now quantifies its own footprint with SCI (ISO/IEC 21031:2024): **SCI = (E × I + M) per R**, R = one merge-request review. E comes from measured CPU-seconds of every process the review starts (Cloud Carbon Footprint's GCP coefficients: 0.71–4.26 W per vCPU, 0.392 W/GB, PUE 1.1), I from Google's 2025 grid intensity for the region of GitLab's hosted runners (us-east1, 579 gCO2e/kWh), M from the host's embodied emissions shared by time and vCPUs. Each receipt carries a low–high range from two other power models. The demo review measures **17 mgCO2e** (12–20).
+
+What the design avoids, measured: mutating only changed lines skipped **74% of mutants** (3,031 of 4,088) across 25 real es-toolkit PRs; CI makes **zero** model calls and the Duo flow makes **one** per human request, capped at three findings; drafts that fail execution never reach a reviewer; MR jobs are interruptible and docs-only MRs skip mutation; approved lessons stop agents from repeating the same useless test; and the MCP pre-push check moves the whole loop before the pipeline. The executed energy comparison of changed-line vs whole-file runs on the same 25 PRs is reproducible with `benchmarks/energy.ts` or the manual `benchmark:energy` job on GitLab's own runner. Front Desk re-prices any review in other regions: the same demo review would be 14 mg on GitLab's Arm64 runners (us-central1) and 3 mg in europe-north1.
 
 ## Challenges
 
@@ -44,4 +56,4 @@ More languages (PIT for Java, mutmut for Python), equivalent-mutant detection wi
 
 ## Built with
 
-gitlab-duo-agent-platform, gitlab-ci, stryker, vitest, typescript, node.js, react, express, zod, google-cloud-run, cloud-build
+gitlab-duo-agent-platform, gitlab-ci, model-context-protocol, stryker, vitest, typescript, node.js, react, express, zod, google-cloud-run, cloud-build, green-software-foundation-sci, cloud-carbon-footprint

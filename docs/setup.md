@@ -48,6 +48,14 @@ git fetch gitlab && git checkout demo/shipping-boundary && git merge gitlab/main
 
 To see an override instead: as a Maintainer, comment `@ai-mutant-review-evidence-triage-mutant-review override <reason, 10+ characters>` and re-run `mutation:gate`. It passes as `overridden`, writes `evidence/gate.json`, and opens a `test-debt` issue.
 
+## 6. Let coding agents check themselves before they push (MCP)
+
+1. A group owner turns on **Settings > GitLab Duo > Change configuration > Allow external MCP tools** (GitLab.com).
+2. Open the repository in VS Code or JetBrains with the GitLab Duo extension (or the Duo CLI) and run `npm ci`. Duo Agentic Chat reads [`.gitlab/duo/mcp.json`](../.gitlab/duo/mcp.json) from the workspace and starts the `mutant-review` server; its two read-only tools are pre-approved there.
+3. Ask Duo to change the code; `AGENTS.md` tells it to run `mutation_check` before finishing and to add a test only after `verify_test` reports it verified. Claude Code picks up the same server from [`.mcp.json`](../.mcp.json).
+
+Without an agent, `npm run check` prints the same report and exits 1 when a changed line has a change no test notices; add it to a `pre-push` hook if you like.
+
 ## Commands reference
 
 | Command | Where | What |
@@ -58,4 +66,7 @@ To see an override instead: as a Maintainer, comment `@ai-mutant-review-evidence
 | `npm run mr -- flow prepare --handle @x` | Duo flow | Apply/override, or review and write the model brief |
 | `npm run mr -- flow publish --handle @x` | Duo flow | Verify drafts by execution, comment |
 | `npm run mr -- memory [--check]` | anywhere | Rebuild or check the AGENTS.md lessons section |
-| `npm run demo` | local | Demo-contract review with sandbox proof |
+| `npm run demo` | local | Demo-contract review with sandbox proof and SCI receipt |
+| `npm run check [-- --base <ref>]` | local | Pre-push mutation check of uncommitted and unpushed changes |
+| `node node_modules/tsx/dist/cli.mjs packages/cli/src/mcp.ts` | IDE / agent | MCP server (`mutation_check`, `verify_test`) over stdio |
+| `node node_modules/tsx/dist/cli.mjs benchmarks/energy.ts` | Linux / CI | Executed changed-line vs whole-file energy on es-toolkit; then `benchmarks/energy-report.ts` |

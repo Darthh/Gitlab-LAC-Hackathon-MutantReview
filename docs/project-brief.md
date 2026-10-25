@@ -2,7 +2,7 @@
 
 The working brief for this project, rewritten from the original pitch so each part maps to a judging criterion and to code that exists.
 
-**Target:** GitLab Transcend, Path A (Start Fresh), Assisted ($4k). Also Most Creative ($4k) and Most Stages Covered ($5k). Google Cloud bonus (+0.2).
+**Target:** GitLab Transcend, Path A (Start Fresh), Assisted ($4k). Also Most Creative ($4k), Most Stages Covered ($5k) and Most Environmentally Impactful ($5k, SCI analysis in [sustainability.md](sustainability.md)). Google Cloud bonus (+0.2).
 
 **One line:** Mutant Review catches AI-written tests that don't test anything, proves its own AI-written replacements by execution, and only commits what a human approves.
 
@@ -26,6 +26,8 @@ The working brief for this project, rewritten from the original pitch so each pa
 7. **Learn once.** The approval commit adds a lesson to `AGENTS.md`, read by every GitLab Duo agent, so the same useless test isn't written again. Fewer repeat findings means fewer model calls and Stryker runs.
 8. **Merge gate.** The changed-line score must clear policy, or a Maintainer overrides with a written, audited reason, which opens a test-debt issue.
 9. **Front Desk.** A console of useless tests caught and repaired, AI drafts rejected, and compute and model calls saved.
+10. **Before the push.** The same review as an MCP server (`mutation_check`, `verify_test`) for GitLab Duo Agentic Chat and other coding agents, so an agent verifies its own test before any pipeline runs.
+11. **Measured footprint.** Every review records its SCI (ISO/IEC 21031) from measured CPU time, shown in the MR comment, GitLab's metrics widget and Front Desk, next to the projected cost of the whole-file run it avoided.
 
 ## Lifecycle reach (Technological Implementation, Most Stages)
 

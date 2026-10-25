@@ -4,6 +4,8 @@
 
 Mutant Review is a GitLab Duo agent that mutation-tests **only the lines a merge request changes**, shows the reviewer at most three changes no test would notice, drafts a test for each, and **proves every AI-drafted test by running it against the mutant before a human ever sees it**. A human replies `@mutant-review apply 1 and 3`; the agent commits those tests, re-runs the mutants, and teaches the repository's `AGENTS.md` so the next agent doesn't write the same useless test.
 
+The same engine runs **before the push** as an MCP server, so GitLab Duo Agentic Chat (or Claude Code, Cursor) can check its own tests against their mutants before an MR exists, and every review **measures its own carbon footprint** (SCI, ISO/IEC 21031) from real CPU time.
+
 [![pipeline](https://gitlab.com/mutant-review1/mutant-review/badges/main/pipeline.svg)](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [GitLab project](https://gitlab.com/mutant-review1/mutant-review) · [Demo MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) · [Pipelines](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) · [Benchmark](benchmarks/RESULTS.md) · [3-minute demo script](docs/demo.md)
@@ -15,7 +17,8 @@ Mutant Review is a GitLab Duo agent that mutation-tests **only the lines a merge
 1. **The gap:** [MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) has 100% branch coverage and green tests, and its [mutation gate](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477) still blocks the merge: `>=` can become `>` without a single test failing.
 2. **The proof it matters:** in 11 of the last 25 merged PRs of es-toolkit, a library that advertises 100% coverage, a changed line could break unnoticed ([RESULTS.md](benchmarks/RESULTS.md)).
 3. **The agent:** [`.gitlab/duo/mutant-review.yml`](.gitlab/duo/mutant-review.yml) is one deterministic step, one model call and one more deterministic step. Every AI-drafted test is run against its mutant before a human sees it.
-4. **Try the core claim:** `npm ci && npm run test:e2e` keeps the real boundary test, rejects a plausible but useless one, then applies the approved test and moves the score from 80% to 100%.
+4. **Try the core claim:** `npm ci && npm run test:e2e` keeps the real boundary test, rejects a plausible but useless one, then applies the approved test and moves the score from 80% to 100%. It also drives the MCP server over stdio: an uncommitted edit is mutation-checked and an agent's draft test is verified before any push.
+5. **What it costs:** every review writes an SCI receipt (`17 mgCO2e` for the demo review, measured CPU time) to the MR comment, the MR metrics widget and Front Desk's Footprint page. Method: [docs/sustainability.md](docs/sustainability.md).
 
 ---
 
@@ -46,7 +49,10 @@ Inline on line 4: *"Changing `>=` to `>` fails no test. An order of exactly $100
 
 ```mermaid
 flowchart LR
-  MR[MR pipeline] --> S[Stryker on changed lines only]
+  Agent["Coding agent<br/>(Duo Agentic Chat, Claude Code)"] --> Pre["MCP before push:<br/>mutation_check, verify_test"]
+  Pre --> MR[MR pipeline]
+  MR --> S[Stryker on changed lines only<br/>+ SCI receipt]
+  S --> W[MR widgets: Code Quality, metrics]
   S --> T[Deterministic triage<br/>drop arid mutants, rank, cap at 3]
   T --> G{Mutation gate}
   T --> C[CI comment: findings]
@@ -67,7 +73,25 @@ flowchart LR
 4. **Execution is the hallucination check.** Each draft must pass on the current code **and** fail on its mutant (a fresh Stryker run on that line), or it is rejected and logged. `npm run test:e2e` proves this on every pipeline: the boundary test is kept, a plausible `shippingFee(10_001)` test is rejected.
 5. **Assisted by design.** Nothing is committed until a human replies `@mutant-review apply 1 and 3`. Only humans can fire a GitLab mention trigger, the flow's composite identity can never exceed that person's permissions, and deterministic code re-checks the author's role, the proposal's author and hash, and the MR head before writing.
 6. **Learn once.** The approval commit adds the tests, a ledger entry, and a lesson to `AGENTS.md`, which GitLab Duo agents (and Claude Code, Codex, Cursor) read on every task.
-7. **Merge gate.** The changed-line mutation score must clear `.mutant-review/policy.json` (90%), or a Maintainer comments `@mutant-review override <reason>`. The gate verifies the comment came after the latest push, records the reason, and opens a *test debt* issue.
+7. **Merge gate.** The changed-line mutation score must clear `.mutant-review/policy.json` (90%), or a Maintainer comments `@mutant-review override <reason>`. The gate verifies the comment came after the latest push, records the reason, and opens a *test debt* issue. An MR with no mutable changed lines exits as a warning (`no-applicable-scope`), never as a pass and never as a block; docs-only MRs skip the mutation jobs entirely.
+8. **Native MR widgets.** `mutation:review` publishes a Code Quality report (each unnoticed change on its line, with a stable fingerprint, so GitLab marks it *fixed* once a test kills it) and a metrics report (score, unnoticed changes, mutants avoided, review energy and SCI, compared with the target branch).
+
+## Catch it before you push
+
+The useless test is cheapest to catch before the MR exists. `packages/cli/src/mcp.ts` is a dependency-free MCP server (stdio) with two read-only tools:
+
+- **`mutation_check`** mutation-tests the TypeScript lines changed since the branch left the default branch, uncommitted edits included, and returns the changes no test would notice, the code around each, the requirement docs and the repository's learned testing rules.
+- **`verify_test`** executes a draft test for a finding: *verified* only if it passes on the current code and fails on the mutant. The file is restored either way; the agent adds the test only when it is verified.
+
+[`.gitlab/duo/mcp.json`](.gitlab/duo/mcp.json) registers it for GitLab Duo Agentic Chat and the Software Development Flow (IDE and CLI); [`.mcp.json`](.mcp.json) does the same for Claude Code. AGENTS.md tells every agent to call it before finishing. Without an agent: `npm run check` (exit 1 when a changed line has a change no test notices, so it works as a pre-push hook).
+
+## Footprint, measured
+
+Every review records an [SCI](https://greensoftware.foundation/standards/sci/) receipt per merge-request review: CPU time measured from the process tree, Cloud Carbon Footprint's GCP power model, Google's grid intensity for the runner's region, and the embodied share of the host, with a low–high range. The receipt also projects what mutating the whole changed files would have cost, so the saving from scoping is shown per MR, not claimed once.
+
+![Front Desk Footprint: SCI per review, step breakdown, and the same review priced in other regions](docs/images/front-desk-footprint.png)
+
+Design choices that keep it small, each with its evidence: mutate only the diff (74% of mutants avoided on es-toolkit), no model call in CI, one model call per human request, verify drafts before a human reads them, interruptible jobs, no mutation on docs-only MRs, learn once in AGENTS.md. Full method, boundary and limitations: [docs/sustainability.md](docs/sustainability.md). The executed energy comparison on es-toolkit (`benchmarks/energy.ts`) runs as the manual `benchmark:energy` CI job on GitLab's own hosted runner.
 
 ## DevSecOps stages covered
 
@@ -75,12 +99,12 @@ flowchart LR
 | --- | --- |
 | **Plan** | Gate overrides open a `test-debt` issue listing the waived mutants |
 | **Create** | The agent commits human-approved tests to the MR branch |
-| **Verify** | Stryker on changed lines, unit and e2e suites, verified-by-execution drafts |
+| **Verify** | Stryker on changed lines, unit and e2e suites, verified-by-execution drafts, pre-push `mutation_check` over MCP, Code Quality MR widget |
 | **Secure** | SAST and secret detection; protected evaluator paths; drafts run without credentials |
 | **Package** | Front Desk image pushed to the GitLab container registry |
 | **Release** | Cloud Run deploy with smoke test and automatic traffic rollback |
-| **Configure** | Policy, flow and agent memory as code: `policy.json`, `agent-config.yml`, `AGENTS.md` |
-| **Monitor** | Scheduled smoke monitor; Front Desk console of repairs and compute saved |
+| **Configure** | Policy, flow, MCP and agent memory as code: `policy.json`, `agent-config.yml`, `.gitlab/duo/mcp.json`, `AGENTS.md` |
+| **Monitor** | Scheduled smoke monitor; per-MR SCI footprint in the metrics widget; Front Desk console of repairs, compute saved and carbon |
 | **Govern** | Required mutation gate, audited Maintainer overrides, append-only repair ledger |
 
 ## Measured, not claimed
@@ -94,12 +118,12 @@ flowchart LR
 | | |
 | --- | --- |
 | Verified on GitLab | Changed-line review and the gate blocking !1; the custom flow enabled and executing in a GitLab Duo workload ([pipeline 2985096882](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2985096882)) |
-| Verified by automated tests | Arid triage, `apply 1 and 3` parsing and refusals, audited override, AGENTS.md memory, and with real Vitest + Stryker (`npm run test:e2e`, GitLab mocked): draft verification, then `apply 1` committing the test, ledger, lesson and AGENTS.md with the score going 80% → 100% |
-| Wired, first live run pending | The new flow's draft → verify → `apply` loop on !1, and the Cloud Run deploy (needs the GCP variables in [docs/deploy.md](docs/deploy.md)) |
+| Verified by automated tests | Arid triage, `apply 1 and 3` parsing and refusals, audited override, AGENTS.md memory, SCI footprint model (hand-worked example), Code Quality and metrics reports, and with real Vitest + Stryker (`npm run test:e2e`, GitLab mocked): draft verification, then `apply 1` committing the test, ledger, lesson and AGENTS.md with the score going 80% → 100%; the MCP server over stdio checking an uncommitted edit and verifying an agent's draft |
+| Wired, first live run pending | The new flow's draft → verify → `apply` loop on !1, and the Cloud Run deploy (needs the GCP variables in [docs/deploy.md](docs/deploy.md)); the Code Quality and metrics MR widgets, `rules: changes` and the warning exit on the gate, the `benchmark:energy` job, and Duo Agentic Chat using `.gitlab/duo/mcp.json` |
 
 ## Front Desk
 
-A read-only console (React + Express) for the reviewer and the team lead: the changed-line score and gate, the ranked findings and the arid mutants filtered out, the **ledger of useless tests caught and repaired** (and AI drafts rejected), and **compute saved**: mutants avoided by diff scoping, mutants filtered before any model call, model calls avoided, and lessons in agent memory. It deploys to Cloud Run from `main`.
+A read-only console (React + Express) for the reviewer and the team lead: the changed-line score and gate, the ranked findings and the arid mutants filtered out, the **ledger of useless tests caught and repaired** (and AI drafts rejected), and **compute saved**: mutants avoided by diff scoping, mutants filtered before any model call, model calls avoided, and lessons in agent memory. The **Footprint** page breaks each review's SCI into energy, grid intensity and embodied share, shows where the energy went step by step, and re-prices the same measured work in other regions. It deploys to Cloud Run from `main`.
 
 ![Front Desk findings: the triaged surviving mutant with its why, priority and location](docs/images/front-desk-findings.png)
 
@@ -111,7 +135,8 @@ Requires Node 22.12+ (CI pins 24.16).
 npm ci
 npm test            # unit tests
 npm run test:e2e    # real Stryker: good AI draft kept, hallucinated draft rejected
-npm run demo        # mutation-review the demo checkout contract
+npm run demo        # mutation-review the demo checkout contract (with its SCI receipt)
+npm run check       # pre-push: mutation-check your uncommitted changes
 npm run dev         # Front Desk at http://localhost:4173
 ```
 
@@ -119,11 +144,12 @@ GitLab setup (flow, triggers, CI variable, required pipelines) and Google Cloud 
 
 ## Repository map
 
-- `packages/review-core`: diff scope, scoring, gate and override, arid triage, `apply 1 and 3` parsing, AGENTS.md memory. Pure functions.
-- `packages/cli`: Vitest/Stryker execution, `flow prepare | publish | notify`, gate, demo.
+- `packages/review-core`: diff scope, scoring, gate and override, arid triage, `apply 1 and 3` parsing, AGENTS.md memory, SCI footprint, GitLab Code Quality and metrics reports. Pure functions.
+- `packages/cli`: Vitest/Stryker execution with CPU-time measurement, `flow prepare | publish | notify`, gate, demo, `check` and the MCP server (`mcp.ts`).
 - `packages/gitlab-adapter`: the only GitLab API client, scoped to one project.
 - `.gitlab/duo/mutant-review.yml`: the custom flow (deterministic prepare, one drafting agent, deterministic verify and publish).
 - `.gitlab-ci.yml`, `ci/release.gitlab-ci.yml`: MR review and gate; package, Cloud Run, monitor.
-- `apps/front-desk`: the console. `packages/demo-domain`: the demo contracts.
+- `apps/front-desk`: the console (Overview, Findings, Verification, Work ledger, Footprint). `packages/demo-domain`: the demo contracts.
+- `benchmarks/`: the es-toolkit study (`run.ts`, RESULTS.md) and the executed energy comparison (`energy.ts`, `energy-report.ts`).
 
 Read [architecture](docs/architecture.md) and [limitations](docs/limitations.md). Built for the [GitLab Transcend hackathon](https://gitlab-transcend.devpost.com/), Path A, Assisted.

@@ -35,6 +35,8 @@ sequenceDiagram
 | Whether a test is kept | Execution: Vitest + Stryker | A test that doesn't kill its mutant is useless by definition |
 | Whether anything is committed | Human mention, verified by `flowApply` | Role ≥ Developer, proposal from the flow's own account, hash intact, head unchanged |
 | Whether the gate can be waived | Maintainer comment, verified by `findOverride` | After the latest push (server time), reason ≥ 10 characters, audited, test-debt issue |
+| What a review cost | `footprintReceipt` from measured CPU time | Coefficients and region are data in `footprint.ts`; the receipt is validated (parts add up, counts match) before Front Desk shows it |
+| What a pre-push check may touch | `precheck` / MCP `verify_test` | Read-only: base refs are validated (no options, no ranges), drafts pass the same guardrails and the test file is restored |
 
 ## Data
 
@@ -42,5 +44,7 @@ sequenceDiagram
 - `.mutant-review/ledger.json`: append-only history of repairs and rejected drafts, committed by `apply`.
 - `.mutant-review/lessons/*.json` and the managed section of `AGENTS.md`: approved lessons, one per category, with examples.
 - `.mutant-review/policy.json`: threshold, budgets, protected paths.
+- `evidence/gl-code-quality.json`, `evidence/metrics.txt`: the MR widget reports from `mutation:review`.
+- `footprint` in `evidence/latest.json`: the SCI receipt (measured usage, energy, intensity, embodied share, range, per-step breakdown, projected whole-file run).
 
-The score is `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)` over changed-line mutants. Invalid, pending, partial or stale runs are inconclusive, never passing. Zero applicable mutants is `no-applicable-scope`, never a pass.
+The score is `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)` over changed-line mutants. Invalid, pending, partial or stale runs are inconclusive, never passing. Zero applicable mutants is `no-applicable-scope`, never a pass: the gate exits 3, which CI shows as a warning rather than a pass or a block.
