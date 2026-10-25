@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  candidateRanges, changedTestFiles, codeQualityReport, compareProtection, diffLines, evaluateGate, importedSources, lineMap, metricsReport, mutationMetrics,
+  candidateRanges, changedTestFiles, codeQualityReport, isProductionTypeScript, compareProtection, diffLines, evaluateGate, importedSources, lineMap, metricsReport, mutationMetrics,
   protectionCandidates, protectionVerdict, testBlock, withLostProtection, type MutantTriage, type StrykerReportWithTests,
 } from '../src/index.js';
 
@@ -57,6 +57,9 @@ describe('which test changes can lose protection', () => {
       { path: 'src/b.spec.ts', change: 'deleted', headPath: null },
       { path: 'src/c.test.ts', change: 'renamed', headPath: 'src/d.test.ts' },
     ]);
+  });
+  it('never treats test, spec or end-to-end files as production code', () => {
+    expect(['src/a.ts', 'src/a.test.ts', 'src/a.spec.ts', 'packages/cli/src/mcp.e2e.ts'].map(isProductionTypeScript)).toEqual([true, false, false, false]);
   });
   it('resolves the production modules a test imports, ESM .js specifiers included', () => {
     const files = new Set([SOURCE, 'packages/demo-domain/src/money/index.ts', 'packages/demo-domain/src/fixtures/cart.ts']);

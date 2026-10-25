@@ -63,4 +63,29 @@ describe('pre-push check over MCP', () => {
       await writeFile(testPath, tests);
     }
   }, 240_000);
+
+  it('tells an agent that loosened a test what it broke, and verifies the test that restores it', async () => {
+    const tests = await readFile(testPath, 'utf8');
+    const mcp = client();
+    try {
+      // The agent "fixes" a red build by loosening an assertion instead of the code. No source line changes.
+      await writeFile(testPath, tests.replace('expect(shippingFee(10_001)).toBe(0);', 'expect(shippingFee(10_001)).toBeLessThanOrEqual(500);'));
+      await mcp.request('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
+      mcp.notify('notifications/initialized');
+      const check = await mcp.request('tools/call', { name: 'mutation_check', arguments: { base: 'HEAD' } });
+      const structured = check.result!.structuredContent as { status: string; findings: { rank: number; replacement: string; origin: string }[]; protection: { status: string; lost: { line: number; caughtBy: { name: string; fate: string }[] }[] } };
+      expect(structured.status).toBe('gaps');
+      expect(structured.protection).toMatchObject({ status: 'lost', lost: [{ line: 4, caughtBy: [{ name: 'shipping fee ships for free above the threshold', fate: 'weakened' }] }] });
+      expect(structured.findings[0]).toMatchObject({ rank: 1, replacement: 'false', origin: 'lost-protection' });
+      const text = (check.result!.content as { text: string }[])[0]!.text;
+      expect(text).toContain('YOUR TEST EDITS REMOVED PROTECTION');
+      expect(text).toContain('+      expect(shippingFee(10_001)).toBeLessThanOrEqual(500);');
+
+      const restoring = await mcp.request('tools/call', { name: 'verify_test', arguments: { finding: 1, testPath, test: "it('ships free above $100 (SHIPPING-001)', () => {\n  expect(shippingFee(10_001)).toBe(0);\n});" } });
+      expect(restoring.result!.structuredContent).toMatchObject({ verdict: 'verified' });
+    } finally {
+      mcp.close();
+      await writeFile(testPath, tests);
+    }
+  }, 240_000);
 });

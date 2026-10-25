@@ -12,7 +12,7 @@ export function normalizePath(input: string): string {
 export function isProductionTypeScript(path: string): boolean {
   return /\.tsx?$/.test(path) && !/\.d\.ts$/.test(path)
     && !/(^|\/)(node_modules|vendor|vendors|dist|build|coverage|generated|__tests__|tests?|fixtures)(\/|$)/i.test(path)
-    && !/\.(test|spec|generated)\.tsx?$/i.test(path);
+    && !/\.(test|spec|e2e|generated)\.tsx?$/i.test(path);
 }
 
 function readGitPath(text: string): string | null {
