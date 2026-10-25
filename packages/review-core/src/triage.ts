@@ -95,7 +95,7 @@ export function excerpt(source: string, line: number, radius = 8): string {
 /** The part of the drafting brief that every finding adds: what changed, why it matters and the code around it. */
 export function findingContext(item: RankedFinding, source: string): string {
   return [
-    `### Finding ${item.rank}: ${item.path}:${item.line} (${item.priority} priority)`,
+    `### Finding ${item.rank}: ${item.path}:${item.line} (${item.priority} priority${item.origin === 'lost-protection' ? ', lost protection' : ''})`,
     item.why,
     `Mutation that no test noticed: \`${item.original}\` -> \`${item.replacement}\` (${item.operator}, ${item.status})`,
     '```ts', excerpt(source, item.line), '```',

@@ -75,9 +75,13 @@ prompts:
            expectedFrom. If no requirement exists, write "current behaviour".
         4. Follow the "Testing rules learned by Mutant Review" in the output. Humans
            approved those lessons in this repository.
-        5. If no input can tell the original and the mutant apart (an equivalent mutant),
+        5. A finding marked "lost protection" in its explanation was caught on the target
+           branch by a test this merge request loosened, deleted or skipped. Write a test
+           that catches it again, with the expected value from the requirement; restoring
+           the original assertion is fine. Never write a test that accepts both behaviours.
+        6. If no input can tell the original and the mutant apart (an equivalent mutant),
            do not invent a test. List it under "equivalent" with a one-sentence reason.
-        6. You may read the files named in the output and their imports to confirm
+        7. You may read the files named in the output and their imports to confirm
            signatures. Do not open .env files, credentials or unrelated code.
 
         Write exactly one file with create_file_with_contents at
