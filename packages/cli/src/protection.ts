@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   candidateRanges, changedTestFiles, compareProtection, emptyProtection, importedSources, lineMap, protectionCandidates, protectionVerdict,
-  type ProtectionResult, type StrykerReportWithTests,
+  type ProtectionCandidate, type ProtectionResult, type StrykerReportWithTests,
 } from '../../review-core/src/protection.js';
 import type { NormalizedMutant } from '../../review-core/src/types.js';
 import { execute, type Execution } from './runner.js';
@@ -37,11 +37,23 @@ const sourcesOf = (report: StrykerReportWithTests) => Object.fromEntries(Object.
 
 /** Was Stryker's "nothing to mutate" message the reason there is no report? */
 const mutantFree = async (run: Execution) => run.exitCode === 0 && !run.timedOut && /mutant-free world/i.test(await readFile(run.log, 'utf8').catch(() => ''));
+/** Stryker stops when no test relates to the mutated files (vitest.related): every mutant there is uncovered, not an error. */
+const noTestsRan = async (run: Execution) => !run.timedOut && /ERROR Stryker No tests were executed/.test(await readFile(run.log, 'utf8').catch(() => ''));
 
 /**
  * `base`: the target branch commit. `head`: the MR head commit, or null for the working tree (pre-push check).
  * The process must be running in the head checkout.
  */
+/** The report Stryker would write if it ran no test at all: each candidate NoCoverage, in the head's source. */
+async function uncoveredReport(candidates: ProtectionCandidate[]): Promise<StrykerReportWithTests> {
+  const files: StrykerReportWithTests['files'] = {};
+  for (const [index, item] of candidates.entries()) {
+    files[item.path] ??= { source: await readFile(item.path, 'utf8'), mutants: [] };
+    files[item.path]!.mutants.push({ id: `uncovered-${index}`, mutatorName: item.operator, replacement: item.replacement, status: 'NoCoverage', location: item.location, coveredBy: [], killedBy: [] });
+  }
+  return { files, testFiles: {} };
+}
+
 export async function checkProtection(options: { base: string; head: string | null; budget: { files: number; runtimeMs: number } }): Promise<ProtectionRun> {
   const { base, head, budget } = options;
   const runs: ProtectionRun['runs'] = [];
@@ -78,9 +90,9 @@ export async function checkProtection(options: { base: string; head: string | nu
     runs.push({ step: 'Stryker on the target branch (code the changed tests import)', run: before.run });
     if (before.run.timedOut) return done(emptyProtection('over-budget', 'Mutating the code the changed tests import exceeded the runtime budget on the target branch.', context));
     if (!before.report) {
-      return done(await mutantFree(before.run)
-        ? emptyProtection('not-applicable', 'Stryker generated no mutants in the code the changed tests import.', context)
-        : emptyProtection('inconclusive', `Stryker could not finish on the target branch (see ${before.run.log}). Its tests may be failing.`, context));
+      if (await mutantFree(before.run)) return done(emptyProtection('not-applicable', 'Stryker generated no mutants in the code the changed tests import.', context));
+      if (await noTestsRan(before.run)) return done(emptyProtection('not-applicable', 'No test on the target branch exercises the code the changed tests import.', context));
+      return done(emptyProtection('inconclusive', `Stryker could not finish on the target branch (see ${before.run.log}). Its tests may be failing.`, context));
     }
     const baseReport = before.report as unknown as StrykerReportWithTests;
 
@@ -96,8 +108,10 @@ export async function checkProtection(options: { base: string; head: string | nu
     const after = await runStryker(candidateRanges(candidates), { incremental: false, name: 'protection-head', timeoutMs: budget.runtimeMs });
     runs.push({ step: 'Stryker at the head (mutants a changed test killed)', run: after.run });
     if (after.run.timedOut) return done(emptyProtection('over-budget', 'Re-checking the guarded mutants at the head exceeded the runtime budget.', counts));
-    if (!after.report) return done(emptyProtection('inconclusive', `Stryker could not finish at the head (see ${after.run.log}). The tests may be failing.`, counts));
-    const headReport = after.report as unknown as StrykerReportWithTests;
+    let headReport = after.report as unknown as StrykerReportWithTests | null;
+    // No test at the head touches this code any more (deleted or no longer importing it): every guarded mutant is uncovered.
+    if (!headReport && await noTestsRan(after.run)) headReport = await uncoveredReport(candidates);
+    if (!headReport) return done(emptyProtection('inconclusive', `Stryker could not finish at the head (see ${after.run.log}). The tests may be failing.`, counts));
     const { held, lost, unknown, mutants } = compareProtection(candidates, baseReport, headReport);
     const sources = sourcesOf(headReport);
     return done(protectionVerdict({ ...counts, held, lost, unknown }), { sources, mutants });
