@@ -175,7 +175,7 @@ h3 {
   justify-content: center;
   box-shadow: none;
 }
-.brand-mark svg {
+.brand-mark img {
   width: 29px;
   height: 29px;
 }
@@ -1263,7 +1263,7 @@ h1 {
   height: 19px;
   margin-left: 3px;
 }
-.page-footer .brand-mark svg {
+.page-footer .brand-mark img {
   width: 19px;
   height: 19px;
 }

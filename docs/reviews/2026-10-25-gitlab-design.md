@@ -4,7 +4,7 @@ The user's GitLab dark-dashboard screenshot is the visual reference. The app kee
 
 The interface now uses the reference's `#050506` navigation, `#18171d` content surface, gray card borders, selected navigation rows, blue links and compact typography. Its application frame has a 46px global header, a 240px desktop sidebar, a centered search control and a bordered scrolling content area. Status labels retain distinct success, warning and failure colors.
 
-The follow-up branding update uses the header's DNA mark as the shared app and README logo. Brand accents and the favicon use `#009777`, sampled from the previous emerald logo, in place of orange. The README includes matching SVG wordmarks for light and dark themes and screenshots of all six pages.
+The follow-up branding update uses the existing emerald, single-eyed M in the app header, footer and favicon, with the original wordmark restored in the README. The icon asset embeds the original transparent artwork without changing its pixels and uses an SVG viewport to display the emblem. Brand accents use `#009777`, sampled from the emerald logo, in place of orange. The README includes screenshots of all six pages.
 
 GitLab Sans and GitLab Mono are self-hosted from the official `@gitlab/fonts` 1.3.1 distribution, with the original font licenses included. The Google Fonts import was removed. Layout and palette changes cover Overview, Findings, Test changes, Verification, Work ledger, Footprint and the existing dialogs.
 

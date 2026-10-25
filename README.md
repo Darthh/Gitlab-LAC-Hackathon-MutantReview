@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mutant-review-logo-dark.svg">
-    <img src="docs/assets/mutant-review-logo.svg" alt="Mutant Review logo: the emerald DNA mark from the app header beside the wordmark" width="720">
-  </picture>
+  <img src="docs/assets/mutant-review-logo.png" alt="MutantReview logo: the original emerald M with horns and a single eye beside the navy wordmark" width="720">
 </p>
 
 <h1 align="center">MutantReview</h1>
@@ -281,6 +278,6 @@ Read the [architecture](docs/architecture.md), [GitLab setup](docs/setup.md), [d
 
 Keep changes focused and follow [AGENTS.md](AGENTS.md). Run the relevant checks before submitting a change; edits to TypeScript also require `npm run check`. Never make a failing test pass by loosening, deleting or skipping its assertion. Derive new tests from the written contract and verify they catch their target mutation.
 
-The **Mutant Review** logo uses the same DNA mark as the app's top-left header, in emerald green (`#009777`). The README selects the appropriate [light-theme wordmark](docs/assets/mutant-review-logo.svg) or [dark-theme wordmark](docs/assets/mutant-review-logo-dark.svg); the [transparent DNA mark](docs/assets/mutant-review-mark.svg) is available for reuse.
+The **Mutant Review** logo is the original emerald, single-eyed M, also used in the app's top-left header and favicon. Brand accents use the matching emerald green (`#009777`). The [README wordmark](docs/assets/mutant-review-logo.png) has a light background for readability in both themes; the [transparent original](docs/assets/mutant-review-logo-transparent.png) is available for reuse.
 
 Code is distributed under the [MIT License](LICENSE). Third-party names and marks belong to their respective owners.

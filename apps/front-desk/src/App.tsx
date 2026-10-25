@@ -81,14 +81,7 @@ const displayTime = (value: string | null | undefined) =>
 function Logo({ large = false }: { large?: boolean }) {
   return (
     <span className={`brand-mark ${large ? "large" : ""}`} aria-hidden="true">
-      <svg viewBox="0 0 32 32" fill="none">
-        <path
-          d="M9 6c20 10-6 10 14 20M23 6C3 16 29 16 9 26M10 10h12M12 16h8M10 22h12"
-          stroke="currentColor"
-          strokeWidth="2.3"
-          strokeLinecap="round"
-        />
-      </svg>
+      <img src="/favicon.svg" alt="" width="32" height="32" />
     </span>
   );
 }
