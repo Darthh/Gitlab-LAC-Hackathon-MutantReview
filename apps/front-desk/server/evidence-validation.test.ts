@@ -141,3 +141,33 @@ describe('footprint', () => {
     expect(() => validateEvidence(value)).toThrow('Evidence format');
   });
 });
+
+describe('lost protection', () => {
+  const lost = {
+    fingerprint: 'a'.repeat(64), path: 'packages/demo-domain/src/shipping.ts', line: 4, baseLine: 4,
+    location: { start: { line: 4, column: 10 }, end: { line: 4, column: 33 } }, operator: 'EqualityOperator',
+    original: 'subtotalCents >= 10_000', replacement: 'subtotalCents > 10_000', status: 'Survived',
+    caughtBy: [{ id: '2', name: 'ships free at exactly $100 (SHIPPING-001)', file: 'packages/demo-domain/src/shipping.test.ts', line: 14, failure: 'expected 500 to be +0', fate: 'weakened' }],
+    testDiff: { file: 'packages/demo-domain/src/shipping.test.ts', name: 'ships free at exactly $100 (SHIPPING-001)', lines: [{ kind: '-', text: '  expect(shippingFee(10_000)).toBe(0);' }, { kind: '+', text: '  expect(shippingFee(10_000)).toBeLessThanOrEqual(500);' }] },
+    why: 'On the target branch, the test failed when >= became >.',
+  };
+  const scenario = () => ({ status: 'lost', reason: '1 change', scenario: 'Demonstration fixture', changedTests: [{ path: 'packages/demo-domain/src/shipping.test.ts', change: 'modified', headPath: 'packages/demo-domain/src/shipping.test.ts' }],
+    testsInRun: ['packages/demo-domain/src/shipping.test.ts'], subjects: ['packages/demo-domain/src/shipping.ts'], baseMutants: 5, guarded: 5, onChangedLines: 0, rechecked: 5, held: 4, unknown: 0, lost: [lost], cost: { cpuSeconds: 12.4, energyWh: 0.03, sciG: 0.02 } });
+  it('accepts the demo scenario and keeps the before/after test', () => {
+    const value = copy(); value.protection = scenario();
+    expect(validateEvidence(value).protection!.lost[0]!.testDiff!.lines).toHaveLength(2);
+  });
+  it('rejects a verdict that does not match its counts', () => {
+    const held = copy(); held.protection = { ...scenario(), status: 'held' };
+    expect(() => validateEvidence(held)).toThrow('protection verdict');
+    const short = copy(); short.protection = { ...scenario(), held: 2 };
+    expect(() => validateEvidence(short)).toThrow('protection verdict');
+  });
+  it('rejects a passing gate over lost protection, and a demo scenario passed off as a merge request', () => {
+    const passing = copy(); passing.protection = { ...scenario(), scenario: undefined }; passing.gate = { status: 'passed', reasons: [] };
+    expect(() => validateEvidence(passing)).toThrow('ignores lost protection');
+    const gitlab = copy(); gitlab.protection = scenario(); gitlab.source = 'gitlab';
+    Object.assign(gitlab.provenance, { projectId: '1', mrIid: 1, baseSha: 'b'.repeat(40), pipelineId: '1', jobId: '1' });
+    expect(() => validateEvidence(gitlab)).toThrow('demonstration scenario');
+  });
+});

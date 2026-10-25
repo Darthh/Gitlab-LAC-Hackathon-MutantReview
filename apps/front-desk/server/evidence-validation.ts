@@ -29,7 +29,7 @@ const triage = z.object({
   policy: label, considered: count,
   arid: z.array(z.object({ fingerprint: hash, path, line, reason: text })).max(10000),
   ranked: z.array(z.object({ rank: z.number().int().min(1).max(3), fingerprint: hash, path, line, operator: label, original: text, replacement: text,
-    status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text })).max(3),
+    status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text, origin: z.literal('lost-protection').optional() })).max(3),
   overflow: count,
 });
 const modelInput = z.object({ findingsSent: z.number().int().min(0).max(3), findingsOpen: count, charsSent: count, charsOpen: count, charsAvoided: count, tokensAvoidedApprox: count });
@@ -48,7 +48,19 @@ const footprint = z.object({
   savedG: grams.nullable(), savedPercent: z.number().finite().min(0).max(100).nullable(),
   modelCalls: z.object({ made: count, avoided: count }),
 });
+const testRef = z.object({ id: label, name: text, file: path, line: z.number().int().positive().nullable(), failure: text.nullable() });
+const protection = z.object({
+  status: z.enum(['not-applicable', 'held', 'lost', 'inconclusive', 'over-budget']), reason: text.nullable(), scenario: text.optional(),
+  changedTests: z.array(z.object({ path, change: z.enum(['modified', 'deleted', 'renamed']), headPath: path.nullable() })).max(1000),
+  testsInRun: z.array(path).max(1000), subjects: z.array(path).max(1000),
+  baseMutants: count, guarded: count, onChangedLines: count, rechecked: count, held: count, unknown: count,
+  lost: z.array(z.object({ fingerprint: hash, path, line, baseLine: line, location, operator: label, original: text, replacement: text,
+    status: z.enum(['Survived', 'NoCoverage']), caughtBy: z.array(testRef.extend({ fate: z.enum(['weakened', 'removed']) })).min(1).max(100),
+    testDiff: z.object({ file: path, name: text, lines: z.array(z.object({ kind: z.enum([' ', '-', '+']), text })).max(200) }).nullable(), why: text })).max(1000),
+  cost: z.object({ cpuSeconds: grams, energyWh: grams, sciG: grams }).optional(),
+});
 export type EvidenceTriage = z.infer<typeof triage>;
+export type EvidenceProtection = z.infer<typeof protection>;
 export type EvidenceFootprint = z.infer<typeof footprint>;
 export type EvidenceSavings = z.infer<typeof savings>;
 export { label, text, path as repositoryPath };
@@ -78,7 +90,7 @@ export const evidenceSchema = z.object({
   integrations: z.object({ gitlab: label, duo: label }),
   gate: z.object({ status: z.enum(['passed', 'failed', 'inconclusive', 'no-applicable-scope']), reasons: z.array(text).max(100) }),
   evidenceFiles: z.array(path).max(200),
-  triage: triage.optional(), savings: savings.optional(), footprint: footprint.nullable().optional(),
+  triage: triage.optional(), savings: savings.optional(), footprint: footprint.nullable().optional(), protection: protection.nullable().optional(),
 });
 
 export interface EvidenceExpectations {
@@ -114,13 +126,26 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     if (!fingerprints.has(finding.mutantFingerprint)) fail('a finding references an unknown mutation');
     if (createHash('sha256').update(finding.proposal.patch).digest('hex') !== finding.proposal.patchHash) fail('the visible proposal patch does not match its hash');
   }
+  // Lost protection is part of this MR's review unless it is the demo's separate fixture scenario.
+  const protectionResult = evidence.protection ?? null;
+  if (protectionResult) {
+    const { status, lost, held, unknown, rechecked, guarded, onChangedLines, baseMutants, scenario } = protectionResult;
+    if (scenario && evidence.source !== 'local') fail('a demonstration scenario appears in GitLab evidence');
+    if ((status === 'lost') !== (lost.length > 0) || ((status === 'held' || status === 'lost') && (unknown || held + lost.length !== rechecked))) fail('protection verdict does not match its counts');
+    if (rechecked + onChangedLines !== guarded && (status === 'held' || status === 'lost') || guarded > baseMutants) fail('protection counts do not add up');
+    if (new Set(lost.map(item => item.fingerprint)).size !== lost.length) fail('duplicate lost-protection fingerprints');
+    if (!scenario && lost.length && evidence.gate.status === 'passed') fail('passing gate ignores lost protection');
+  }
+  const gatedLost = protectionResult && !protectionResult.scenario ? protectionResult.lost : [];
   const byFingerprint = new Map(evidence.mutation.mutants.map(item => [item.fingerprint, item]));
+  const lostByFingerprint = new Map(gatedLost.map(item => [item.fingerprint, item]));
   if (evidence.triage) {
     const { arid, ranked, overflow, considered } = evidence.triage;
     const listed = [...arid, ...ranked];
-    if (listed.some(item => { const raw = byFingerprint.get(item.fingerprint); return !raw || raw.path !== item.path || raw.line !== item.line || (raw.status !== 'Survived' && raw.status !== 'NoCoverage'); })) fail('triage references an unknown or detected mutation');
-    if (ranked.some(item => byFingerprint.get(item.fingerprint)!.status !== item.status) || new Set(ranked.map(item => item.rank)).size !== ranked.length || new Set(listed.map(item => item.fingerprint)).size !== listed.length) fail('ranked findings do not match the raw inventory');
-    if (considered > evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage || listed.length + overflow > considered) fail('triage counts exceed the surviving mutants');
+    const raw = (item: { fingerprint: string; origin?: string }) => item.origin === 'lost-protection' ? lostByFingerprint.get(item.fingerprint) : byFingerprint.get(item.fingerprint);
+    if (listed.some(item => { const found = raw(item); return !found || found.path !== item.path || found.line !== item.line || (found.status !== 'Survived' && found.status !== 'NoCoverage'); })) fail('triage references an unknown or detected mutation');
+    if (ranked.some(item => raw(item)!.status !== item.status) || new Set(ranked.map(item => item.rank)).size !== ranked.length || new Set(listed.map(item => item.fingerprint)).size !== listed.length) fail('ranked findings do not match the raw inventory');
+    if (considered > evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage + gatedLost.length || listed.length + overflow > considered) fail('triage counts exceed the surviving mutants');
   }
   if (evidence.savings) {
     const { mutantsWholeFiles: whole, mutantsAvoided: avoided, mutantsChangedLines: changed, aridFiltered, aiCallsAvoided } = evidence.savings;
@@ -128,7 +153,7 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     if (evidence.triage && (aridFiltered !== evidence.triage.arid.length || aiCallsAvoided !== aridFiltered + evidence.triage.overflow)) fail('savings do not match the triage record');
     const input = evidence.savings.modelInput;
     if (input && (input.charsAvoided !== input.charsOpen - input.charsSent || input.tokensAvoidedApprox !== Math.round(input.charsAvoided / 4)
-      || input.findingsOpen !== evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage
+      || input.findingsOpen !== evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage + gatedLost.length
       || (evidence.triage && input.findingsSent !== evidence.triage.ranked.length))) fail('model input savings do not match the triage record');
   }
   if (evidence.footprint) {
@@ -141,7 +166,9 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     if (evidence.savings && modelCalls.avoided !== evidence.savings.aiCallsAvoided) fail('footprint model calls do not match the savings record');
   }
   if (evidence.mutation.status === 'complete' && (!evidence.scope.complete || metrics.invalid || metrics.pending || evidence.baseline.status !== 'passed')) fail('completed analysis contains incomplete or failed execution');
-  if (evidence.gate.status === 'passed' && (evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || metrics.score === null || metrics.invalid || metrics.pending || evidence.scope.protectedFilesChanged)) fail('passing gate contradicts the execution evidence');
+  // With no changed source, a pass needs a finished protection check that re-checked something and lost nothing.
+  const protectionPass = Boolean(protectionResult && !protectionResult.scenario && protectionResult.status === 'held' && protectionResult.rechecked > 0);
+  if (evidence.gate.status === 'passed' && (evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || (metrics.score === null && !protectionPass) || metrics.invalid || metrics.pending || evidence.scope.protectedFilesChanged)) fail('passing gate contradicts the execution evidence');
   if (evidence.verification.status === 'passed') {
     const verification = evidence.verification;
     if (!verification.originalPasses || !verification.mutantFails || !verification.cleanRerun || !verification.patchHash || !evidence.findings.some(finding => finding.proposal.patchHash === verification.patchHash)) fail('verification does not establish the exact proposed repair');

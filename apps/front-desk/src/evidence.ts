@@ -1,11 +1,12 @@
-import type { EvidenceFootprint, EvidenceSavings, EvidenceTriage } from "../server/evidence-validation";
-export type { EvidenceFootprint } from "../server/evidence-validation";
+import type { EvidenceFootprint, EvidenceProtection, EvidenceSavings, EvidenceTriage } from "../server/evidence-validation";
+export type { EvidenceFootprint, EvidenceProtection } from "../server/evidence-validation";
 export type { LedgerEntry } from "../server/ledger-validation";
 
 export interface Evidence {
   triage?: EvidenceTriage;
   savings?: EvidenceSavings;
   footprint?: EvidenceFootprint | null;
+  protection?: EvidenceProtection | null;
   schemaVersion: number;
   runId: string;
   createdAt: string;
