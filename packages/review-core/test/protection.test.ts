@@ -148,8 +148,13 @@ describe('lost protection in the review', () => {
     const gate = { baselinePassed: true, complete: true, expectedHeadSha: 'a', evidenceHeadSha: 'a', metrics: mutationMetrics([]), threshold: 90 };
     expect(evaluateGate(gate).status).toBe('no-applicable-scope');
     expect(evaluateGate({ ...gate, lostProtection: 1, protectionRechecked: 3 })).toEqual({ status: 'failed', reasons: [expect.stringContaining('lost protection')] });
-    expect(evaluateGate({ ...gate, protectionRechecked: 3 }).status).toBe('passed');
-    expect(evaluateGate({ ...gate, protectionInconclusive: 'Stryker failed on the target branch.' }).status).toBe('inconclusive');
+    expect(evaluateGate({ ...gate, protectionRechecked: 3, protectionTestOnly: true }).status).toBe('passed');
+    // Changed source that produced no score (disabled mutants, a binary-marked diff, non-TypeScript code) never passes on the test check.
+    expect(evaluateGate({ ...gate, protectionRechecked: 3 }).status).toBe('no-applicable-scope');
+    const ignored = { id: '1', fingerprint: 'f'.repeat(64), path: 'a.ts', location: at(1, 1, 2), original: 'a', replacement: 'b', operator: 'X', status: 'Ignored' as const, coveredBy: [], killedBy: [] };
+    expect(evaluateGate({ ...gate, metrics: mutationMetrics([ignored]), protectionRechecked: 3, protectionTestOnly: true })).toEqual({ status: 'failed', reasons: [expect.stringContaining('disabled')] });
+    // An unfinished check blocks, but as a failure a Maintainer can waive in writing.
+    expect(evaluateGate({ ...gate, protectionInconclusive: 'Stryker failed on the target branch.' })).toEqual({ status: 'failed', reasons: [expect.stringContaining('could not finish')] });
   });
   it('adds lost protection to a failing changed-line verdict rather than replacing it', () => {
     const survivor = { id: '1', fingerprint: 'f'.repeat(64), path: 'a.ts', location: at(1, 1, 2), original: 'a', replacement: 'b', operator: 'X', status: 'Survived' as const, coveredBy: [], killedBy: [] };

@@ -34,6 +34,8 @@ export interface ProtectionResult {
   reason: string | null;
   /** Set only for the local demonstration fixture, never for a merge request. */
   scenario?: string;
+  /** Every path the MR changes is a test file; only then can the gate pass on this check alone. */
+  testOnly?: boolean;
   changedTests: TestFileChange[];
   /** Changed test files that are part of the mutation test run on the target branch. */
   testsInRun: string[];

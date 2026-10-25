@@ -50,7 +50,7 @@ const footprint = z.object({
 });
 const testRef = z.object({ id: label, name: text, file: path, line: z.number().int().positive().nullable(), failure: text.nullable() });
 const protection = z.object({
-  status: z.enum(['not-applicable', 'held', 'lost', 'inconclusive', 'over-budget']), reason: text.nullable(), scenario: text.optional(),
+  status: z.enum(['not-applicable', 'held', 'lost', 'inconclusive', 'over-budget']), reason: text.nullable(), scenario: text.optional(), testOnly: z.boolean().optional(),
   changedTests: z.array(z.object({ path, change: z.enum(['modified', 'deleted', 'renamed']), headPath: path.nullable() })).max(1000),
   testsInRun: z.array(path).max(1000), subjects: z.array(path).max(1000),
   baseMutants: count, guarded: count, onChangedLines: count, rechecked: count, held: count, unknown: count,
@@ -131,7 +131,10 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
   if (protectionResult) {
     const { status, lost, held, unknown, rechecked, guarded, onChangedLines, baseMutants, scenario } = protectionResult;
     if (scenario && evidence.source !== 'local') fail('a demonstration scenario appears in GitLab evidence');
-    if ((status === 'lost') !== (lost.length > 0) || ((status === 'held' || status === 'lost') && (unknown || held + lost.length !== rechecked))) fail('protection verdict does not match its counts');
+    // An inconclusive comparison may still carry the losses it did establish next to the mutants it could not re-check.
+    const compared = status === 'held' || status === 'lost' || (status === 'inconclusive' && unknown > 0);
+    if ((status === 'lost' && !lost.length) || ((status === 'held' || status === 'not-applicable' || status === 'over-budget') && lost.length)
+      || ((status === 'held' || status === 'lost') && unknown) || (compared && held + lost.length + unknown !== rechecked)) fail('protection verdict does not match its counts');
     if (rechecked + onChangedLines !== guarded && (status === 'held' || status === 'lost') || guarded > baseMutants) fail('protection counts do not add up');
     if (new Set(lost.map(item => item.fingerprint)).size !== lost.length) fail('duplicate lost-protection fingerprints');
     if (!scenario && lost.length && evidence.gate.status === 'passed') fail('passing gate ignores lost protection');
@@ -167,7 +170,7 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
   }
   if (evidence.mutation.status === 'complete' && (!evidence.scope.complete || metrics.invalid || metrics.pending || evidence.baseline.status !== 'passed')) fail('completed analysis contains incomplete or failed execution');
   // With no changed source, a pass needs a finished protection check that re-checked something and lost nothing.
-  const protectionPass = Boolean(protectionResult && !protectionResult.scenario && protectionResult.status === 'held' && protectionResult.rechecked > 0);
+  const protectionPass = Boolean(protectionResult && !protectionResult.scenario && protectionResult.status === 'held' && protectionResult.rechecked > 0 && protectionResult.testOnly === true && metrics.total === 0);
   if (evidence.gate.status === 'passed' && (evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || (metrics.score === null && !protectionPass) || metrics.invalid || metrics.pending || evidence.scope.protectedFilesChanged)) fail('passing gate contradicts the execution evidence');
   if (evidence.verification.status === 'passed') {
     const verification = evidence.verification;

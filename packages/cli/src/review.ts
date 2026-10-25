@@ -6,7 +6,7 @@ import { mutationMetrics, normalizeStrykerReport, evaluateGate } from '../../rev
 import { preflight } from '../../review-core/src/preflight.js';
 import type { MemoryLesson } from '../../review-core/src/memory.js';
 import { modelInputSavings, triageMutants } from '../../review-core/src/triage.js';
-import { withLostProtection, type ProtectionResult } from '../../review-core/src/protection.js';
+import { isTestFile, withLostProtection, type ProtectionResult } from '../../review-core/src/protection.js';
 import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
 import { execute, type Execution } from './runner.js';
@@ -17,7 +17,8 @@ import { checkProtection, demoProtection, type ProtectionRun } from './protectio
 export const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }).trim();
 export const json = async (path: string) => JSON.parse(await readFile(path, 'utf8'));
 export const save = async (path: string, value: unknown) => { await mkdir(resolve(path, '..'), { recursive: true }); await writeFile(path, JSON.stringify(value, null, 2) + '\n'); };
-export const protectedPath = (path: string) => /^(?:\.gitlab-ci\.yml|\.gitlab\/|\.mutant-review\/policy\.json|packages\/(?:review-core|cli|gitlab-adapter)\/|package(?:-lock)?\.json$|vitest(?:\.domain)?\.config\.ts$|stryker\.config\.json$)/.test(path);
+// .gitattributes can mark TypeScript as binary (`-diff`) and empty the changed-line scope, so it is part of the evaluator.
+export const protectedPath = (path: string) => /^(?:\.gitlab-ci\.yml|\.gitlab\/|\.mutant-review\/policy\.json|packages\/(?:review-core|cli|gitlab-adapter)\/|package(?:-lock)?\.json$|vitest(?:\.domain)?\.config\.ts$|stryker\.config\.json$)|(?:^|\/)\.gitattributes$/.test(path);
 
 export interface ReviewContext {
   mode: 'demo' | 'ci' | 'flow';
@@ -112,10 +113,13 @@ export async function runReview(context: ReviewContext) {
     scope = [{ path: 'packages/demo-domain/src/shipping.ts', lines: [{ start: 3, end: 5 }], change: 'modified' }];
   } else {
     try { git('cat-file', '-e', `${baseSha}^{commit}`); } catch { git('fetch', '--no-tags', 'origin', baseSha!); }
-    scope = parseDiff(git('diff', '--no-ext-diff', '--unified=0', '--find-renames', baseSha!, headSha, '--'));
+    scope = parseDiff(git('diff', '--no-ext-diff', '--no-textconv', '--text', '--unified=0', '--find-renames', baseSha!, headSha, '--'));
   }
   const scopeLines = scope.reduce((sum, file) => sum + file.lines.reduce((n, lines) => n + lines.end - lines.start + 1, 0), 0);
-  const protectedChanges = demo ? false : git('diff', '--name-only', baseSha!, headSha, '--').split('\n').some(protectedPath);
+  const changedPaths = demo ? [] : git('-c', 'core.quotePath=false', 'diff', '--name-only', baseSha!, headSha, '--').split('\n').filter(Boolean);
+  const protectedChanges = changedPaths.some(protectedPath);
+  // Only an MR that changes nothing but tests can pass on the protection check alone.
+  const testOnly = changedPaths.length > 0 && changedPaths.every(isTestFile);
   const policy = await json('.mutant-review/policy.json').catch(() => ({ version: '1', threshold: 100 }));
   // Budgets live in .mutant-review/policy.json only; defaults apply when the policy is missing.
   const budget = { files: policy.budgets?.files ?? 5, changedLines: policy.budgets?.changedLines ?? 100, mutants: policy.budgets?.mutants ?? 100, runtimeMs: (policy.budgets?.runtimeSeconds ?? 180) * 1000 };
@@ -192,7 +196,8 @@ export async function runReview(context: ReviewContext) {
   // The demo's protection scenario is a second, separate fixture MR; it is shown, not gated, so the demo gate stays the boundary story.
   const gated = demo ? null : protection;
   const gate = evaluateGate({ baselinePassed, complete, expectedHeadSha: headSha, evidenceHeadSha: headSha, metrics, threshold, actionableSurvivors: metrics.survived, protectedFilesChanged: protectedChanges,
-    lostProtection: gated?.lost.length ?? 0, protectionRechecked: gated?.rechecked ?? 0, protectionInconclusive: protectionBlocks(gated) });
+    lostProtection: gated?.lost.length ?? 0, protectionRechecked: gated?.rechecked ?? 0, protectionTestOnly: testOnly, protectionInconclusive: protectionBlocks(gated) });
+  if (protection && !demo) protection.testOnly = testOnly;
   const sources = { ...(demo ? {} : protectionRun?.sources), ...Object.fromEntries(Object.entries((rawReport as { files?: Record<string, { source: string }> } | null)?.files ?? {}).map(([path, file]) => [path.replaceAll('\\', '/').replace(/^\.\//, ''), file.source])) };
   // Lost protection is a regression, not a pre-existing gap, so it is ranked ahead of changed-line findings.
   const triage = withLostProtection(triageMutants(mutants, sources), demo ? [] : lost);

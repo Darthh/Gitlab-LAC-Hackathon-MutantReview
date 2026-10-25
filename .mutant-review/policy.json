@@ -19,5 +19,5 @@
     "repairAttempts": 2
   },
   "excludedPaths": ["**/*.test.ts", "**/*.spec.ts", "**/*.d.ts", "**/generated/**", "**/vendor/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
-  "protectedPaths": [".mutant-review/policy.json", ".gitlab-ci.yml", "packages/review-core/**", "packages/gitlab-adapter/**", "packages/cli/**", "package.json", "package-lock.json", "vitest.config.ts", "stryker.config.json"]
+  "protectedPaths": [".mutant-review/policy.json", ".gitlab-ci.yml", "packages/review-core/**", "packages/gitlab-adapter/**", "packages/cli/**", "package.json", "package-lock.json", "vitest.config.ts", "stryker.config.json", ".gitattributes"]
 }

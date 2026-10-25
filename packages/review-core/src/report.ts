@@ -64,9 +64,14 @@ export interface GateInput {
   maintainerApprovedPolicy?: boolean;
   /** Changes the target branch's tests noticed that this MR's test changes stopped noticing (protection.ts). */
   lostProtection?: number;
-  /** Target-branch kills re-checked at the head. With no changed source, all of them still killed is a real pass. */
+  /** Target-branch kills re-checked at the head. Counts toward a pass only for a test-only MR (see protectionTestOnly). */
   protectionRechecked?: number;
-  /** Why the lost-protection check could not finish, when it could not. Fails closed. */
+  /** True only when every path the MR changes is a test file: then a protection check that lost nothing is a real pass. */
+  protectionTestOnly?: boolean;
+  /**
+   * Why the lost-protection check could not finish, when it could not. Blocks the merge as a failure rather than an
+   * inconclusive run, so a Maintainer can still waive it in writing (a flaky target-branch test, an over-budget refactor).
+   */
   protectionInconclusive?: string | null;
 }
 export interface GateDecision { status: 'passed' | 'failed' | 'inconclusive' | 'no-applicable-scope'; reasons: string[] }
@@ -79,13 +84,15 @@ export function evaluateGate(input: GateInput): GateDecision {
   if (input.metrics.invalid || input.metrics.pending) inconclusive.push('Mutation execution contains invalid, error, or pending results.');
   if (input.protectedFilesChanged && !input.maintainerApprovedPolicy) inconclusive.push('Authoritative policy or evaluator changed; explicit maintainer review is required.');
   if (!Number.isFinite(input.threshold) || input.threshold < 0 || input.threshold > 100) inconclusive.push('Mutation threshold is invalid.');
-  if (input.protectionInconclusive) inconclusive.push(`Lost-protection check: ${input.protectionInconclusive}`);
   if (inconclusive.length) return { status: 'inconclusive', reasons: inconclusive };
   const reasons: string[] = [];
+  if (input.protectionInconclusive) reasons.push(`Lost-protection check could not finish: ${input.protectionInconclusive} A Maintainer may waive it in writing.`);
   if (input.lostProtection) reasons.push(`${input.lostProtection} change(s) the target branch's tests noticed are no longer noticed after this MR's test changes (lost protection).`);
+  // `// Stryker disable` on a changed line silences the evaluator: it needs the same written waiver as a survivor.
+  if (input.metrics.ignored) reasons.push(`${input.metrics.ignored} mutant(s) on changed lines are disabled (Stryker disable comments or ignorers) and need an explicit human waiver.`);
   if (input.metrics.score === null) {
     if (reasons.length) return { status: 'failed', reasons };
-    if (input.protectionRechecked) return { status: 'passed', reasons: [] };
+    if (input.protectionTestOnly && input.protectionRechecked && input.metrics.total === 0) return { status: 'passed', reasons: [] };
     return { status: 'no-applicable-scope', reasons: ['No applicable mutants. This is not a passing changed-source assessment.'] };
   }
   if (input.metrics.score < input.threshold) reasons.push(`Mutation score ${input.metrics.score.toFixed(1)}% is below the ${input.threshold}% project policy.`);

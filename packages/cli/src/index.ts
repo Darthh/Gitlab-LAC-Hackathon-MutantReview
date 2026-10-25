@@ -6,6 +6,7 @@ import { codeQualityReport, metricsReport } from '../../review-core/src/reports.
 import { ciContext, demoContext, git, json, protectionBlocks, protectedPath, runReview, save } from './review.js';
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
 import { formatPrecheck, precheck } from './precheck.js';
+import { isTestFile } from '../../review-core/src/protection.js';
 
 async function review(demo: boolean) {
   const { evidence, baselinePassed, complete } = await runReview(demo ? demoContext() : ciContext());
@@ -38,12 +39,14 @@ async function gate() {
   const headSha = process.env.CI_COMMIT_SHA ?? git('rev-parse', 'HEAD');
   const storedMetrics = mutationMetrics(evidence.mutation.mutants);
   const policy = await json('.mutant-review/policy.json');
-  const protectedChanges = evidence.source === 'gitlab' && evidence.provenance.baseSha ? git('diff', '--name-only', evidence.provenance.baseSha, headSha, '--').split('\n').some(protectedPath) : false;
+  const changedPaths = evidence.source === 'gitlab' && evidence.provenance.baseSha ? git('-c', 'core.quotePath=false', 'diff', '--name-only', evidence.provenance.baseSha, headSha, '--').split('\n').filter(Boolean) : [];
+  const protectedChanges = changedPaths.some(protectedPath);
   const protection = evidence.source === 'gitlab' ? evidence.protection ?? null : null;
   // A GitLab review always records a protection result once its baseline passed; a missing one is an incomplete review.
   const missingProtection = evidence.source === 'gitlab' && evidence.baseline.status === 'passed' && !protection ? 'no result recorded for this review' : null;
   const decision = evaluateGate({ baselinePassed: evidence.baseline.status === 'passed', complete: evidence.scope.complete && evidence.mutation.status === 'complete', expectedHeadSha: headSha, evidenceHeadSha: evidence.provenance.headSha, metrics: storedMetrics, threshold: policy.mutationThreshold ?? 100, actionableSurvivors: storedMetrics.survived, protectedFilesChanged: protectedChanges,
-    lostProtection: protection?.lost?.length ?? 0, protectionRechecked: protection?.rechecked ?? 0, protectionInconclusive: protectionBlocks(protection) ?? missingProtection });
+    lostProtection: protection?.lost?.length ?? 0, protectionRechecked: protection?.rechecked ?? 0, protectionTestOnly: changedPaths.length > 0 && changedPaths.every(isTestFile),
+    protectionInconclusive: protectionBlocks(protection) ?? missingProtection });
   let override = null;
   const mrIid = Number(process.env.CI_MERGE_REQUEST_IID);
   if (decision.status === 'failed' && mrIid && process.env.MUTANT_REVIEW_TOKEN) {

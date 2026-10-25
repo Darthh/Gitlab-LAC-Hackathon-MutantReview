@@ -49,7 +49,7 @@ export function defaultBase(): string {
 
 /** Changed executable lines between `base` and the working tree, plus new untracked source files. */
 export async function workingTreeScope(base: string): Promise<MutationScope[]> {
-  const scope = parseDiff(git('diff', '--no-ext-diff', '--unified=0', '--find-renames', safeRef(base), '--'));
+  const scope = parseDiff(git('diff', '--no-ext-diff', '--no-textconv', '--text', '--unified=0', '--find-renames', safeRef(base), '--'));
   const untracked = git('ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean).filter(isProductionTypeScript);
   for (const path of untracked) {
     const lines = (await readFile(normalizePath(path), 'utf8')).split('\n').length;
