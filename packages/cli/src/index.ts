@@ -5,6 +5,7 @@ import { formatGrams } from '../../review-core/src/footprint.js';
 import { codeQualityReport, metricsReport } from '../../review-core/src/reports.js';
 import { ciContext, demoContext, git, json, protectedPath, runReview, save } from './review.js';
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
+import { formatPrecheck, precheck } from './precheck.js';
 
 async function review(demo: boolean) {
   const { evidence, baselinePassed, complete } = await runReview(demo ? demoContext() : ciContext());
@@ -84,7 +85,15 @@ async function main() {
   if (command === 'demo' || command === 'review') return review(command === 'demo');
   if (command === 'gate') return gate();
   if (command === 'memory') return memory(argument === '--check');
-  console.log('Commands: demo | review (GitLab MR CI) | gate | flow prepare|publish|notify --handle @flow | memory [--check]');
+  if (command === 'check') {
+    // Pre-push: the same review on the working tree. Exit 1 when a changed line has a change no test notices.
+    const index = rest.indexOf('--base');
+    const result = await precheck(index >= 0 ? { base: rest[index + 1] ?? '' } : {});
+    console.log(formatPrecheck(result));
+    process.exitCode = result.status === 'gaps' ? 1 : result.status === 'inconclusive' || result.status === 'over-budget' ? 2 : 0;
+    return;
+  }
+  console.log('Commands: demo | review (GitLab MR CI) | gate | check [--base <ref>] (pre-push) | flow prepare|publish|notify --handle @flow | memory [--check]');
 }
 
 main().catch(async (error: unknown) => {
