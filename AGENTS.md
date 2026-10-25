@@ -17,10 +17,11 @@ Mutant Review mutation-tests the lines a merge request changes and asks a human 
 - `npm test`: unit tests. `npm run test:e2e`: real Stryker run proving drafts are verified by execution.
 - `npm run typecheck`, `npm run build`.
 - `npm run demo`: local mutation review of the demo contract, written to `evidence/latest.json`.
-- `npm run check`: pre-push mutation check of your uncommitted changes. The same check is the `mutation_check` tool of the `mutant-review` MCP server (`.gitlab/duo/mcp.json`, `.mcp.json`).
+- `npm run check`: pre-push mutation check of your uncommitted changes, including protection your test edits removed. The same check is the `mutation_check` tool of the `mutant-review` MCP server (`.gitlab/duo/mcp.json`, `.mcp.json`).
 
 ## Rules
 
+- Never make a failing test pass by loosening its assertion, deleting it or skipping it, and never add `// Stryker disable` comments: the lost-protection check re-runs the target branch's caught mutants against your test edits and the gate blocks either.
 - Never weaken the evaluator to make a gate pass: `.mutant-review/policy.json`, `stryker.config.json`, `vitest*.config.ts`, `.gitlab-ci.yml` and `packages/{review-core,cli,gitlab-adapter}` are protected paths.
 - On `main`, the demo tests in `packages/demo-domain` deliberately miss the exact thresholds. Add tests there only when Mutant Review asks you to draft one for a finding.
 - Keep GitLab writes in `packages/gitlab-adapter`, behind an explicit human command.

@@ -9,6 +9,7 @@ import {
   Leaf,
   MapPin,
   PlugZap,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import {
@@ -152,6 +153,14 @@ const PRACTICES = (e: Evidence) => {
       title: "Catch it before the pipeline",
       body: "The MCP pre-push check lets a coding agent verify its own tests locally, so a useless test never costs an MR pipeline or a review round.",
       effect: "mutation_check · verify_test",
+    },
+    {
+      icon: <ShieldCheck size={15} />,
+      title: "Check edited tests narrowly, and only when they change",
+      body: "The lost-protection check runs only on MRs that edit, move or delete a test, mutates only the code those tests import on the target branch, and re-runs only what they caught.",
+      effect: e.protection && e.protection.status !== "not-applicable"
+        ? `${e.protection.rechecked} re-checked${e.protection.cost ? ` · ${e.protection.cost.cpuSeconds} CPU-s` : ""}${e.protection.scenario ? " (demo scenario)" : ""}`
+        : "not needed in this review",
     },
     {
       icon: <PlugZap size={15} />,
