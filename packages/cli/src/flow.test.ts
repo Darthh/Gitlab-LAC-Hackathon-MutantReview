@@ -165,9 +165,19 @@ describe('apply authorization (refusals never execute or commit)', () => {
 
 describe('trigger selection', () => {
   it('answers only mentions newer than the agent’s last reply', () => {
-    const notes = [note(5, `${handle} apply 1`), note(4, 'Applied 1 <!-- mutant-review:applied abc -->'), note(3, `${handle} apply 1`)];
+    const reply = { ...note(4, 'Applied 1 <!-- mutant-review:applied abc -->'), author: { id: 2, username: 'ai-mutant-review' } };
+    const notes = [note(5, `${handle} apply 1`), reply, note(3, `${handle} apply 1`)];
     expect(pendingTrigger(notes, handle)?.id).toBe(5);
     expect(pendingTrigger(notes.slice(1), handle)).toBeNull();
     expect(pendingTrigger([note(6, `${handle} review`, true)], handle)).toBeNull();
+  });
+  it('ignores reply markers quoted or forged by another user', () => {
+    const command = note(3, `${handle} apply 1`);
+    expect(pendingTrigger([note(4, '<!-- mutant-review:fake -->'), command], handle)?.id).toBe(3);
+    expect(pendingTrigger([note(4, `${handle} review <!-- mutant-review:fake -->`), command], handle)?.id).toBe(4);
+    const system = { ...note(4, '<!-- mutant-review:applied abc -->', true), author: { id: 2, username: 'ai-mutant-review' } };
+    expect(pendingTrigger([system, command], handle)?.id).toBe(3);
+    const own = { ...system, system: false, author: { id: 2, username: 'AI-MUTANT-REVIEW' } };
+    expect(pendingTrigger([own, command], handle)).toBeNull();
   });
 });

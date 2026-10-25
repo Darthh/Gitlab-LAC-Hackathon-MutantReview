@@ -3,9 +3,8 @@
 Only `main` deploys, and `main` only receives MRs that passed the mutation gate. The pipeline in [`ci/release.gitlab-ci.yml`](../ci/release.gitlab-ci.yml):
 
 1. `demo:evidence` runs a real mutation review of the demo contract on that commit.
-2. `package:image` builds the Dockerfile and pushes `front-desk:<sha>` to the GitLab container registry.
-3. `deploy:cloud-run` builds the same Dockerfile with Cloud Build, deploys service `mutant-review-front-desk`, then runs [`ci/smoke.sh`](../ci/smoke.sh) against the live URL: health, deployed revision, evidence and ledger endpoints. If the smoke test fails it routes 100% of traffic back to the previous revision and fails the job.
-4. `monitor:smoke` repeats the smoke test after each deploy and on any pipeline schedule (**Build > Pipeline schedules**, for example hourly).
+2. `deploy:cloud-run` downloads that evidence, builds the Dockerfile once with Cloud Build, deploys service `mutant-review-front-desk`, then runs [`ci/smoke.sh`](../ci/smoke.sh) against the live URL: health, deployed revision, evidence and ledger endpoints. If the smoke test fails it routes 100% of traffic back to the previous revision and fails the job.
+3. `monitor:smoke` repeats the smoke test after each deploy and on any pipeline schedule (**Build > Pipeline schedules**, for example hourly).
 
 Deploy jobs are skipped until `GCP_PROJECT_ID` is set.
 

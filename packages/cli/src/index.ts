@@ -7,6 +7,7 @@ import { ciContext, demoContext, git, json, protectionBlocks, protectedPath, run
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
 import { formatPrecheck, precheck } from './precheck.js';
 import { isTestFile } from '../../review-core/src/protection.js';
+import { reviewFailureSchema } from '../../review-core/src/review-failure.js';
 
 async function review(demo: boolean) {
   const { evidence, baselinePassed, complete } = await runReview(demo ? demoContext() : ciContext());
@@ -118,10 +119,10 @@ async function main() {
 main().catch(async (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
-  await save('evidence/error.json', { status: 'inconclusive', message, createdAt: new Date().toISOString() });
+  const createdAt = new Date().toISOString();
+  await save('evidence/error.json', { status: 'inconclusive', message, createdAt });
   if (['demo', 'review'].includes(process.argv[2] ?? '')) {
-    const old = await json('evidence/latest.json').catch(() => ({}));
-    await save('evidence/latest.json', { ...old, createdAt: new Date().toISOString(), lastAttemptError: message, baseline: { status: 'failed', tests: 0, branchCoverage: null, durationMs: null, log: 'evidence/error.json' }, scope: { ...old.scope, complete: false, reason: message }, mutation: { status: 'inconclusive', score: null, counts: { killed: 0, survived: 0, noCoverage: 0, timedOut: 0, invalid: 0, ignored: 0, pending: 0 }, mutants: [], durationMs: null, reportPath: null }, findings: [], verification: { status: 'not_run', originalPasses: false, mutantFails: false, cleanRerun: false, logs: [], scope: 'Review did not complete' }, gate: { status: 'inconclusive', reasons: [message] }, evidenceFiles: ['evidence/error.json'] });
+    await save('evidence/latest.json', reviewFailureSchema.parse({ schemaVersion: 1, kind: 'review-error', status: 'inconclusive', createdAt, log: 'evidence/error.json' }));
   }
   process.exitCode = 2;
 });

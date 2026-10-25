@@ -1,28 +1,31 @@
 What this repo does: Mutant Review tests whether a GitLab merge request's tests notice deliberate changes to its code. It verifies proposed tests by execution, requires a human command before committing them, and shows the results in a read-only dashboard. Assumed load: one developer using a CLI or MCP server, isolated CI jobs per merge request, and a small number of dashboard readers.
 
-Audit date: 2026-10-25. This is the read-only Ponytail audit after the repository review fixes. The findings below remain open; they are separate from the fixes already delivered.
+Audit date: 2026-10-25. This records the original read-only Ponytail audit after the first repository review fixes. All three findings below were resolved in the subsequent repair pass; see the [follow-up verification and audit](2026-10-25-ponytail-followup.md). Code locations and the validation table below describe the original audit snapshot.
 
-**Must fix**
+**Must fix (resolved)**
 
 1. **A comment from another user can stop the agent handling a valid command** (`packages/cli/src/flow.ts:95-100`, `packages/cli/src/flow.ts:425`).
    - **What this is:** The flow uses hidden comment markers to identify work it has already answered or reported.
    - **Problem:** `pendingTrigger` stops at any comment containing `<!-- mutant-review:`, without checking its author. A newer comment containing `<!-- mutant-review:fake -->` makes an older, unanswered `@ai-mutant-review apply 1` disappear; `flowNotify` similarly accepts another user's copied notification marker.
    - **Fix:** Accept reply markers only from the configured flow account. For CI notification markers, verify the author against the account that owns the CI token before skipping publication.
    - **If we skip it:** Quoting an agent comment, or posting a forged marker, can cause an authorized request to be skipped or a findings comment to be omitted. The direct reproduction returned `null` for the pending command.
+   - **Resolution:** Reply markers now require the configured flow account; notification markers require the authenticated CI token owner's ID and the current head. Forged, quoted, stale and system markers are covered by regression tests.
 
 2. **The failure handler writes evidence the dashboard cannot read** (`packages/cli/src/index.ts:118-126`, `apps/front-desk/server/evidence-validation.ts:75`).
    - **What this is:** When a review throws, the CLI replaces the latest evidence with a record explaining the failed attempt.
    - **Problem:** It writes `baseline.durationMs: null`, but the server requires a number. It also spreads old evidence into a new record with an empty mutation inventory, potentially retaining incompatible triage and savings; the dashboard returns a generic malformed-evidence error instead of the review failure.
    - **Fix:** Define a distinct, validated error artifact for failed attempts and have the server return a sanitized failure message and log reference. Keep the successful-run schema strict.
    - **If we skip it:** An interrupted review looks like corrupt data in Front Desk, and the useful error is hidden in server files. Passing the failure handler's baseline shape to `validateEvidence` reproduced the schema rejection.
+   - **Resolution:** A strict `review-error` artifact replaces stale evidence entirely. The server returns a fixed, readable failure message and log reference; raw details remain in `evidence/error.json` on the server. Successful-run validation remains strict.
 
-**Should fix**
+**Should fix (resolved)**
 
 3. **The release path builds an image it never deploys** (`ci/release.gitlab-ci.yml:29-40`, `ci/release.gitlab-ci.yml:78-80`).
    - **What this is:** `package:image` builds and pushes a GitLab registry image. The deployment job then uses `gcloud run deploy --source .`, which builds the application again.
    - **Problem:** The deployment job never consumes the first image. With Google Cloud deployment enabled, each release performs two builds and deploys the second artifact.
    - **Fix:** Delete the unused `package:image` job and its deployment dependency, retaining the Cloud Run source build as the build-and-release path. Update the release description to match.
    - **If we skip it:** Each enabled deployment spends extra runner time and registry storage on an image that this repository's release path does not use.
+   - **Resolution:** Deleted the unused image job, Docker-in-Docker service, registry login/push and deployment dependency. The release retains one Cloud Build source deployment, and the active documentation now matches it.
 
 **Work completed before the audit**
 
@@ -50,8 +53,8 @@ Audit date: 2026-10-25. This is the read-only Ponytail audit after the repositor
 | Regression strength | Benchmark, malformed MCP request, ineffective draft, Windows line-ending and log-write regressions failed against the original behavior. The end-to-end suite also checks rollback and corrupt-ledger refusal. |
 | Repository pre-push mutation check | Exit 2: six production files exceed the five-file policy budget. An earlier smaller run was inconclusive because the configured mutation tests cover the demo domain. This check did not pass; budgets and evaluator rules were preserved. |
 
-Verdict: The core local review, verification and apply paths pass their tests. Fix marker-author checks first, then make failed attempts readable in Front Desk.
+Verdict: All three original findings are resolved. The follow-up Ponytail pass found no additional actionable findings in the reviewed paths.
 
-Lean: -14 lines, -0 dependencies possible by removing the unused image-build job and its deployment dependency; update the accompanying documentation too.
+Lean: Removed 14 pipeline lines and 0 package dependencies by deleting the unused image-build job and its deployment dependency; accompanying documentation was updated.
 
 Not checked: live GitLab/Duo execution or account permissions, a real approval/commit in GitLab, deployed CI or Cloud Run behavior, Linux CPU measurement, hostile-repository sandbox isolation, concurrent independent MCP processes, sustained traffic, and a fresh run of all historical benchmark PRs. The React/CSS presentation, screenshots, historical raw reports and benchmark-maintenance scripts were not read line by line. The pre-push mutation check is not a passing mutation assessment of the changed product code.

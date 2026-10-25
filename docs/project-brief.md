@@ -32,7 +32,7 @@ The working brief for this project, rewritten from the original pitch so each pa
 
 ## Lifecycle reach (Technological Implementation, Most Stages)
 
-Plan (test-debt issue) · Create (approved test commits) · Verify (mutation, lost-protection check, verified drafts) · Secure (SAST, secret detection, protected evaluator, credential-free execution) · Package (registry image) · Release (Cloud Run, smoke, rollback) · Configure (policy, flow, memory as code) · Monitor (scheduled smoke, Front Desk) · Govern (required gate, audited override, ledger).
+Plan (test-debt issue) · Create (approved test commits) · Verify (mutation, lost-protection check, verified drafts) · Secure (SAST, secret detection, protected evaluator, credential-free execution) · Package (CI evidence and one Cloud Build image) · Release (Cloud Run, smoke, rollback) · Configure (policy, flow, memory as code) · Monitor (scheduled smoke, Front Desk) · Govern (required gate, audited override, ledger).
 
 ## Proof (measured, not claimed)
 

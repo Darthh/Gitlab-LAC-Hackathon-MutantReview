@@ -94,7 +94,7 @@ export function decodePayload(body: string): ProposalPayload | null {
 /** Newest human mention after the agent's last reply. Older commands were already answered. */
 export function pendingTrigger(notes: Note[], handle: string): Note | null {
   for (const note of notes) {
-    if (note.body.includes(MARK)) return null;
+    if (!note.system && note.author.username?.toLowerCase() === handle.slice(1).toLowerCase() && note.body.includes(MARK)) return null;
     if (!note.system && note.body.trim().toLowerCase().startsWith(handle.toLowerCase())) return note;
   }
   return null;
@@ -415,14 +415,15 @@ export async function flowPublish(args: string[], connect: () => Promise<GitLabA
 }
 
 /** CI variant: deterministic findings without AI drafts, posted once per head. */
-export async function flowNotify(args: string[]) {
+export async function flowNotify(args: string[], connect: () => Promise<GitLabAdapter> = flowAdapter) {
   const handle = flowHandle(args);
   const evidence = await json('evidence/latest.json');
   if (!evidence.triage?.ranked?.length) { console.log('No surviving mutants to report.'); return; }
-  const adapter = await flowAdapter();
+  const adapter = await connect();
   const mr = await adapter.currentMergeRequest(Number(process.env.CI_MERGE_REQUEST_IID));
   if (mr.sha !== evidence.provenance.headSha) { console.log('MR head moved on; skipping stale findings.'); return; }
-  if ((await adapter.listMergeRequestNotes(mr.iid)).some((note) => note.body.includes(`${MARK}notified ${mr.sha}`))) { console.log('Already reported for this head.'); return; }
+  const [notes, actorId] = await Promise.all([adapter.listMergeRequestNotes(mr.iid), adapter.currentUserId()]);
+  if (notes.some((note) => !note.system && note.author.id === actorId && note.body.includes(`${MARK}notified ${mr.sha}`))) { console.log('Already reported for this head.'); return; }
   const policy = await json('.mutant-review/policy.json').catch(() => ({}));
   const empty = { proposals: [], rejected: [], equivalent: [] };
   await adapter.publishFindings(mr.iid, mr.sha, `${inert(summaryBody(evidence, evidence.triage.ranked, empty, handle, policy.mutationThreshold ?? 90))}\n\n${MARK}notified ${mr.sha} -->`,

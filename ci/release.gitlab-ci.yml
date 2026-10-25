@@ -1,5 +1,5 @@
 # Release path for code that already passed the MR mutation gate.
-# merge -> demo:evidence -> package:image (GitLab registry) -> deploy:cloud-run -> monitor:smoke
+# merge -> demo:evidence -> deploy:cloud-run (build once, deploy) -> monitor:smoke
 #
 # Google Cloud setup (once), see docs/deploy.md:
 #   GCP_PROJECT_ID, GCP_REGION (default us-central1)
@@ -26,19 +26,6 @@ demo:evidence:
     expire_in: 30 days
     paths: [evidence/]
 
-package:image:
-  extends: .main_push
-  stage: package
-  image: docker:27
-  services: [docker:27-dind]
-  needs: [demo:evidence]
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker build --build-arg REVISION="$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE/front-desk:$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE/front-desk:latest" .
-    - docker push --all-tags "$CI_REGISTRY_IMAGE/front-desk"
-
 .gcloud:
   image: google/cloud-sdk:slim
   id_tokens:
@@ -60,7 +47,7 @@ package:image:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push" && $GCP_PROJECT_ID'
 
-# Builds the same Dockerfile with Cloud Build, shifts traffic, smoke-tests the live URL and
+# Builds the Dockerfile once with Cloud Build, shifts traffic, smoke-tests the live URL and
 # rolls traffic back to the previous revision if the smoke test fails.
 deploy:cloud-run:
   extends: .gcloud
@@ -68,7 +55,6 @@ deploy:cloud-run:
   needs:
     - job: demo:evidence
       artifacts: true
-    - job: package:image
   environment:
     name: production
     url: $CLOUD_RUN_URL

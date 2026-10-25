@@ -209,11 +209,17 @@ export class GitLabAdapter {
     return levels.length ? Math.max(...levels) : null;
   }
 
+  /** The authenticated token owner, rather than an identity claimed by a comment. */
+  async currentUserId(): Promise<number> {
+    const me = await this.request<{ id: number }>("/user", { globalUser: true });
+    return positiveId(me?.id);
+  }
+
   /** Idempotent per title, but only issues this token's own user opened count, so nobody can squat the title. */
   async ensureIssue(title: string, description: string, labels: string[]) {
-    const me = await this.request<{ id: number }>("/user", { globalUser: true });
+    const actorId = await this.currentUserId();
     const open = await this.request<Array<{ iid: number; title: string; web_url: string; author: { id: number } }>>(`/issues?state=opened&search=${encodeURIComponent(title)}&in=title&per_page=20`);
-    const existing = open.find((issue) => issue.title === title && issue.author?.id === me.id);
+    const existing = open.find((issue) => issue.title === title && issue.author?.id === actorId);
     if (existing) return existing;
     return this.request<{ iid: number; title: string; web_url: string }>("/issues", { method: "POST", body: { title, description, labels: labels.join(",") } });
   }

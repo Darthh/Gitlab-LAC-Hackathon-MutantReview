@@ -136,7 +136,7 @@ flowchart LR
   P --> A["Human: @mutant-review apply 1 and 3"]
   A --> R[Commit tests, re-run Stryker,<br/>post score delta, update AGENTS.md]
   R --> G
-  G -->|pass or audited override| Merge --> Build[Image] --> Run[Cloud Run + smoke + rollback] --> Mon[Scheduled monitor]
+  G -->|pass or audited override| Merge --> Build[Cloud Build image] --> Run[Cloud Run + smoke + rollback] --> Mon[Scheduled monitor]
 ```
 
 1. **Mutate only the diff.** Every MR pipeline computes changed line ranges and runs StrykerJS on just those lines (`path:start-end`), with incremental caching. It also measures how many mutants the whole changed files would have produced, so the compute saved is a measured number.
@@ -188,7 +188,7 @@ Design choices that keep it small, each with its evidence: mutate only the diff 
 | **Create** | The agent commits human-approved tests to the MR branch |
 | **Verify** | Stryker on changed lines, lost-protection check on edited tests, unit and e2e suites, verified-by-execution drafts, pre-push `mutation_check` over MCP, Code Quality MR widget |
 | **Secure** | SAST and secret detection; protected evaluator paths; drafts run without credentials |
-| **Package** | Front Desk image pushed to the GitLab container registry |
+| **Package** | CI execution evidence and one Front Desk image built by Cloud Build for deployment |
 | **Release** | Cloud Run deploy with smoke test and automatic traffic rollback |
 | **Configure** | Policy, flow, MCP and agent memory as code: `policy.json`, `agent-config.yml`, `.gitlab/duo/mcp.json`, `AGENTS.md` |
 | **Monitor** | Scheduled smoke monitor; per-MR SCI footprint in the metrics widget; Front Desk console of repairs, compute saved and carbon |
@@ -237,7 +237,7 @@ GitLab setup (flow, triggers, CI variable, required pipelines) and Google Cloud 
 | Review engine | TypeScript, StrykerJS, Vitest. |
 | Agent workflow | GitLab Duo custom flow, GitLab CI, MCP over stdio. |
 | Front Desk | React, Vite, Express, Lucide icons. |
-| Release and monitoring | GitLab container registry, Google Cloud Run, smoke checks and rollback. |
+| Release and monitoring | Cloud Build, Google Cloud Run, smoke checks and rollback. |
 | Evidence | Mutation reports, repair ledger, repository lessons, Code Quality and metrics reports, SCI receipts. |
 
 | Path | Responsibility |

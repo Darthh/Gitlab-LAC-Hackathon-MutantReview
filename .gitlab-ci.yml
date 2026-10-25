@@ -1,6 +1,6 @@
 # Mutant Review pipeline.
 #   Every MR:  validate -> test (SAST, secrets) -> review (Stryker on changed lines) -> govern (gate)
-#   main:      package (image) -> deploy (Cloud Run, smoke test, rollback) -> monitor
+#   main:      package (evidence) -> deploy (Cloud Build, Cloud Run, smoke test, rollback) -> monitor
 # The gate is a required pipeline job, so only code whose changed lines are protected by
 # tests (or carry a Maintainer's written override) can merge and reach the release path.
 workflow:

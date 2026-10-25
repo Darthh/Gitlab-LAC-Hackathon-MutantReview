@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { filterMutantsToScope, normalizePath } from '../../../packages/review-core/src/scope.js';
 import { mutationMetrics } from '../../../packages/review-core/src/report.js';
+import { reviewFailureSchema } from '../../../packages/review-core/src/review-failure.js';
 
 const text = z.string().max(100_000);
 const label = z.string().min(1).max(500);
@@ -102,6 +103,9 @@ export interface EvidenceExpectations {
 }
 
 export function validateEvidence(input: unknown, expected: EvidenceExpectations = {}) {
+  if (reviewFailureSchema.safeParse(input).success) {
+    throw new Error('Evidence rejected: the last review did not complete. Check evidence/error.json on the server, then run the review again.');
+  }
   const parsed = evidenceSchema.safeParse(input);
   if (!parsed.success) throw new Error('Evidence format is unsupported or malformed. Regenerate the run.');
   const evidence = parsed.data;

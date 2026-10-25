@@ -20,6 +20,17 @@ const adapter = (route: Route, token: string | null = "server-only") => {
 };
 
 describe("project-restricted GitLab adapter", () => {
+  it("resolves the token owner's identity from the authenticated user endpoint", async () => {
+    const { api, fake } = adapter((url) => url.endsWith('/api/v4/user') ? json({ id: 42 }) : undefined);
+    expect(await api.currentUserId()).toBe(42);
+    expect(fake.mock.calls[0]?.[0]).toBe('https://gitlab.example/api/v4/user');
+    expect(fake.mock.calls[0]?.[1]?.headers).toMatchObject({ 'PRIVATE-TOKEN': 'server-only' });
+  });
+  it("rejects invalid identities instead of trusting comment authors", async () => {
+    for (const id of [0, -1, '42', null]) {
+      await expect(adapter(() => json({ id })).api.currentUserId()).rejects.toThrow('Expected a positive GitLab identifier');
+    }
+  });
   it("rejects credential-bearing or non-HTTPS base URLs", () => {
     for (const baseUrl of ["http://gitlab.example", "https://user:secret@gitlab.example", "https://gitlab.example/api"]) {
       expect(() => new GitLabAdapter({ baseUrl, projectId: 7 })).toThrow();

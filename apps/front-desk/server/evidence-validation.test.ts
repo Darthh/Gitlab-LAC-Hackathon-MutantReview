@@ -22,6 +22,13 @@ describe('Front Desk evidence validation', () => {
     const value = copy(); value.mutation.counts = null;
     expect(() => validateEvidence(value)).toThrow('Evidence format is unsupported or malformed. Regenerate the run.');
   });
+  it('explains validated failed attempts without accepting them as successful evidence', () => {
+    const failure = { schemaVersion: 1, kind: 'review-error', status: 'inconclusive', createdAt: '2026-10-25T12:00:00Z', log: 'evidence/error.json' };
+    expect(() => validateEvidence(failure)).toThrow('Evidence rejected: the last review did not complete. Check evidence/error.json on the server, then run the review again.');
+    for (const invalid of [{ ...failure, status: 'passed' }, { ...failure, log: '../private.log' }, { ...failure, createdAt: 'yesterday' }, { ...failure, message: 'private detail' }, { ...failure, triage: measured.triage }]) {
+      expect(() => validateEvidence(invalid)).toThrow('Evidence format is unsupported or malformed. Regenerate the run.');
+    }
+  });
   it('rejects another project, revision, MR, source, or job', () => {
     for (const expected of [{ projectId: '999' }, { headSha: 'f'.repeat(40) }, { mergeRequestIid: 99 }, { source: 'gitlab' as const }, { jobId: '999' }]) {
       expect(() => validateEvidence(measured, expected)).toThrow('Evidence rejected');
