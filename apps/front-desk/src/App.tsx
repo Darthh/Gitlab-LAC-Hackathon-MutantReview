@@ -35,6 +35,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  ShieldAlert,
   ShieldCheck,
   ShieldX,
   Sparkles,
@@ -51,11 +52,13 @@ import type {
   Mutant,
 } from "./evidence";
 import { FootprintPage, FootprintStrip } from "./Footprint";
+import { ProtectionPage, ProtectionStrip } from "./Protection";
 
-type Page = "overview" | "findings" | "verification" | "ledger" | "footprint";
+type Page = "overview" | "findings" | "protection" | "verification" | "ledger" | "footprint";
 const navigation: { key: Page; label: string; icon: typeof Activity }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "findings", label: "Findings", icon: FlaskConical },
+  { key: "protection", label: "Test changes", icon: ShieldAlert },
   { key: "verification", label: "Verification", icon: ReceiptText },
   { key: "ledger", label: "Work ledger", icon: Activity },
   { key: "footprint", label: "Footprint", icon: Leaf },
@@ -212,6 +215,7 @@ export default function App() {
   }
   const finding = evidence?.findings[0];
   const survivors = evidence?.mutation.counts.survived || 0;
+  const lostProtection = evidence?.protection?.lost.length ?? 0;
   const projectLink = config?.projectUrl;
   const isMeasured = evidence?.mutation.status === "complete";
   const currentLabel = navigation.find((n) => n.key === page)!.label;
@@ -488,6 +492,9 @@ export default function App() {
               {key === "findings" && survivors > 0 && (
                 <span className="nav-count">{survivors}</span>
               )}
+              {key === "protection" && lostProtection > 0 && (
+                <span className="nav-count lost">{lostProtection}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -597,6 +604,8 @@ export default function App() {
                   ? "Passing tests are a start. Let’s see what they actually protect."
                   : page === "findings"
                     ? "A specific behavioral change. The evidence behind it."
+                    : page === "protection"
+                      ? "When a change edits tests, do they still notice what they noticed before?"
                     : page === "verification"
                       ? "Follow the path from a proposed assertion to executable proof."
                       : page === "footprint"
@@ -750,6 +759,10 @@ export default function App() {
                     <FootprintStrip
                       footprint={evidence.footprint}
                       onOpen={() => navigate("footprint")}
+                    />
+                    <ProtectionStrip
+                      protection={evidence.protection}
+                      onOpen={() => navigate("protection")}
                     />
                     <BenchmarkTiles />
                     <div className="content-columns">
@@ -1092,6 +1105,9 @@ export default function App() {
                   </>
                 )}
                 {page === "footprint" && <FootprintPage evidence={evidence} />}
+                {page === "protection" && (
+                  <ProtectionPage evidence={evidence} onFindings={() => navigate("findings")} />
+                )}
                 {page === "ledger" && (
                   <>
                     <RepairLedger key={refreshes} projectUrl={projectLink} />
