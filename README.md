@@ -1,29 +1,76 @@
-# Mutant Review
+<p align="center">
+  <img src="docs/assets/mutant-review-logo.png" alt="MutantReview logo: an emerald M with horns and a single eye, beside the navy wordmark" width="720">
+</p>
+
+<h1 align="center">MutantReview</h1>
+
+<p align="center"><strong>Mutation testing for AI-written code.</strong><br>Find the gaps. Prove the tests. Keep a human in control.</p>
+
+<p align="center">
+  <a href="https://gitlab.com/mutant-review1/mutant-review/-/pipelines"><img src="https://gitlab.com/mutant-review1/mutant-review/badges/main/pipeline.svg" alt="GitLab pipeline status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-008D72" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/GitLab_Duo-Assisted-008D72" alt="GitLab Duo assisted workflow">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D22.12-333333" alt="Node.js 22.12 or newer">
+</p>
+
+<p align="center">
+  <a href="https://gitlab.com/mutant-review1/mutant-review">GitLab project</a> &middot;
+  <a href="https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1">Demo MR</a> &middot;
+  <a href="benchmarks/RESULTS.md">Benchmark</a> &middot;
+  <a href="docs/demo.md">Demo walkthrough</a> &middot;
+  <a href="docs/setup.md">Setup</a>
+</p>
 
 **100% coverage. 0 bugs caught.** Coverage tells you which lines ran, not whether any test would notice them breaking.
 
-Mutant Review is a GitLab Duo agent that mutation-tests **only the lines a merge request changes**, shows the reviewer at most three changes no test would notice, drafts a test for each, and **proves every AI-drafted test by running it against the mutant before a human ever sees it**. A human replies `@mutant-review apply 1 and 3`; the agent commits those tests, re-runs the mutants, and teaches the repository's `AGENTS.md` so the next agent doesn't write the same useless test.
+Mutant Review is a GitLab Duo agent that mutation-tests **only the lines a merge request changes**, surfaces at most three changes no test would notice, and drafts a test for each. Every draft must **pass on the code and fail on the mutant** before a human sees it. A human approves the tests; the agent commits them, re-runs the mutants, and records the lesson in `AGENTS.md`.
 
-It also catches the move coverage can't see at all: **an MR that edits the tests instead of the code.** Loosen `toBe(0)` to `toBeLessThanOrEqual(500)`, delete the test that went red, and every line is still covered and every check still green. Mutant Review re-runs the target branch's mutants against the MR's tests and blocks the merge when one that used to be caught no longer is, naming the test that used to catch it.
+Built for the [GitLab Transcend hackathon](https://gitlab-transcend.devpost.com/), **Path A · Assisted**. The [verification status](#status) separates live GitLab evidence, automated checks, and integrations awaiting their first live run.
 
-The same engine runs **before the push** as an MCP server, so GitLab Duo Agentic Chat (or Claude Code, Cursor) can check its own tests against their mutants before an MR exists, and every review **measures its own carbon footprint** (SCI, ISO/IEC 21031) from real CPU time.
+## Contents
 
-[![pipeline](https://gitlab.com/mutant-review1/mutant-review/badges/main/pipeline.svg)](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+- [Judging in 60 seconds](#judging-in-60-seconds)
+- [What Mutant Review implements](#what-mutant-review-implements)
+- [The problem](#the-problem)
+- [What the reviewer sees](#what-the-reviewer-sees)
+- [How it works](#how-it-works)
+- [When the agent edits the tests](#when-the-agent-edits-the-tests)
+- [Catch it before you push](#catch-it-before-you-push)
+- [Footprint, measured](#footprint-measured)
+- [DevSecOps stages covered](#devsecops-stages-covered)
+- [Measured, not claimed](#measured-not-claimed)
+- [Front Desk](#front-desk)
+- [Run it](#run-it)
+- [Technology and repository map](#technology-and-repository-map)
+- [Contributing and license](#contributing-and-license)
 
-[GitLab project](https://gitlab.com/mutant-review1/mutant-review) · [Demo MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) · [Pipelines](https://gitlab.com/mutant-review1/mutant-review/-/pipelines) · [Benchmark](benchmarks/RESULTS.md) · [3-minute demo script](docs/demo.md)
+## Judging in 60 seconds
 
 ![Front Desk: 100% branch coverage, merge gate blocked, and the es-toolkit benchmark](docs/images/front-desk-overview.png)
 
-### Judging in 60 seconds
+| Start here | What the evidence shows |
+| --- | --- |
+| **A green suite with a gap** | [MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) has 100% branch coverage, but `>=` can become `>` without a test failing. The [mutation gate blocks the merge](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477). |
+| **Real merged changes** | **11 of 25** analyzed es-toolkit PRs had a changed line with an undetected mutation. A survivor is a change no test noticed, not a proven bug. [Method and results](benchmarks/RESULTS.md). |
+| **One drafting agent** | The [Duo flow](.gitlab/duo/mutant-review.yml) runs deterministic preparation, one model call, and deterministic verification. Drafts are executed against their mutants before review. |
+| **A repair you can reproduce** | `npm ci && npm run test:e2e` keeps the boundary test, rejects a useless draft, and applies an approved repair: **80% → 100%**. It also checks an uncommitted edit and verifies a draft through MCP. GitLab is mocked in this suite. |
+| **Protection for the tests** | The same e2e suite uses real git, Vitest and Stryker to show that loosening an assertion blocks the gate and names the lost protection; a rename-only test refactor still passes. [How it works](#when-the-agent-edits-the-tests). |
+| **Measured review cost** | Each review writes an SCI receipt to the MR comment, metrics widget and Front Desk. The demo receipt is **17 mgCO2e**, using measured CPU time and a carbon model. [Method and limits](docs/sustainability.md). |
 
-1. **The gap:** [MR !1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1) has 100% branch coverage and green tests, and its [mutation gate](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477) still blocks the merge: `>=` can become `>` without a single test failing.
-2. **The proof it matters:** in 11 of the last 25 merged PRs of es-toolkit, a library that advertises 100% coverage, a changed line could break unnoticed ([RESULTS.md](benchmarks/RESULTS.md)).
-3. **The agent:** [`.gitlab/duo/mutant-review.yml`](.gitlab/duo/mutant-review.yml) is one deterministic step, one model call and one more deterministic step. Every AI-drafted test is run against its mutant before a human sees it.
-4. **Try the core claim:** `npm ci && npm run test:e2e` keeps the real boundary test, rejects a plausible but useless one, then applies the approved test and moves the score from 80% to 100%. It also drives the MCP server over stdio: an uncommitted edit is mutation-checked and an agent's draft test is verified before any push.
-5. **The agent that edits the tests:** the same e2e run builds real git repositories where an MR only loosens one assertion. Before, the gate had nothing to mutate and let it through with a warning. Now it fails: *"`ships for free above the threshold` failed on the target branch when the free-shipping condition became `false`; after this MR no test does"*, with the before/after assertion. A rename-only test refactor still passes ([how it works](#when-the-agent-edits-the-tests)).
-6. **What it costs:** every review writes an SCI receipt (`17 mgCO2e` for the demo review, measured CPU time) to the MR comment, the MR metrics widget and Front Desk's Footprint page. Method: [docs/sustainability.md](docs/sustainability.md).
+## What Mutant Review implements
 
----
+| Capability | Implementation |
+| --- | --- |
+| Changed-line mutation testing | Stryker runs on the MR's changed lines; deterministic triage ranks at most three findings. |
+| Tests proved by execution | A proposed test must pass on the current code and fail on its mutant. Useless drafts are rejected before human review. |
+| Human-controlled repairs | A human replies `@mutant-review apply 1 and 3`; deterministic checks bind approval to the actor, proposal and MR head before a commit. |
+| Protection against weakened tests | Re-run the target branch's caught mutants against the MR's tests. Loosened, deleted or skipped protection blocks the gate. |
+| Checks before the push | The same engine exposes `mutation_check` and `verify_test` over MCP for GitLab Duo Agentic Chat, Claude Code and other MCP clients. |
+| Repository memory | Approved repairs add a test, ledger entry and lesson to `AGENTS.md`. |
+| Review footprint | Each review records an SCI receipt using process-tree CPU time, energy and carbon models, with the assumptions and range exposed. |
+| Evidence console | Front Desk brings findings, test changes, verification, repair history and footprint into a read-only React console. |
+
+These capabilities have different verification states. See [Status](#status) for what has run on GitLab, what is covered by automated tests, and what is wired but awaiting a live run.
 
 ## The problem
 
@@ -183,14 +230,34 @@ npm run dev         # Front Desk at http://localhost:4173
 
 GitLab setup (flow, triggers, CI variable, required pipelines) and Google Cloud deployment: [docs/setup.md](docs/setup.md) and [docs/deploy.md](docs/deploy.md).
 
-## Repository map
+## Technology and repository map
 
-- `packages/review-core`: diff scope, scoring, gate and override, arid triage, lost protection (`protection.ts`), `apply 1 and 3` parsing, AGENTS.md memory, SCI footprint, GitLab Code Quality and metrics reports. Pure functions.
-- `packages/cli`: Vitest/Stryker execution with CPU-time measurement, the target-branch worktree runs of the lost-protection check (`protection.ts`), `flow prepare | publish | notify`, gate, demo, `check` and the MCP server (`mcp.ts`).
-- `packages/gitlab-adapter`: the only GitLab API client, scoped to one project.
-- `.gitlab/duo/mutant-review.yml`: the custom flow (deterministic prepare, one drafting agent, deterministic verify and publish).
-- `.gitlab-ci.yml`, `ci/release.gitlab-ci.yml`: MR review and gate; package, Cloud Run, monitor.
-- `apps/front-desk`: the console (Overview, Findings, Test changes, Verification, Work ledger, Footprint). `packages/demo-domain`: the demo contracts.
-- `benchmarks/`: the es-toolkit study (`run.ts`, RESULTS.md) and the executed energy comparison (`energy.ts`, `energy-report.ts`).
+| Layer | Stack |
+| --- | --- |
+| Review engine | TypeScript, StrykerJS, Vitest. |
+| Agent workflow | GitLab Duo custom flow, GitLab CI, MCP over stdio. |
+| Front Desk | React, Vite, Express, Lucide icons. |
+| Release and monitoring | GitLab container registry, Google Cloud Run, smoke checks and rollback. |
+| Evidence | Mutation reports, repair ledger, repository lessons, Code Quality and metrics reports, SCI receipts. |
 
-Read [architecture](docs/architecture.md) and [limitations](docs/limitations.md). Built for the [GitLab Transcend hackathon](https://gitlab-transcend.devpost.com/), Path A, Assisted.
+| Path | Responsibility |
+| --- | --- |
+| [`packages/review-core/`](packages/review-core) | Pure functions for diff scope, scoring, gate, override, triage, lost protection, commands, memory, SCI and MR reports. |
+| [`packages/cli/`](packages/cli) | Vitest/Stryker execution, CPU-time measurement, target-branch worktrees, `flow prepare \| publish \| notify`, gate, demo, `check` and MCP server. |
+| [`packages/gitlab-adapter/`](packages/gitlab-adapter) | The only GitLab API client, scoped to one project. |
+| [`.gitlab/duo/mutant-review.yml`](.gitlab/duo/mutant-review.yml) | Deterministic preparation, one drafting agent, deterministic verification and publication. |
+| [`.gitlab-ci.yml`](.gitlab-ci.yml) and [`ci/release.gitlab-ci.yml`](ci/release.gitlab-ci.yml) | MR review and gate, packaging, Cloud Run deployment and monitoring. |
+| [`apps/front-desk/`](apps/front-desk) | Overview, Findings, Test changes, Verification, Work ledger and Footprint pages. |
+| [`packages/demo-domain/`](packages/demo-domain) | Demo contracts and their intentionally incomplete baseline tests. |
+| [`benchmarks/`](benchmarks) | The es-toolkit study and executed comparison of changed-line and whole-file energy use. |
+| [`docs/`](docs) | Architecture, setup, deployment, demo walkthrough, sustainability method and limitations. |
+
+Read the [architecture](docs/architecture.md), [GitLab setup](docs/setup.md), [deployment guide](docs/deploy.md) and [limitations](docs/limitations.md) for the operational details.
+
+## Contributing and license
+
+Keep changes focused and follow [AGENTS.md](AGENTS.md). Run the relevant checks before submitting a change; edits to TypeScript also require `npm run check`. Never make a failing test pass by loosening, deleting or skipping its assertion. Derive new tests from the written contract and verify they catch their target mutation.
+
+The selected **MutantReview** logo is the emerald, single-eyed M. The [README version](docs/assets/mutant-review-logo.png) has a light background for readability in both themes; the [transparent original](docs/assets/mutant-review-logo-transparent.png) is available for reuse.
+
+Code is distributed under the [MIT License](LICENSE). Third-party names and marks belong to their respective owners.
