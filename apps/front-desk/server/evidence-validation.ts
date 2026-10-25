@@ -41,6 +41,7 @@ const footprint = z.object({
   functionalUnit: z.literal('one merge-request review'), boundary: text, region: label, regionBasis: label,
   gridIntensity: grams, machine: z.object({ vCpus: z.number().int().positive(), memoryGb: z.number().finite().positive() }),
   measured: usage, actual: footprintValue, range: z.object({ lowG: grams, highG: grams }),
+  steps: z.array(z.object({ step: label, cpuSeconds: grams, energyWh: grams, sciG: grams })).max(20).optional(),
   changedLinesRun: footprintValue.extend({ mutants: count }).nullable(),
   projectedWholeFile: footprintValue.extend({ mutants: count, projected: z.literal(true) }).nullable(),
   savedG: grams.nullable(), savedPercent: z.number().finite().min(0).max(100).nullable(),
@@ -126,7 +127,8 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     if (evidence.triage && (aridFiltered !== evidence.triage.arid.length || aiCallsAvoided !== aridFiltered + evidence.triage.overflow)) fail('savings do not match the triage record');
   }
   if (evidence.footprint) {
-    const { actual, range, changedLinesRun, projectedWholeFile, savedG, modelCalls } = evidence.footprint;
+    const { actual, range, changedLinesRun, projectedWholeFile, savedG, modelCalls, steps } = evidence.footprint;
+    if (steps && Math.abs(steps.reduce((sum, step) => sum + step.sciG, 0) - actual.sciG) > 0.001 * Math.max(1, steps.length)) fail('footprint steps do not add up');
     if (Math.abs(actual.operationalG + actual.embodiedG - actual.sciG) > 0.001 || range.lowG > actual.sciG + 0.001 || range.highG < actual.sciG - 0.001) fail('footprint does not add up');
     if (changedLinesRun && changedLinesRun.mutants !== evidence.mutation.mutants.length) fail('footprint mutant count does not match the raw inventory');
     if (projectedWholeFile && (evidence.savings?.mutantsWholeFiles !== projectedWholeFile.mutants || !changedLinesRun)) fail('footprint projection does not match the measured whole-file count');

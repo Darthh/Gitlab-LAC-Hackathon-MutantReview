@@ -17,6 +17,7 @@
     "gate": "tsx packages/cli/src/index.ts gate",
     "typecheck": "tsc --noEmit",
     "mr": "tsx packages/cli/src/index.ts",
+    "check": "tsx packages/cli/src/index.ts check",
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {

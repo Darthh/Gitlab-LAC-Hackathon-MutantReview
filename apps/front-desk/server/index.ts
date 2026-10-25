@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { validateEvidence } from "./evidence-validation.js";
 import { readLedger } from "./ledger-validation.js";
 import { readBenchmark } from "./benchmark.js";
+import { summarizeEnergy } from "../../../benchmarks/energy-summary.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const app = express();
@@ -74,6 +75,20 @@ app.get("/api/benchmark", async (_req, res) => {
     res.json({ ...summary, reportUrl: `${publicProject}/-/blob/main/benchmarks/RESULTS.md` });
   } catch {
     res.status(500).json({ error: "Benchmark results are malformed." });
+  }
+});
+// Executed changed-line vs whole-file energy, when benchmarks/energy.ts has been run. Hidden otherwise.
+app.get("/api/energy", async (_req, res) => {
+  try {
+    const filename = resolve(root, "benchmarks/energy/es-toolkit.json");
+    if ((await stat(filename)).size > 5_000_000) throw new Error("too large");
+    const summary = summarizeEnergy(JSON.parse(await readFile(filename, "utf8")));
+    if (!summary) return void res.status(404).json({ error: "No completed energy measurements in this build." });
+    const { rows: _rows, ...headline } = summary;
+    res.json({ ...headline, reportUrl: `${publicProject}/-/blob/main/benchmarks/ENERGY.md` });
+  } catch (error) {
+    const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
+    res.status(missing ? 404 : 500).json({ error: missing ? "No energy benchmark in this build." : "Energy results are malformed." });
   }
 });
 app.get("/api/ledger", async (_req, res) => {

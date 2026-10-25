@@ -101,7 +101,7 @@ describe('footprint', () => {
   const withFootprint = (wholeFileMutants = 40) => {
     const value = copy();
     value.savings.mutantsWholeFiles = wholeFileMutants; value.savings.mutantsAvoided = wholeFileMutants - 5;
-    value.footprint = footprintReceipt({ review: [scoped, dry], changedLinesRun: scoped, wholeFileDryRun: dry, changedMutants: 5, wholeFileMutants, env: {} });
+    value.footprint = footprintReceipt({ review: [{ ...scoped, step: 'Stryker on changed lines' }, { ...dry, step: 'Whole-file mutant count' }], changedLinesRun: scoped, wholeFileDryRun: dry, changedMutants: 5, wholeFileMutants, env: {} });
     return value;
   };
   it('passes a measured receipt through, and accepts runs without one', () => {
@@ -113,13 +113,17 @@ describe('footprint', () => {
   });
   it('rejects receipts that do not add up or disagree with the inventory', () => {
     const sum = withFootprint(); sum.footprint.actual.sciG += 1;
-    expect(() => validateEvidence(sum)).toThrow('footprint does not add up');
+    expect(() => validateEvidence(sum)).toThrow(/footprint (steps )?do(es)? not add up/);
+    const parts = withFootprint(); delete parts.footprint.steps; parts.footprint.actual.embodiedG += 1;
+    expect(() => validateEvidence(parts)).toThrow('footprint does not add up');
     const count = withFootprint(); count.footprint.changedLinesRun.mutants = 4;
     expect(() => validateEvidence(count)).toThrow('footprint mutant count');
     const whole = withFootprint(); whole.footprint.projectedWholeFile.mutants = 80;
     expect(() => validateEvidence(whole)).toThrow('footprint projection');
     const claim = withFootprint(); claim.footprint.projectedWholeFile = null;
     expect(() => validateEvidence(claim)).toThrow('saving has no projection');
+    const steps = withFootprint(); steps.footprint.steps[0].sciG += 1;
+    expect(() => validateEvidence(steps)).toThrow('footprint steps');
     const calls = withFootprint(); calls.footprint.modelCalls.avoided = 3;
     expect(() => validateEvidence(calls)).toThrow('model calls');
   });

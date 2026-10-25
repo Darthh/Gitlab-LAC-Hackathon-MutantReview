@@ -175,7 +175,11 @@ export async function runReview(context: ReviewContext) {
   const changedLinesUsage = usageOf(mutationRun);
   const wholeFileDryUsage = usageOf(wholeFileRun);
   const footprint = footprintReceipt({
-    review: [usageOf(baselineRun), changedLinesUsage, wholeFileDryUsage].filter((item): item is Usage => item !== null),
+    review: [
+      { label: 'Baseline tests with coverage', usage: usageOf(baselineRun) },
+      { label: 'Stryker on changed lines', usage: changedLinesUsage },
+      { label: 'Whole-file mutant count (dry run)', usage: wholeFileDryUsage },
+    ].flatMap(({ label, usage }) => (usage ? [Object.assign(usage, { step: label })] : [])),
     changedLinesRun: changedLinesUsage,
     wholeFileDryRun: wholeFileDryUsage,
     changedMutants: metrics.total,

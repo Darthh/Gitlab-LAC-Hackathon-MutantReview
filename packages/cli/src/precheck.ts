@@ -67,7 +67,7 @@ export async function precheck(options: { base?: string } = {}): Promise<Prechec
   if (scope.length > budget.files || lines > budget.changedLines) return result('over-budget', `${scope.length} file(s) and ${lines} changed line(s) exceed the policy budget of ${budget.files} files and ${budget.changedLines} lines. Check a smaller change.`);
 
   const { run, report } = await runStryker(strykerRanges(scope), { incremental: false, name: 'precheck', timeoutMs: budget.runtimeMs });
-  const footprint = footprintReceipt({ review: [usageOf(run)!], changedLinesRun: null, wholeFileDryRun: null, changedMutants: 0, wholeFileMutants: null, env: process.env });
+  const footprint = footprintReceipt({ review: [{ ...usageOf(run)!, step: 'Stryker on changed lines' }], changedLinesRun: null, wholeFileDryRun: null, changedMutants: 0, wholeFileMutants: null, env: process.env });
   if (run.exitCode !== 0 || run.timedOut || !report) {
     const log = await readFile(run.log, 'utf8').catch(() => '');
     if (run.exitCode === 0 && /mutant-free world/i.test(log)) return result('no-scope', 'Stryker generated no mutants on the changed lines.', { footprint });

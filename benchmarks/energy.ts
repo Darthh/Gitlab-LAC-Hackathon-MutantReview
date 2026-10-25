@@ -166,6 +166,7 @@ async function main() {
     writeFileSync(OUT, JSON.stringify({
       schemaVersion: 1,
       source: 'benchmarks/results/es-toolkit.json (same PRs, merge commits and changed-line ranges)',
+      repository: study.target.repository,
       generatedAt: new Date().toISOString(),
       settings: { stryker: STRYKER, testRunner: 'vitest', coverageAnalysis: 'perTest', concurrency: CONCURRENCY, incremental: false, runTimeoutMs: RUN_TIMEOUT_MS },
       machine: machine(),

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mutant-review": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["node_modules/tsx/dist/cli.mjs", "packages/cli/src/mcp.ts"]
+    }
+  }
+}

@@ -25,6 +25,7 @@ import {
   GitMerge,
   HelpCircle,
   LayoutDashboard,
+  Leaf,
   ListFilter,
   LoaderCircle,
   Menu,
@@ -49,13 +50,15 @@ import type {
   LedgerEntry,
   Mutant,
 } from "./evidence";
+import { FootprintPage, FootprintStrip } from "./Footprint";
 
-type Page = "overview" | "findings" | "verification" | "ledger";
+type Page = "overview" | "findings" | "verification" | "ledger" | "footprint";
 const navigation: { key: Page; label: string; icon: typeof Activity }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "findings", label: "Findings", icon: FlaskConical },
   { key: "verification", label: "Verification", icon: ReceiptText },
   { key: "ledger", label: "Work ledger", icon: Activity },
+  { key: "footprint", label: "Footprint", icon: Leaf },
 ];
 const formatTime = (ms: number | null) =>
   ms == null ? "Unavailable" : `${(ms / 1000).toFixed(1)}s`;
@@ -596,7 +599,9 @@ export default function App() {
                     ? "A specific behavioral change. The evidence behind it."
                     : page === "verification"
                       ? "Follow the path from a proposed assertion to executable proof."
-                      : "The actual work behind this review, with no invented savings."}
+                      : page === "footprint"
+                        ? "What this review cost the planet, measured, and the work it chose not to do."
+                        : "The actual work behind this review, with no invented savings."}
               </p>
             </div>
             <div className="heading-actions">
@@ -742,6 +747,10 @@ export default function App() {
                         foot="Changed-line score vs policy"
                       />
                     </div>
+                    <FootprintStrip
+                      footprint={evidence.footprint}
+                      onOpen={() => navigate("footprint")}
+                    />
                     <BenchmarkTiles />
                     <div className="content-columns">
                       <div className="main-column">
@@ -1082,6 +1091,7 @@ export default function App() {
                     )}
                   </>
                 )}
+                {page === "footprint" && <FootprintPage evidence={evidence} />}
                 {page === "ledger" && (
                   <>
                     <RepairLedger key={refreshes} projectUrl={projectLink} />

@@ -153,6 +153,8 @@ export interface FootprintReceipt {
   measured: Usage;
   /** The whole review: every process Mutant Review started, measured. */
   actual: Footprint;
+  /** Where it went, step by step (same model, same region). */
+  steps: { step: string; cpuSeconds: number; energyWh: number; sciG: number }[];
   /** SCI of this review under the low and high power models. */
   range: { lowG: number; highG: number };
   /** The changed-line Stryker run alone, measured, and the whole-file run it replaced, projected. */
@@ -164,7 +166,7 @@ export interface FootprintReceipt {
 }
 
 export function footprintReceipt(input: {
-  review: Usage[];
+  review: (Usage & { step?: string })[];
   changedLinesRun: Usage | null;
   wholeFileDryRun: Usage | null;
   changedMutants: number;
@@ -189,6 +191,10 @@ export function footprintReceipt(input: {
     machine: { vCpus: measured.vCpus, memoryGb: measured.memoryGb },
     measured,
     actual: footprint(measured, intensity),
+    steps: input.review.map((item, index) => {
+      const value = footprint(item, intensity);
+      return { step: item.step ?? `step ${index + 1}`, cpuSeconds: value.cpuSeconds, energyWh: value.energyWh, sciG: value.sciG };
+    }),
     range: { lowG: footprint(measured, intensity, POWER_MODELS.low).sciG, highG: footprint(measured, intensity, POWER_MODELS.high).sciG },
     changedLinesRun: changed,
     projectedWholeFile: projected,
