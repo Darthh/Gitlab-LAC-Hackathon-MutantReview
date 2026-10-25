@@ -79,7 +79,7 @@ describe('pre-push check over MCP', () => {
       expect(structured.findings[0]).toMatchObject({ rank: 1, replacement: 'false', origin: 'lost-protection' });
       const text = (check.result!.content as { text: string }[])[0]!.text;
       expect(text).toContain('YOUR TEST EDITS REMOVED PROTECTION');
-      expect(text).toContain('+      expect(shippingFee(10_001)).toBeLessThanOrEqual(500);');
+      expect(text).toMatch(/^ *- +expect\(shippingFee\(10_001\)\)\.toBe\(0\);\n *\+ +expect\(shippingFee\(10_001\)\)\.toBeLessThanOrEqual\(500\);$/m);
 
       const restoring = await mcp.request('tools/call', { name: 'verify_test', arguments: { finding: 1, testPath, test: "it('ships free above $100 (SHIPPING-001)', () => {\n  expect(shippingFee(10_001)).toBe(0);\n});" } });
       expect(restoring.result!.structuredContent).toMatchObject({ verdict: 'verified' });
