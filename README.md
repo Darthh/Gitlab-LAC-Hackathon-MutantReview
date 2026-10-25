@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/mutant-review-logo.png" alt="MutantReview logo: an emerald M with horns and a single eye, beside the navy wordmark" width="720">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mutant-review-logo-dark.svg">
+    <img src="docs/assets/mutant-review-logo.svg" alt="Mutant Review logo: the emerald DNA mark from the app header beside the wordmark" width="720">
+  </picture>
 </p>
 
 <h1 align="center">MutantReview</h1>
@@ -46,7 +49,9 @@ Built for the [GitLab Transcend hackathon](https://gitlab-transcend.devpost.com/
 
 ## Judging in 60 seconds
 
-![Front Desk: 100% branch coverage, merge gate blocked, and the es-toolkit benchmark](docs/images/front-desk-overview.png)
+[![Front Desk Overview in the current dark UI: 100% branch coverage, 80% mutation score, and a blocked merge gate](docs/images/front-desk-overview.png)](docs/images/front-desk-overview.png)
+
+*Current Front Desk UI, captured with local demo evidence. Click a screenshot to view it at full size.*
 
 | Start here | What the evidence shows |
 | --- | --- |
@@ -153,7 +158,7 @@ flowchart LR
 
 The changed-line review answers "do the tests notice changes to the new code?". It can't answer "did this MR make the tests notice less?", because a test-only MR has no changed source to mutate. Before this check, such an MR left the gate at `no-applicable-scope`: a warning, not a block. Coverage can't help either: a loosened assertion still executes every line.
 
-![Front Desk Test changes: the exact-$100 test was loosened, so `>=` to `>` is no longer caught](docs/images/front-desk-protection.png)
+[![Front Desk Test changes in the current dark UI: the exact-$100 test was loosened, so the boundary mutation is no longer caught](docs/images/front-desk-protection.png)](docs/images/front-desk-protection.png)
 
 [`packages/review-core/src/protection.ts`](packages/review-core/src/protection.ts) (pure) and [`packages/cli/src/protection.ts`](packages/cli/src/protection.ts) (runs it) do three things, only when the MR edits, moves or deletes an existing test file:
 
@@ -176,7 +181,7 @@ The useless test is cheapest to catch before the MR exists. `packages/cli/src/mc
 
 Every review records an [SCI](https://greensoftware.foundation/standards/sci/) receipt per merge-request review: CPU time measured from the process tree, Cloud Carbon Footprint's GCP power model, Google's grid intensity for the runner's region, and the embodied share of the host, with a low–high range. The receipt also projects what mutating the whole changed files would have cost, so the saving from scoping is shown per MR, not claimed once.
 
-![Front Desk Footprint: SCI per review, step breakdown, and the same review priced in other regions](docs/images/front-desk-footprint.png)
+[![Front Desk Footprint in the current dark UI: review carbon intensity, energy and CPU time, and region comparisons](docs/images/front-desk-footprint.png)](docs/images/front-desk-footprint.png)
 
 Design choices that keep it small, each with its evidence: mutate only the diff (74% of mutants avoided on es-toolkit), no model call in CI, one model call per human request, verify drafts before a human reads them, interruptible jobs, no mutation on docs-only MRs, learn once in AGENTS.md. Full method, boundary and limitations: [docs/sustainability.md](docs/sustainability.md). Executed on the same 25 es-toolkit PRs ([ENERGY.md](benchmarks/ENERGY.md)), changed-line scoping used **49% less energy** than mutating the whole changed files (4.26 vs 8.30 Wh), the per-MR projection was within 15% (median), and triage kept 92% of the per-finding prompt context out of the model. `benchmarks/energy.ts` reproduces it, also as the manual `benchmark:energy` CI job on GitLab's hosted runner.
 
@@ -213,7 +218,25 @@ Design choices that keep it small, each with its evidence: mutate only the diff 
 
 A read-only console (React + Express) for the reviewer and the team lead: the changed-line score and gate, the ranked findings and the arid mutants filtered out, the **ledger of useless tests caught and repaired** (and AI drafts rejected), and **compute saved**: mutants avoided by diff scoping, mutants filtered before any model call, model calls avoided, and lessons in agent memory. The **Test changes** page shows the lost-protection check: what the edited tests caught on the target branch, what they still catch, and for each loss the catching test and its before/after (the deployed demo runs it for real on a second fixture MR that loosens the exact-$100 test). The **Footprint** page breaks each review's SCI into energy, grid intensity and embodied share, shows where the energy went step by step, and re-prices the same measured work in other regions. It deploys to Cloud Run from `main`.
 
-![Front Desk findings: the triaged surviving mutant with its why, priority and location](docs/images/front-desk-findings.png)
+The current GitLab-style dark interface uses charcoal panels, compact navigation and Mutant Review's emerald accents. The screenshots use local demo evidence and cover all six pages: Overview, Findings, Test changes, Verification, Work ledger and Footprint.
+
+**Findings** shows the surviving mutation, its priority and the untested shipping boundary.
+
+[![Front Desk Findings in the current dark UI: the triaged surviving mutant and the exact-$100 shipping boundary](docs/images/front-desk-findings.png)](docs/images/front-desk-findings.png)
+
+<details>
+<summary>Verification: execution evidence for proposed tests</summary>
+
+[![Front Desk Verification in the current dark UI: evidence used to verify proposed tests before human approval](docs/images/front-desk-verification.png)](docs/images/front-desk-verification.png)
+
+</details>
+
+<details>
+<summary>Work ledger: review and repair history</summary>
+
+[![Front Desk Work ledger in the current dark UI: recorded review activity and repair outcomes](docs/images/front-desk-ledger.png)](docs/images/front-desk-ledger.png)
+
+</details>
 
 ## Run it
 
@@ -258,6 +281,6 @@ Read the [architecture](docs/architecture.md), [GitLab setup](docs/setup.md), [d
 
 Keep changes focused and follow [AGENTS.md](AGENTS.md). Run the relevant checks before submitting a change; edits to TypeScript also require `npm run check`. Never make a failing test pass by loosening, deleting or skipping its assertion. Derive new tests from the written contract and verify they catch their target mutation.
 
-The selected **MutantReview** logo is the emerald, single-eyed M. The [README version](docs/assets/mutant-review-logo.png) has a light background for readability in both themes; the [transparent original](docs/assets/mutant-review-logo-transparent.png) is available for reuse.
+The **Mutant Review** logo uses the same DNA mark as the app's top-left header, in emerald green (`#009777`). The README selects the appropriate [light-theme wordmark](docs/assets/mutant-review-logo.svg) or [dark-theme wordmark](docs/assets/mutant-review-logo-dark.svg); the [transparent DNA mark](docs/assets/mutant-review-mark.svg) is available for reuse.
 
 Code is distributed under the [MIT License](LICENSE). Third-party names and marks belong to their respective owners.

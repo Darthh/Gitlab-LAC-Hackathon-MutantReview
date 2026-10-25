@@ -4,6 +4,8 @@ The user's GitLab dark-dashboard screenshot is the visual reference. The app kee
 
 The interface now uses the reference's `#050506` navigation, `#18171d` content surface, gray card borders, selected navigation rows, blue links and compact typography. Its application frame has a 46px global header, a 240px desktop sidebar, a centered search control and a bordered scrolling content area. Status labels retain distinct success, warning and failure colors.
 
+The follow-up branding update uses the header's DNA mark as the shared app and README logo. Brand accents and the favicon use `#009777`, sampled from the previous emerald logo, in place of orange. The README includes matching SVG wordmarks for light and dark themes and screenshots of all six pages.
+
 GitLab Sans and GitLab Mono are self-hosted from the official `@gitlab/fonts` 1.3.1 distribution, with the original font licenses included. The Google Fonts import was removed. Layout and palette changes cover Overview, Findings, Test changes, Verification, Work ledger, Footprint and the existing dialogs.
 
 REA was used before and after the redesign:
@@ -24,7 +26,7 @@ Validation completed:
 - The browser reported no application console errors or warnings. Both GitLab font faces loaded locally.
 - The repository pre-push mutation command was run and remained inconclusive: its demo-only test configuration has no related tests for the changed app code. No evaluator configuration or policy was changed.
 
-Updated screenshots: [Overview](../images/front-desk-overview.png), [Findings](../images/front-desk-findings.png), [Test changes](../images/front-desk-protection.png) and [Footprint](../images/front-desk-footprint.png).
+Updated screenshots: [Overview](../images/front-desk-overview.png), [Findings](../images/front-desk-findings.png), [Test changes](../images/front-desk-protection.png), [Verification](../images/front-desk-verification.png), [Work ledger](../images/front-desk-ledger.png) and [Footprint](../images/front-desk-footprint.png).
 
 References: [REA](https://github.com/morluto/rea), [GitLab type fundamentals](https://design.gitlab.com/product-foundations/type-fundamentals/) and [official GitLab fonts](https://gitlab-org.gitlab.io/frontend/fonts/).
 
