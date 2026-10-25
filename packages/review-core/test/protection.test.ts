@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   candidateRanges, changedTestFiles, codeQualityReport, isProductionTypeScript, compareProtection, diffLines, evaluateGate, importedSources, lineMap, metricsReport, mutationMetrics,
-  protectionCandidates, protectionVerdict, testBlock, withLostProtection, type MutantTriage, type StrykerReportWithTests,
+  parseNameStatus, protectionCandidates, protectionVerdict, testBlock, withLostProtection, type MutantTriage, type StrykerReportWithTests,
 } from '../src/index.js';
 
 const SOURCE = 'packages/demo-domain/src/shipping.ts';
@@ -48,14 +48,19 @@ const head = (status: string): StrykerReportWithTests => ({
   ] } },
   testFiles: tests(weakenedTests),
 });
-const identity = { [SOURCE]: lineMap('') };
+const identity = { [SOURCE]: { path: SOURCE, map: lineMap('') } };
 
 describe('which test changes can lose protection', () => {
-  it('keeps modified, deleted and renamed test files, never added ones or source files', () => {
-    expect(changedTestFiles(['M\tsrc/a.test.ts', 'A\tsrc/new.test.ts', 'D\tsrc/b.spec.ts', 'R087\tsrc/c.test.ts\tsrc/d.test.ts', 'M\tsrc/a.ts', 'M\t../x.test.ts', ''].join('\n'))).toEqual([
+  it('keeps modified, type-changed, deleted and renamed test files, never added or copied ones or source files', () => {
+    const z = ['M', 'src/a.test.ts', 'A', 'src/new.test.ts', 'D', 'src/b.spec.ts', 'R087', 'src/c.test.ts', 'src/d.test.ts', 'M', 'src/a.ts',
+      'T', 'src/link.test.ts', 'C100', 'src/a.test.ts', 'src/copy.test.ts', 'M', 'src/grüße.test.ts', 'M', 'src/legacy.test.mjs', ''].join('\0');
+    expect(changedTestFiles(parseNameStatus(z))).toEqual([
       { path: 'src/a.test.ts', change: 'modified', headPath: 'src/a.test.ts' },
       { path: 'src/b.spec.ts', change: 'deleted', headPath: null },
       { path: 'src/c.test.ts', change: 'renamed', headPath: 'src/d.test.ts' },
+      { path: 'src/link.test.ts', change: 'modified', headPath: 'src/link.test.ts' },
+      { path: 'src/grüße.test.ts', change: 'modified', headPath: 'src/grüße.test.ts' },
+      { path: 'src/legacy.test.mjs', change: 'modified', headPath: 'src/legacy.test.mjs' },
     ]);
   });
   it('never treats test, spec or end-to-end files as production code', () => {
@@ -65,6 +70,14 @@ describe('which test changes can lose protection', () => {
     const files = new Set([SOURCE, 'packages/demo-domain/src/money/index.ts', 'packages/demo-domain/src/fixtures/cart.ts']);
     const content = `${baseTests}\nimport { cents } from './money';\nimport { cart } from './fixtures/cart.js';\nimport x from '../../../../outside.js';\nimport { z } from 'zod';`;
     expect(importedSources(TESTS, content, (path) => files.has(path))).toEqual(['packages/demo-domain/src/money/index.ts', SOURCE]);
+  });
+  it('follows barrel re-exports to the files that hold the code, but not type-only ones', () => {
+    const files: Record<string, string> = {
+      'src/index.ts': "export * from './fees.js';\nexport { round } from './money/round.js';\nexport type { Cart } from './cart.js';",
+      'src/fees.ts': 'export const fee = (n: number) => n;', 'src/money/round.ts': 'export const round = Math.round;', 'src/cart.ts': 'export type Cart = number;',
+    };
+    expect(importedSources('src/index.test.ts', "import { fee } from './index.js';", (path) => path in files, (path) => files[path] ?? null))
+      .toEqual(['src/fees.ts', 'src/index.ts', 'src/money/round.ts']);
   });
 });
 
@@ -87,9 +100,23 @@ describe('lost protection', () => {
     expect(protectionCandidates(base, new Set(['other.test.ts']), identity).guarded).toBe(0);
   });
   it('leaves mutants on lines the MR changed to the changed-line review', () => {
-    const { candidates, onChangedLines } = protectionCandidates(base, changed, { [SOURCE]: lineMap('@@ -3 +3 @@\n-old\n+new') });
+    const { candidates, onChangedLines } = protectionCandidates(base, changed, { [SOURCE]: { path: SOURCE, map: lineMap('@@ -3 +3 @@\n-old\n+new') } });
     expect(candidates).toEqual([]);
     expect(onChangedLines).toBe(3);
+  });
+  it('follows a renamed source file to its head path', () => {
+    const moved = 'packages/demo-domain/src/shipping-fee.ts';
+    const { candidates, onChangedLines } = protectionCandidates(base, changed, { [SOURCE]: { path: moved, map: lineMap('@@ -1,0 +2 @@\n+// moved') } });
+    expect(onChangedLines).toBe(0);
+    expect(candidates.map((item) => `${item.path}:${item.location.start.line}`)).toEqual([`${moved}:3`, `${moved}:4`, `${moved}:4`]);
+  });
+  it('keeps backticks in test names from closing the code span', () => {
+    const { candidates } = protectionCandidates(base, changed, identity);
+    const tricky = { ...head('Survived'), testFiles: { [TESTS]: { source: weakenedTests, tests: [{ id: '1', name: 'shipping fee ships for free above the threshold', location: { start: { line: 9 } } }] } } };
+    const renamed = { ...base, testFiles: { [TESTS]: { source: baseTests, tests: [{ id: '0', name: 'a', location: { start: { line: 5 } } }, { id: '1', name: 'ships `free` ``` here', location: { start: { line: 9 } } }] } } };
+    const lost = compareProtection(protectionCandidates(renamed, changed, identity).candidates.slice(2), renamed, tricky).lost[0]!;
+    expect(lost.why).toContain("`ships 'free' ''' here`");
+    expect(candidates).toHaveLength(3);
   });
   it('names the test that used to catch the change and shows how it was weakened', () => {
     const { candidates } = protectionCandidates(base, changed, identity);
@@ -131,7 +158,7 @@ describe('lost protection', () => {
 });
 
 describe('lost protection in the review', () => {
-  const { candidates } = protectionCandidates(base, new Set([TESTS]), { [SOURCE]: lineMap('') });
+  const { candidates } = protectionCandidates(base, new Set([TESTS]), identity);
   const { lost } = compareProtection(candidates, base, head('Survived'));
   const triage: MutantTriage = { policy: 'arid-v1', considered: 1, arid: [], overflow: 0, ranked: [
     { rank: 1, fingerprint: 'a'.repeat(64), path: 'src/other.ts', line: 8, operator: 'EqualityOperator', original: 'a >= b', replacement: 'a > b', status: 'Survived', priority: 'high', why: 'gap' },
@@ -141,6 +168,9 @@ describe('lost protection in the review', () => {
   it('ranks lost protection first within the same three comments', () => {
     const merged = withLostProtection(triage, lost);
     expect(merged.ranked.map((item) => `${item.rank}:${item.origin ?? 'changed-line'}:${item.line}`)).toEqual(['1:lost-protection:3', '2:changed-line:8', '3:changed-line:9']);
+    // A lost block spans lines 2-4: verification must mutate the whole span, so the finding carries its end line.
+    const block = { ...lost[0]!, line: 2, location: { start: { line: 2, column: 60 }, end: { line: 4, column: 2 } } };
+    expect(withLostProtection(triage, [block]).ranked[0]).toMatchObject({ line: 2, endLine: 4 });
     expect(merged.overflow).toBe(1);
     expect(withLostProtection(triage, [])).toBe(triage);
   });

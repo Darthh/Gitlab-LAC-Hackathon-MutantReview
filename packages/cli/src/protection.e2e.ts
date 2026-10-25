@@ -62,6 +62,17 @@ describe('lost protection, end to end', () => {
     expect(evidence.gate.status).toBe('passed');
   });
 
+  it('follows a moved source file instead of losing sight of what its tests guarded', async () => {
+    const base = await readFile(testPath, 'utf8');
+    const code = await readFile(source, 'utf8');
+    const moved = 'packages/demo-domain/src/shipping-fee.ts';
+    const head = base.replace("from './shipping.js'", "from './shipping-fee.js'").replace('expect(shippingFee(10_001)).toBe(0);', 'expect(shippingFee(10_001)).toBeLessThanOrEqual(500);');
+    const repo = await scratchRepository([{ path: source, base: code, head: null }, { path: moved, base: null, head: code }, { path: testPath, base, head }], 'refactor: rename the shipping module');
+    const { result } = await inside(repo, () => checkProtection({ base: repo.base, head: repo.head, budget }));
+    expect(result).toMatchObject({ status: 'lost', subjects: [source], guarded: 4, onChangedLines: 0, rechecked: 4 });
+    expect(result.lost[0]).toMatchObject({ path: moved, line: 4, replacement: 'false' });
+  });
+
   it('reports every guarded change as lost when the tests are deleted', async () => {
     const base = await readFile(testPath, 'utf8');
     const repo = await scratchRepository([{ path: testPath, base, head: null }], 'test: remove flaky shipping tests');

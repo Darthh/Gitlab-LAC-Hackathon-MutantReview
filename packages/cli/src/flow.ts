@@ -223,7 +223,7 @@ async function runTestFile(testPath: string, name: string, report: string) {
 }
 
 async function mutantKilled(findings: RankedFinding[], name: string): Promise<Record<string, boolean>> {
-  const ranges = findings.map((finding) => `${finding.path}:${finding.line}-${finding.line}`);
+  const ranges = findings.map((finding) => `${finding.path}:${finding.line}-${finding.endLine ?? finding.line}`);
   const { report } = await runStryker(ranges, { incremental: false, name });
   const mutants = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
   return Object.fromEntries(findings.map((finding) => [finding.fingerprint, mutants.find((mutant) => mutant.fingerprint === finding.fingerprint)?.status === 'Killed']));
@@ -261,7 +261,10 @@ function table(payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equiva
   return ['| # | Where | Change no test noticed | Verified test |', '|---|---|---|---|', ...rows].join('\n');
 }
 
-const flatCode = (code: string, max = 80) => { const text = code.replace(/\s+/g, ' ').trim(); return text.length > max ? `${text.slice(0, max - 1)}…` : text; };
+// Repository text echoed into a comment: inside a code span no backtick may close it, and a fenced block uses a fence
+// longer than any backtick run in its content, so test code can never break out into Markdown under the flow's name.
+const flatCode = (code: string, max = 80) => { const text = code.replace(/\s+/g, ' ').trim().replaceAll('`', "'"); return text.length > max ? `${text.slice(0, max - 1)}…` : text; };
+const fenceFor = (text: string) => '`'.repeat(Math.max(3, ...[...text.matchAll(/`+/g)].map((run) => run[0].length + 1)));
 
 /** Each change the target branch's tests noticed and this MR's tests no longer notice, with the test that noticed it and how the MR changed that test. */
 export function lostProtectionSection(protection: Pick<ProtectionResult, 'lost'> | null | undefined): string {
@@ -270,8 +273,10 @@ export function lostProtectionSection(protection: Pick<ProtectionResult, 'lost'>
   const items = lost.map((item, index) => {
     const test = item.caughtBy[0]!;
     const fate = test.fate === 'weakened' ? 'This MR changed that test and it no longer fails' : 'This MR removed, renamed or skipped that test, and no other test fails';
-    const diff = item.testDiff?.lines.length ? `\n\n\`\`\`diff\n${item.testDiff.lines.map((line) => `${line.kind}${line.text}`).join('\n')}\n\`\`\`` : '';
-    return `**${index + 1}.** \`${item.path}:${item.line}\`: when \`${flatCode(item.original)}\` became \`${flatCode(item.replacement)}\`, \`${flatCode(test.name, 120)}\` (\`${test.file}\`) failed on the target branch${test.failure ? ` ("${flatCode(test.failure, 120)}")` : ''}. ${fate}.${diff}`;
+    const body = item.testDiff?.lines.map((line) => `${line.kind}${line.text}`).join('\n') ?? '';
+    const fence = fenceFor(body);
+    const diff = body ? `\n\n${fence}diff\n${body}\n${fence}` : '';
+    return `**${index + 1}.** \`${flatCode(item.path)}:${item.line}\`: when \`${flatCode(item.original)}\` became \`${flatCode(item.replacement)}\`, \`${flatCode(test.name, 120)}\` (\`${flatCode(test.file, 200)}\`) failed on the target branch${test.failure ? ` ("${flatCode(test.failure, 120)}")` : ''}. ${fate}.${diff}`;
   });
   return ['### Lost protection', `This MR changed tests. On the target branch they noticed ${lost.length === 1 ? 'this change' : 'these changes'}; at this head no test does. Coverage cannot show it: every line still runs and every test is green.`, ...items].join('\n\n');
 }

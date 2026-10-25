@@ -71,6 +71,10 @@ verify:hallucination-check:
   paths:
     - "**/*.ts"
     - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.mjs"
+    - "**/*.cjs"
+    - "**/*.snap"
     - ".mutant-review/**/*"
     - ".gitlab-ci.yml"
     - "ci/**/*"

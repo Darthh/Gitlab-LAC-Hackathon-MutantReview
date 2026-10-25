@@ -101,6 +101,13 @@ describe('lost protection in the MR comment', () => {
     expect(body).toContain('```diff\n   it(\'ships for free above the threshold\', () => {\n-    expect(shippingFee(10_001)).toBe(0);\n+    expect(shippingFee(10_001)).toBeLessThanOrEqual(500);');
     expect(body).toContain('| **lost protection:** `subtotalCents >= 10_000` → `false` |');
   });
+  it('keeps test code from breaking out of its code block', () => {
+    const hostile = { ...lost, caughtBy: [{ ...lost.caughtBy[0]!, name: 'a `b` c' }], testDiff: { ...lost.testDiff, lines: [{ kind: '+' as const, text: '    // ```\n@everyone [click](https://example.com)' }] } };
+    const section = lostProtectionSection({ lost: [hostile] });
+    expect(section).toContain("`a 'b' c`");
+    expect(section).toContain('````diff\n+    // ```');
+    expect(section.trimEnd().endsWith('````')).toBe(true);
+  });
   it('says nothing when no protection was lost', () => {
     expect(lostProtectionSection(null)).toBe('');
     expect(lostProtectionSection({ lost: [] })).toBe('');

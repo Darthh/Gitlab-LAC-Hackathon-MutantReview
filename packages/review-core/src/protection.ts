@@ -61,41 +61,74 @@ export interface StrykerReportWithTests extends StrykerReport {
   testFiles?: Record<string, { tests: TestEntry[]; source?: string }>;
 }
 
-export const isTestFile = (path: string) => /\.(?:test|spec)\.tsx?$/.test(path);
+export const isTestFile = (path: string) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path);
 
 export function emptyProtection(status: ProtectionResult['status'], reason: string | null, extra: Partial<ProtectionResult> = {}): ProtectionResult {
   return { status, reason, changedTests: [], testsInRun: [], subjects: [], baseMutants: 0, guarded: 0, onChangedLines: 0, rechecked: 0, held: 0, lost: [], unknown: 0, ...extra };
 }
 
-/** `git diff --name-status --find-renames BASE [HEAD]`: test files that existed on the target branch and changed, moved or disappeared. */
-export function changedTestFiles(nameStatus: string): TestFileChange[] {
+export interface NameStatus { status: string; path: string; headPath: string | null }
+
+/**
+ * `git -c core.quotePath=false diff --name-status -z --find-renames BASE [HEAD]`: NUL-separated, so no path is ever
+ * quoted or split. Renames and copies carry two paths. Unparseable paths are kept as reported (never silently dropped).
+ */
+export function parseNameStatus(output: string): NameStatus[] {
+  const fields = output.split('\0');
+  const entries: NameStatus[] = [];
+  for (let i = 0; i < fields.length;) {
+    const status = fields[i++] ?? '';
+    if (!status) continue;
+    const path = fields[i++] ?? '';
+    const second = /^[RC]/.test(status) ? fields[i++] ?? '' : null;
+    entries.push({ status, path, headPath: status.startsWith('D') ? null : second ?? path });
+  }
+  return entries;
+}
+
+/**
+ * Test files that existed on the target branch and changed, changed type, moved or disappeared. Added and copied files
+ * cannot remove protection. Any status not understood counts as modified, so the check runs rather than being skipped.
+ */
+export function changedTestFiles(entries: NameStatus[]): TestFileChange[] {
   const changes: TestFileChange[] = [];
-  for (const row of nameStatus.split(/\r?\n/)) {
-    const [status = '', first = '', second] = row.split('\t');
-    let path: string;
-    try { path = normalizePath(first); } catch { continue; }
-    if (!isTestFile(path)) continue;
-    if (status === 'M') changes.push({ path, change: 'modified', headPath: path });
-    else if (status === 'D') changes.push({ path, change: 'deleted', headPath: null });
-    else if (status.startsWith('R') && second) {
-      try { changes.push({ path, change: 'renamed', headPath: normalizePath(second) }); } catch { changes.push({ path, change: 'deleted', headPath: null }); }
-    }
+  for (const entry of entries) {
+    if (!isTestFile(entry.path) || entry.status.startsWith('A') || entry.status.startsWith('C')) continue;
+    const change: TestFileChange['change'] = entry.status.startsWith('D') ? 'deleted' : entry.status.startsWith('R') ? 'renamed' : 'modified';
+    changes.push({ path: entry.path, change, headPath: change === 'deleted' ? null : entry.headPath });
   }
   return changes;
 }
 
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(\.{1,2}\/[^'"\n]+)\1/g;
+const RE_EXPORT = /\bexport\s+(?!type\b)(?:\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*(['"])(\.{1,2}\/[^'"\n]+)\1/g;
 
-/** Production TypeScript a test file imports by relative path (`./shipping.js` resolves to `shipping.ts`). */
-export function importedSources(testPath: string, content: string, exists: (path: string) => boolean): string[] {
+function resolveSpecifier(from: string, specifier: string, exists: (path: string) => boolean): string | null {
+  const joined = posix.normalize(posix.join(posix.dirname(from), specifier));
+  if (joined.startsWith('..') || joined.startsWith('/')) return null;
+  const stem = joined.replace(/\.(?:[cm]?js|jsx)$/, '');
+  const options = /\.tsx?$/.test(joined) ? [joined] : [`${stem}.ts`, `${stem}.tsx`, `${stem}/index.ts`];
+  return options.find((candidate) => { try { return normalizePath(candidate) === candidate && isProductionTypeScript(candidate) && exists(candidate); } catch { return false; } }) ?? null;
+}
+
+/**
+ * Production TypeScript a test file imports by relative path (`./shipping.js` resolves to `shipping.ts`), following
+ * barrel re-exports (`export * from './x.js'`) a few levels, so `import { f } from './index.js'` reaches f's file.
+ */
+export function importedSources(testPath: string, content: string, exists: (path: string) => boolean, read?: (path: string) => string | null, limit = 20): string[] {
   const found = new Set<string>();
+  const queue: string[] = [];
   for (const match of content.matchAll(SPECIFIER)) {
-    const joined = posix.normalize(posix.join(posix.dirname(testPath), match[2]!));
-    if (joined.startsWith('..') || joined.startsWith('/')) continue;
-    const stem = joined.replace(/\.(?:[cm]?js|jsx)$/, '');
-    const options = /\.tsx?$/.test(joined) ? [joined] : [`${stem}.ts`, `${stem}.tsx`, `${stem}/index.ts`];
-    const hit = options.find((candidate) => { try { return normalizePath(candidate) === candidate && isProductionTypeScript(candidate) && exists(candidate); } catch { return false; } });
-    if (hit) found.add(hit);
+    const hit = resolveSpecifier(testPath, match[2]!, exists);
+    if (hit && !found.has(hit)) { found.add(hit); queue.push(hit); }
+  }
+  for (let depth = 0; read && depth < 3 && queue.length && found.size < limit; depth++) {
+    for (const file of queue.splice(0)) {
+      for (const match of (read(file) ?? '').matchAll(RE_EXPORT)) {
+        const hit = resolveSpecifier(file, match[2]!, exists);
+        if (hit && !found.has(hit) && found.size < limit) { found.add(hit); queue.push(hit); }
+      }
+    }
   }
   return [...found].sort();
 }
@@ -147,7 +180,10 @@ const sliceSource = (source: string, location: Location) => {
  * Mutants the target branch's tests killed where a killing test lives in a changed test file, located at the MR head.
  * A mutant killed only by unchanged tests is still killed by them; one on a line the MR changed is the changed-line review's.
  */
-export function protectionCandidates(base: StrykerReportWithTests, changedTests: Set<string>, maps: Record<string, ((line: number) => number | null) | undefined>) {
+export interface HeadTarget { path: string; map: (line: number) => number | null }
+
+/** `targets` maps each target-branch file to its head path (renames followed) and line map; a missing one maps nothing. */
+export function protectionCandidates(base: StrykerReportWithTests, changedTests: Set<string>, targets: Record<string, HeadTarget | undefined>) {
   const tests = testIndex(base);
   const candidates: ProtectionCandidate[] = [];
   let baseMutants = 0, guarded = 0, onChangedLines = 0;
@@ -161,12 +197,13 @@ export function protectionCandidates(base: StrykerReportWithTests, changedTests:
       if (!caughtBy.some((test) => changedTests.has(test.file))) continue;
       guarded++;
       // Every line the mutant spans must be unchanged and still contiguous at the head, or the comparison is not like for like.
-      const map = maps[path];
+      const target = targets[path];
+      const map = target?.map;
       const { start: { line: from }, end: { line: to } } = mutant.location;
       const start = map?.(from) ?? null;
       if (start === null || Array.from({ length: to - from + 1 }, (_, k) => map!(from + k)).some((mapped, k) => mapped !== start + k)) { onChangedLines++; continue; }
       candidates.push({
-        path, baseLine: mutant.location.start.line, operator: mutant.mutatorName, replacement: mutant.replacement, original: sliceSource(file.source, mutant.location), caughtBy,
+        path: target!.path, baseLine: mutant.location.start.line, operator: mutant.mutatorName, replacement: mutant.replacement, original: sliceSource(file.source, mutant.location), caughtBy,
         location: { start: { line: start, column: mutant.location.start.column }, end: { line: start + to - from, column: mutant.location.end.column } },
       });
     }
@@ -220,12 +257,15 @@ export function diffLines(before: string[], after: string[]): TestDiffLine[] {
 
 const flat = (code: string) => { const text = code.replace(/\s+/g, ' ').trim(); return text.length > 60 ? `${text.slice(0, 57)}...` : text; };
 
+/** Repository text inside a `code span` of a sentence that also lands in MR comments: no backtick can close the span early. */
+const span = (text: string) => `\`${flat(text).replaceAll('`', "'")}\``;
+
 export function lostWhy(item: Pick<LostProtection, 'original' | 'replacement' | 'line' | 'caughtBy'>): string {
   const test = item.caughtBy[0]!;
-  const change = `\`${flat(item.original)}\` became \`${flat(item.replacement)}\``;
+  const change = `${span(item.original)} became ${span(item.replacement)}`;
   return test.fate === 'weakened'
-    ? `On the target branch, \`${test.name}\` failed when ${change} on line ${item.line}. This MR changed that test and it no longer fails, so the change goes unnoticed.`
-    : `On the target branch, \`${test.name}\` failed when ${change} on line ${item.line}. This MR removed, renamed or skipped that test, and no other test notices the change.`;
+    ? `On the target branch, ${span(test.name)} failed when ${change} on line ${item.line}. This MR changed that test and it no longer fails, so the change goes unnoticed.`
+    : `On the target branch, ${span(test.name)} failed when ${change} on line ${item.line}. This MR removed, renamed or skipped that test, and no other test notices the change.`;
 }
 
 /**
@@ -280,7 +320,7 @@ export function protectionVerdict(input: Omit<ProtectionResult, 'status' | 'reas
 
 /** A lost-protection mutant as a review finding: ranked first, because it is a regression rather than a pre-existing gap. */
 export function lostFinding(item: LostProtection): RankedFinding {
-  return { rank: 0, fingerprint: item.fingerprint, path: item.path, line: item.line, operator: item.operator, original: item.original, replacement: item.replacement,
+  return { rank: 0, fingerprint: item.fingerprint, path: item.path, line: item.line, endLine: item.location.end.line, operator: item.operator, original: item.original, replacement: item.replacement,
     status: item.status, priority: 'high', why: item.why, origin: 'lost-protection' };
 }
 

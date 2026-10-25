@@ -13,6 +13,8 @@ export interface RankedFinding {
   why: string;
   /** Set when the target branch's tests noticed this change and the MR's test changes stopped them (see protection.ts). */
   origin?: 'lost-protection';
+  /** Last line of a multi-line mutant (a block): verification must mutate the whole span, or Stryker generates nothing. */
+  endLine?: number;
 }
 export interface MutantTriage {
   policy: 'arid-v1';
@@ -58,7 +60,8 @@ function why(mutant: NormalizedMutant, line: number): string {
 
 function finding(mutant: NormalizedMutant): RankedFinding {
   const line = mutant.location.start.line;
-  return { rank: 0, fingerprint: mutant.fingerprint, path: mutant.path, line, operator: mutant.operator, original: mutant.original, replacement: mutant.replacement,
+  return { rank: 0, fingerprint: mutant.fingerprint, path: mutant.path, line, ...(mutant.location.end.line > line ? { endLine: mutant.location.end.line } : {}),
+    operator: mutant.operator, original: mutant.original, replacement: mutant.replacement,
     status: mutant.status as RankedFinding['status'], priority: mutant.status === 'NoCoverage' ? 'high' : PRIORITY[mutant.operator] ?? 'low', why: why(mutant, line) };
 }
 

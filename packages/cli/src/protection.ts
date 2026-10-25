@@ -11,12 +11,12 @@
  */
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
-  candidateRanges, changedTestFiles, compareProtection, emptyProtection, importedSources, lineMap, protectionCandidates, protectionVerdict,
+  candidateRanges, changedTestFiles, compareProtection, emptyProtection, importedSources, lineMap, parseNameStatus, protectionCandidates, protectionVerdict,
   type ProtectionCandidate, type ProtectionResult, type StrykerReportWithTests,
 } from '../../review-core/src/protection.js';
 import type { NormalizedMutant } from '../../review-core/src/types.js';
@@ -58,7 +58,10 @@ export async function checkProtection(options: { base: string; head: string | nu
   const { base, head, budget } = options;
   const runs: ProtectionRun['runs'] = [];
   const done = (result: ProtectionResult, extra: Partial<ProtectionRun> = {}): ProtectionRun => ({ result, runs, sources: {}, mutants: [], ...extra });
-  const changedTests = changedTestFiles(git('diff', '--name-status', '--find-renames', base, ...(head ? [head] : []), '--'));
+  const revisions = [base, ...(head ? [head] : [])];
+  // NUL-separated and unquoted: every path arrives exactly as committed, renames with both names.
+  const entries = parseNameStatus(execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--name-status', '-z', '--find-renames', ...revisions, '--'], { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }));
+  const changedTests = changedTestFiles(entries);
   if (!changedTests.length) return done(emptyProtection('not-applicable', 'This change edits, moves or deletes no existing test file.'));
 
   const config = (await json('stryker.config.json')).vitest?.configFile ?? 'vitest.config.ts';
@@ -80,8 +83,10 @@ export async function checkProtection(options: { base: string; head: string | nu
     const testsInRun = changedTests.map((item) => item.path).filter((path) => inRun.has(path));
     if (!testsInRun.length) return done(emptyProtection('not-applicable', `The changed test files are not part of the mutation test run (${config}).`, { changedTests }));
 
+    const inWorktree = (path: string) => existsSync(join(worktree, path));
+    const readInWorktree = (path: string) => { try { return readFileSync(join(worktree, path), 'utf8'); } catch { return null; } };
     const subjects = [...new Set((await Promise.all(testsInRun.map(async (path) =>
-      importedSources(path, await readFile(join(worktree, path), 'utf8'), (candidate) => existsSync(join(worktree, candidate)))))).flat())].sort();
+      importedSources(path, await readFile(join(worktree, path), 'utf8'), inWorktree, readInWorktree)))).flat())].sort();
     const context = { changedTests, testsInRun, subjects };
     if (!subjects.length) return done(emptyProtection('not-applicable', 'The changed tests import no production TypeScript by relative path.', context));
     if (subjects.length > budget.files) return done(emptyProtection('over-budget', `The changed tests import ${subjects.length} production files; the policy budget is ${budget.files}.`, context));
@@ -91,27 +96,34 @@ export async function checkProtection(options: { base: string; head: string | nu
     if (before.run.timedOut) return done(emptyProtection('over-budget', 'Mutating the code the changed tests import exceeded the runtime budget on the target branch.', context));
     if (!before.report) {
       if (await mutantFree(before.run)) return done(emptyProtection('not-applicable', 'Stryker generated no mutants in the code the changed tests import.', context));
-      if (await noTestsRan(before.run)) return done(emptyProtection('not-applicable', 'No test on the target branch exercises the code the changed tests import.', context));
+      // The changed tests are in the run and import this code, so "no tests ran" contradicts the target branch: fail closed.
+      if (await noTestsRan(before.run)) return done(emptyProtection('inconclusive', `Stryker ran no test on the target branch for code the changed tests import (see ${before.run.log}).`, context));
       return done(emptyProtection('inconclusive', `Stryker could not finish on the target branch (see ${before.run.log}). Its tests may be failing.`, context));
     }
     const baseReport = before.report as unknown as StrykerReportWithTests;
 
-    // Target-branch line -> head line per subject; a subject the change deleted maps nothing.
-    const maps = Object.fromEntries(subjects.map((path) => {
-      const present = head ? (() => { try { git('cat-file', '-e', `${head}:${path}`); return true; } catch { return false; } })() : existsSync(path);
-      return [path, present ? lineMap(git('diff', '--no-ext-diff', '--unified=0', base, ...(head ? [head] : []), '--', path)) : () => null];
+    // Target-branch line -> head path and line per subject, following renames. A subject the change deleted maps nothing:
+    // its code is gone, or reappears as added lines the changed-line review mutates in full.
+    const targets = Object.fromEntries(subjects.map((path) => {
+      const entry = entries.find((item) => item.path === path);
+      const headPath = !entry ? path : entry.status.startsWith('D') ? null : entry.headPath;
+      const present = headPath !== null && (head ? (() => { try { git('cat-file', '-e', `${head}:${headPath}`); return true; } catch { return false; } })() : existsSync(headPath));
+      if (!present || headPath === null) return [path, undefined];
+      const paths = headPath === path ? [path] : [path, headPath];
+      return [path, { path: headPath, map: lineMap(git('diff', '--no-ext-diff', '--no-textconv', '--text', '--unified=0', '--find-renames', ...revisions, '--', ...paths)) }];
     }));
-    const { candidates, baseMutants, guarded, onChangedLines } = protectionCandidates(baseReport, new Set(testsInRun), maps);
+    const { candidates, baseMutants, guarded, onChangedLines } = protectionCandidates(baseReport, new Set(testsInRun), targets);
     const counts = { ...context, baseMutants, guarded, onChangedLines, rechecked: candidates.length };
     if (!candidates.length) return done(protectionVerdict({ ...counts, held: 0, lost: [], unknown: 0 }));
 
     const after = await runStryker(candidateRanges(candidates), { incremental: false, name: 'protection-head', timeoutMs: budget.runtimeMs });
     runs.push({ step: 'Stryker at the head (mutants a changed test killed)', run: after.run });
-    if (after.run.timedOut) return done(emptyProtection('over-budget', 'Re-checking the guarded mutants at the head exceeded the runtime budget.', counts));
+    const unchecked = { ...counts, rechecked: 0 };
+    if (after.run.timedOut) return done(emptyProtection('over-budget', 'Re-checking the guarded mutants at the head exceeded the runtime budget.', unchecked));
     let headReport = after.report as unknown as StrykerReportWithTests | null;
     // No test at the head touches this code any more (deleted or no longer importing it): every guarded mutant is uncovered.
     if (!headReport && await noTestsRan(after.run)) headReport = await uncoveredReport(candidates);
-    if (!headReport) return done(emptyProtection('inconclusive', `Stryker could not finish at the head (see ${after.run.log}). The tests may be failing.`, counts));
+    if (!headReport) return done(emptyProtection('inconclusive', `Stryker could not finish at the head (see ${after.run.log}). The tests may be failing.`, unchecked));
     const { held, lost, unknown, mutants } = compareProtection(candidates, baseReport, headReport);
     const sources = sourcesOf(headReport);
     return done(protectionVerdict({ ...counts, held, lost, unknown }), { sources, mutants });
@@ -131,9 +143,9 @@ export interface ScratchRepository { dir: string; base: string; head: string; cl
 
 /**
  * A throwaway git repository with this project's test setup and demo domain: one commit with each file's `base`
- * content, then one commit with its `head` content (null deletes it). node_modules is shared by symlink.
+ * content, then one commit with its `head` content (null: absent at that commit). node_modules is shared by symlink.
  */
-export async function scratchRepository(files: { path: string; base: string; head: string | null }[], message = 'test: update tests'): Promise<ScratchRepository> {
+export async function scratchRepository(files: { path: string; base: string | null; head: string | null }[], message = 'test: update tests'): Promise<ScratchRepository> {
   const dir = join(tmpdir(), `mutant-review-scratch-${randomBytes(6).toString('hex')}`);
   const run = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Mutant Review demo', '-c', 'user.email=demo@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, encoding: 'utf8', windowsHide: true }).trim();
   const put = async (path: string, content: string) => { await mkdir(dirname(join(dir, path)), { recursive: true }); await writeFile(join(dir, path), content); };
@@ -141,7 +153,7 @@ export async function scratchRepository(files: { path: string; base: string; hea
   for (const path of SETUP) await put(path, await readFile(path, 'utf8'));
   await put('.gitignore', 'node_modules\nevidence/\n.stryker-tmp/\n');
   await symlink(resolve('node_modules'), join(dir, 'node_modules'), 'junction');
-  for (const file of files) await put(file.path, file.base);
+  for (const file of files) { if (file.base === null) await rm(join(dir, file.path), { force: true }); else await put(file.path, file.base); }
   run('init', '-q', '-b', 'main');
   run('add', '-A');
   run('commit', '-q', '-m', 'main: checkout contracts and tests');
