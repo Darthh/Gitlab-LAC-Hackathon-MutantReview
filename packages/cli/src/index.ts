@@ -3,24 +3,32 @@ import { mutationMetrics, evaluateGate, applyOverride } from '../../review-core/
 import { updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
 import { formatGrams } from '../../review-core/src/footprint.js';
 import { codeQualityReport, metricsReport } from '../../review-core/src/reports.js';
-import { ciContext, demoContext, git, json, protectedPath, runReview, save } from './review.js';
+import { ciContext, demoContext, git, json, protectionBlocks, protectedPath, runReview, save } from './review.js';
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
 import { formatPrecheck, precheck } from './precheck.js';
 
 async function review(demo: boolean) {
   const { evidence, baselinePassed, complete } = await runReview(demo ? demoContext() : ciContext());
-  const { mutation, gate, triage, savings } = evidence;
+  const { mutation, gate, triage, savings, protection } = evidence;
   console.log(`${demo ? 'Local demonstration' : 'MR review'}: baseline ${evidence.baseline.status}; changed-line mutation score ${mutation.score ?? 'unavailable'}; ${mutation.counts.survived} survivor(s); gate ${gate.status}.`);
   console.log(`Triage: ${triage.arid.length} arid mutant(s) filtered, ${triage.ranked.length} finding(s) to comment, ${triage.overflow} over budget. Mutants run ${savings.mutantsChangedLines}${savings.mutantsWholeFiles === null ? '' : ` of ${savings.mutantsWholeFiles} in the whole changed files`}.`);
   console.log(`Model input: ${savings.modelInput.findingsSent} of ${savings.modelInput.findingsOpen} open mutant(s) would reach the drafting prompt; ${savings.modelInput.charsAvoided} characters (≈${savings.modelInput.tokensAvoidedApprox} tokens) kept out by triage.`);
+  if (protection) {
+    const label = protection.scenario ? 'Lost-protection check (demonstration fixture, not gated)' : 'Lost-protection check';
+    console.log(`${label}: ${protection.status}. ${protection.reason ?? ''}${protection.cost ? ` Cost ${formatGrams(protection.cost.sciG)}, ${protection.cost.cpuSeconds} CPU-s.` : ''}`.trim());
+    for (const item of protection.lost) console.log(`  lost: ${item.path}:${item.line} \`${item.original}\` -> \`${item.replacement}\` was caught by "${item.caughtBy[0]?.name}" (test ${item.caughtBy[0]?.fate}).`);
+  }
   if (evidence.footprint) {
     const { actual, changedLinesRun, projectedWholeFile, savedPercent, region, gridIntensity } = evidence.footprint;
     console.log(`Footprint (SCI per review): ${formatGrams(actual.sciG)}, ${actual.energyWh.toFixed(2)} Wh, ${actual.cpuSeconds} CPU-s${actual.cpuMeasured ? '' : ' (CPU time not measurable here: full utilisation assumed)'}, ${region} grid at ${gridIntensity} gCO2e/kWh.`);
     if (changedLinesRun && projectedWholeFile) console.log(`Mutation work: ${changedLinesRun.mutants} changed-line mutants at ${formatGrams(changedLinesRun.sciG)} instead of ${projectedWholeFile.mutants} whole-file mutants projected at ${formatGrams(projectedWholeFile.sciG)} (${savedPercent}% avoided).`);
   }
   // Native MR widgets: Code Quality lists each unnoticed change on its line; Metrics compares score and footprint with the target branch.
-  await save('evidence/gl-code-quality.json', codeQualityReport(mutation.mutants, triage));
-  await writeFile('evidence/metrics.txt', metricsReport({ score: mutation.score, survived: mutation.counts.survived, noCoverage: mutation.counts.noCoverage, mutantsRun: savings.mutantsChangedLines, mutantsAvoided: savings.mutantsAvoided, aiCallsAvoided: savings.aiCallsAvoided, modelInputTokensAvoided: savings.modelInput.tokensAvoidedApprox, footprint: evidence.footprint }));
+  // The demo's protection scenario is a separate fixture MR, so it stays out of this review's MR widgets.
+  const gated = protection && !protection.scenario ? protection : null;
+  await save('evidence/gl-code-quality.json', codeQualityReport(mutation.mutants, triage, gated?.lost ?? []));
+  await writeFile('evidence/metrics.txt', metricsReport({ score: mutation.score, survived: mutation.counts.survived, noCoverage: mutation.counts.noCoverage, mutantsRun: savings.mutantsChangedLines, mutantsAvoided: savings.mutantsAvoided, aiCallsAvoided: savings.aiCallsAvoided, modelInputTokensAvoided: savings.modelInput.tokensAvoidedApprox,
+    lostProtection: gated && (gated.status === 'lost' || gated.status === 'held') ? gated.lost.length : null, footprint: evidence.footprint }));
   console.log('Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt');
   if (!baselinePassed || !complete) process.exitCode = 2;
 }
@@ -31,7 +39,11 @@ async function gate() {
   const storedMetrics = mutationMetrics(evidence.mutation.mutants);
   const policy = await json('.mutant-review/policy.json');
   const protectedChanges = evidence.source === 'gitlab' && evidence.provenance.baseSha ? git('diff', '--name-only', evidence.provenance.baseSha, headSha, '--').split('\n').some(protectedPath) : false;
-  const decision = evaluateGate({ baselinePassed: evidence.baseline.status === 'passed', complete: evidence.scope.complete && evidence.mutation.status === 'complete', expectedHeadSha: headSha, evidenceHeadSha: evidence.provenance.headSha, metrics: storedMetrics, threshold: policy.mutationThreshold ?? 100, actionableSurvivors: storedMetrics.survived, protectedFilesChanged: protectedChanges });
+  const protection = evidence.source === 'gitlab' ? evidence.protection ?? null : null;
+  // A GitLab review always records a protection result once its baseline passed; a missing one is an incomplete review.
+  const missingProtection = evidence.source === 'gitlab' && evidence.baseline.status === 'passed' && !protection ? 'no result recorded for this review' : null;
+  const decision = evaluateGate({ baselinePassed: evidence.baseline.status === 'passed', complete: evidence.scope.complete && evidence.mutation.status === 'complete', expectedHeadSha: headSha, evidenceHeadSha: evidence.provenance.headSha, metrics: storedMetrics, threshold: policy.mutationThreshold ?? 100, actionableSurvivors: storedMetrics.survived, protectedFilesChanged: protectedChanges,
+    lostProtection: protection?.lost?.length ?? 0, protectionRechecked: protection?.rechecked ?? 0, protectionInconclusive: protectionBlocks(protection) ?? missingProtection });
   let override = null;
   const mrIid = Number(process.env.CI_MERGE_REQUEST_IID);
   if (decision.status === 'failed' && mrIid && process.env.MUTANT_REVIEW_TOKEN) {
@@ -48,6 +60,9 @@ async function gate() {
         `@${final.override.actor} overrode the mutation gate on !${mrIid} at \`${headSha.slice(0, 8)}\`: "${final.override.reason}" ([comment](${final.override.noteUrl})).`,
         '', 'Changes no test would notice:', '',
         ...open.map((mutant: { path: string; line: number; original: string; replacement: string }) => `- [ ] \`${mutant.path}:${mutant.line}\` \`${mutant.original.replace(/\s+/g, ' ')}\` → \`${mutant.replacement.replace(/\s+/g, ' ')}\``),
+        ...(protection?.lost?.length ? ['', 'Protection this MR removed (caught on the target branch, not any more):', '',
+          ...protection.lost.map((item: { path: string; line: number; original: string; replacement: string; caughtBy: { name: string; fate: string }[] }) =>
+            `- [ ] \`${item.path}:${item.line}\` \`${item.original.replace(/\s+/g, ' ')}\` → \`${item.replacement.replace(/\s+/g, ' ')}\`, previously caught by "${item.caughtBy[0]?.name}" (test ${item.caughtBy[0]?.fate})`)] : []),
       ].join('\n'), ['mutant-review', 'test-debt']);
       console.log(`Follow-up issue: ${issue.web_url}`);
     } catch (error) { console.error(`Could not open the test-debt issue: ${(error as Error).message}`); }

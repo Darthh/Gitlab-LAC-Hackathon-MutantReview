@@ -27,10 +27,12 @@ const CATEGORIES: Record<string, { tag: string; pattern: string; recommendation:
   StringLiteral: { tag: 'output-text', pattern: 'Output text never asserted', recommendation: 'When text is part of the contract (labels, keys, messages users see), assert the exact string.' },
   BlockStatement: { tag: 'side-effect', pattern: 'Effect of a block never observed', recommendation: 'Assert the state change, call or return value each block produces. "Does not throw" is not an assertion about behaviour.' },
   NoCoverage: { tag: 'untested-line', pattern: 'Changed line executed by no test', recommendation: 'Every changed line needs at least one test that executes it and asserts its result.' },
+  LostProtection: { tag: 'weakened-test', pattern: 'A test edit removed protection the target branch had', recommendation: 'Never loosen an existing assertion (toBe to toBeLessThanOrEqual, toEqual to toBeDefined) or delete or skip a failing test to make a build green. If the requirement changed, take the new expected value from the new requirement; otherwise fix the code.' },
 };
 const FALLBACK = { tag: 'undetected-change', pattern: 'Behaviour change not detected by tests', recommendation: 'Write a test that would fail if this line behaved differently, with the expected value taken from the requirement.' };
 
-export function lessonCategory(finding: Pick<RankedFinding, 'operator' | 'status'>) {
+export function lessonCategory(finding: Pick<RankedFinding, 'operator' | 'status' | 'origin'>) {
+  if (finding.origin === 'lost-protection') return CATEGORIES.LostProtection!;
   return finding.status === 'NoCoverage' ? CATEGORIES.NoCoverage! : CATEGORIES[finding.operator] ?? FALLBACK;
 }
 
@@ -67,6 +69,7 @@ export function renderLessons(lessons: MemoryLesson[]): string {
     '- Do not mock the unit under test. Assert on its real outputs, not on calls to a mock.',
     '- Never let `toBeDefined`, `toBeTruthy` or `not.toThrow` be the only assertion in a test.',
     '- Before you finish, a test you add must fail if the line it covers changes behaviour.',
+    '- Never make a failing test pass by loosening its assertion, deleting it or skipping it. Mutant Review re-runs the target branch\'s tests against your test changes and blocks the merge when protection is lost.',
     '',
     ...(learned.length ? ['### Learned from approved repairs', '', ...learned] : ['_No repairs approved yet._']),
     END,

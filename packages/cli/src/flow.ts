@@ -7,7 +7,8 @@ import { parseReviewCommand, type ReviewCommand } from '../../review-core/src/ap
 import { formatGrams, type FootprintReceipt } from '../../review-core/src/footprint.js';
 import { mutationMetrics, normalizeStrykerReport, type GateOverride } from '../../review-core/src/report.js';
 import { learnFromRepair, lessonCategory, updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
-import { normalizePath } from '../../review-core/src/scope.js';
+import { filterMutantsToScope, normalizePath } from '../../review-core/src/scope.js';
+import type { ProtectionResult } from '../../review-core/src/protection.js';
 import { findingContext, type RankedFinding } from '../../review-core/src/triage.js';
 import type { MutationScope } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
@@ -37,6 +38,8 @@ export interface VerifiedProposal extends Omit<Draft, 'finding'> { finding: Rank
 export interface RejectedProposal { finding: RankedFinding; testPath: string; testName: string; reason: string }
 export interface ProposalPayload {
   version: 1; mrIid: number; headSha: string; runId: string; score: number | null; ranges: string[];
+  /** Lines of lost-protection findings: re-run after apply, but not part of the changed-line score. */
+  protectionRanges?: string[];
   proposals: VerifiedProposal[]; rejected: RejectedProposal[]; equivalent: { finding: RankedFinding; reason: string }[];
 }
 
@@ -252,19 +255,41 @@ function table(payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equiva
     const rejected = payload.rejected.find((item) => item.finding.fingerprint === finding.fingerprint);
     const equivalent = payload.equivalent.find((item) => item.finding.fingerprint === finding.fingerprint);
     const status = verified ? `✅ \`${verified.testName}\` kills it` : equivalent ? `➖ judged equivalent: ${equivalent.reason}` : rejected ? `❌ AI draft rejected: ${rejected.reason}` : '— no test drafted yet';
-    return `| ${finding.rank} | \`${finding.path}:${finding.line}\` | \`${finding.original.replace(/\s+/g, ' ')}\` → \`${finding.replacement.replace(/\s+/g, ' ')}\` | ${status} |`;
+    const lost = finding.origin === 'lost-protection' ? '**lost protection:** ' : '';
+    return `| ${finding.rank} | \`${finding.path}:${finding.line}\` | ${lost}\`${finding.original.replace(/\s+/g, ' ')}\` → \`${finding.replacement.replace(/\s+/g, ' ')}\` | ${status} |`;
   });
   return ['| # | Where | Change no test noticed | Verified test |', '|---|---|---|---|', ...rows].join('\n');
 }
 
-export function summaryBody(evidence: { mutation: { score: number | null; counts: { killed: number; survived: number; noCoverage: number } }; gate: { status: string }; triage: { arid: { reason: string }[]; overflow: number }; footprint?: FootprintReceipt | null }, ranked: RankedFinding[], payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equivalent'>, handle: string, threshold: number) {
+const flatCode = (code: string, max = 80) => { const text = code.replace(/\s+/g, ' ').trim(); return text.length > max ? `${text.slice(0, max - 1)}…` : text; };
+
+/** Each change the target branch's tests noticed and this MR's tests no longer notice, with the test that noticed it and how the MR changed that test. */
+export function lostProtectionSection(protection: Pick<ProtectionResult, 'lost'> | null | undefined): string {
+  const lost = protection?.lost ?? [];
+  if (!lost.length) return '';
+  const items = lost.map((item, index) => {
+    const test = item.caughtBy[0]!;
+    const fate = test.fate === 'weakened' ? 'This MR changed that test and it no longer fails' : 'This MR removed, renamed or skipped that test, and no other test fails';
+    const diff = item.testDiff?.lines.length ? `\n\n\`\`\`diff\n${item.testDiff.lines.map((line) => `${line.kind}${line.text}`).join('\n')}\n\`\`\`` : '';
+    return `**${index + 1}.** \`${item.path}:${item.line}\`: when \`${flatCode(item.original)}\` became \`${flatCode(item.replacement)}\`, \`${flatCode(test.name, 120)}\` (\`${test.file}\`) failed on the target branch${test.failure ? ` ("${flatCode(test.failure, 120)}")` : ''}. ${fate}.${diff}`;
+  });
+  return ['### Lost protection', `This MR changed tests. On the target branch they noticed ${lost.length === 1 ? 'this change' : 'these changes'}; at this head no test does. Coverage cannot show it: every line still runs and every test is green.`, ...items].join('\n\n');
+}
+
+export function summaryBody(evidence: { mutation: { score: number | null; counts: { killed: number; survived: number; noCoverage: number } }; gate: { status: string }; triage: { arid: { reason: string }[]; overflow: number }; footprint?: FootprintReceipt | null; protection?: Pick<ProtectionResult, 'lost'> | null }, ranked: RankedFinding[], payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equivalent'>, handle: string, threshold: number) {
   const { counts, score } = evidence.mutation;
   const open = counts.survived + counts.noCoverage;
+  const lost = evidence.protection?.lost?.length ?? 0;
   const verified = payload.proposals.map((item) => item.finding.rank);
   const lessons = [...new Set(payload.proposals.map((item) => lessonCategory(item.finding).pattern))];
   return [
-    `## Mutant Review: ${open} change(s) on your changed lines that no test would notice`,
-    `Changed-line mutation score **${score === null ? 'n/a' : `${score.toFixed(0)}%`}** (${counts.killed} of ${counts.killed + open} mutants killed). Policy ${threshold}%. Gate: **${evidence.gate.status}**.`,
+    lost
+      ? `## Mutant Review: this MR's test changes stopped ${lost} change(s) from being noticed${open ? `, and ${open} change(s) on your changed lines go unnoticed` : ''}`
+      : `## Mutant Review: ${open} change(s) on your changed lines that no test would notice`,
+    score === null
+      ? `No changed source lines to mutate. Gate: **${evidence.gate.status}**.`
+      : `Changed-line mutation score **${score.toFixed(0)}%** (${counts.killed} of ${counts.killed + open} mutants killed). Policy ${threshold}%. Gate: **${evidence.gate.status}**.`,
+    lostProtectionSection(evidence.protection),
     table(payload, ranked),
     evidence.triage.arid.length ? `Filtered as noise before any AI call: ${evidence.triage.arid.length} (${[...new Set(evidence.triage.arid.map((item) => item.reason))].join(', ')}).` : '',
     evidence.triage.overflow ? `${evidence.triage.overflow} lower-ranked finding(s) not commented, to keep review short.` : '',
@@ -295,7 +320,7 @@ function inlineBody(finding: RankedFinding, proposal: VerifiedProposal | undefin
 
 // ---------- Commands ----------
 
-interface FlowState { mode: 'review' | 'done'; mrIid: number; headSha: string; runId?: string; score?: number | null; ranges?: string[]; targets?: (RankedFinding & { testPath: string })[]; threshold?: number }
+interface FlowState { mode: 'review' | 'done'; mrIid: number; headSha: string; runId?: string; score?: number | null; ranges?: string[]; protectionRanges?: string[]; targets?: (RankedFinding & { testPath: string })[]; threshold?: number }
 
 export async function flowPrepare(args: string[]) {
   const handle = flowHandle(args);
@@ -325,15 +350,21 @@ export async function flowPrepare(args: string[]) {
     pipelineId: null, jobId: null, pipelineUrl: null, projectUrl: null, output: `${WORK}/evidence.json` });
   const ranked = evidence.triage.ranked;
   if (!ranked.length) {
-    await reply(adapter, mr, evidence.mutation.status === 'complete'
-      ? `## Mutant Review: every mutant on the changed lines was killed\nChanged-line mutation score **${evidence.mutation.score?.toFixed(0) ?? 'n/a'}%** across ${evidence.mutation.mutants.length} mutants. Nothing to add.`
-      : `## Mutant Review could not finish\n${evidence.scope.reason ?? 'Mutation analysis was inconclusive.'}`, 'clean');
+    const protection = evidence.protection;
+    const unfinished = protection && (protection.status === 'inconclusive' || protection.status === 'over-budget');
+    await reply(adapter, mr, evidence.mutation.status === 'complete' && !unfinished
+      ? [evidence.mutation.score === null
+        ? '## Mutant Review: no changed source lines to mutate'
+        : `## Mutant Review: every mutant on the changed lines was killed\nChanged-line mutation score **${evidence.mutation.score.toFixed(0)}%** across ${evidence.mutation.mutants.length} mutants. Nothing to add.`,
+      protection?.status === 'held' && protection.rechecked ? `Your test changes keep all ${protection.rechecked} change(s) they noticed on the target branch noticed.` : ''].filter(Boolean).join('\n\n')
+      : `## Mutant Review could not finish\n${unfinished ? `Lost-protection check: ${protection.reason}` : evidence.scope.reason ?? 'Mutation analysis was inconclusive.'}`, 'clean');
     return done('No surviving mutants to draft tests for.');
   }
   const { targets, brief } = await buildBrief(ranked, sources);
   const policy = await json('.mutant-review/policy.json').catch(() => ({}));
   await save(`${WORK}/flow.json`, { mode: 'review', mrIid: mr.iid, headSha: mr.sha, runId: evidence.runId, score: evidence.mutation.score,
-    ranges: evidence.scope.files.flatMap((file) => file.lines.map((line) => `${file.path}:${line.start}-${line.end}`)), targets, threshold: policy.mutationThreshold ?? 90 } satisfies FlowState);
+    ranges: evidence.scope.files.flatMap((file) => file.lines.map((line) => `${file.path}:${line.start}-${line.end}`)),
+    protectionRanges: [...new Set<string>((evidence.protection?.lost ?? []).map((item) => `${item.path}:${item.location.start.line}-${item.location.end.line}`))], targets, threshold: policy.mutationThreshold ?? 90 } satisfies FlowState);
   console.log(brief);
 }
 
@@ -348,7 +379,8 @@ export async function flowPublish(args: string[], connect: () => Promise<GitLabA
   const parsed = draftSchema.safeParse(await json(`${WORK}/proposals.json`).catch(() => ({})));
   const drafts = parsed.success ? parsed.data : { proposals: [], equivalent: [] };
   const targets = state.targets ?? [];
-  const payload: ProposalPayload = { version: 1, mrIid: mr.iid, headSha: mr.sha, runId: state.runId!, score: state.score ?? null, ranges: state.ranges ?? [], proposals: [], rejected: [], equivalent: [] };
+  const payload: ProposalPayload = { version: 1, mrIid: mr.iid, headSha: mr.sha, runId: state.runId!, score: state.score ?? null, ranges: state.ranges ?? [],
+    ...(state.protectionRanges?.length ? { protectionRanges: state.protectionRanges } : {}), proposals: [], rejected: [], equivalent: [] };
   for (const draft of drafts.proposals.filter((item, index, all) => all.findIndex((other) => other.finding === item.finding) === index)) {
     const finding = targets.find((target) => target.rank === draft.finding);
     if (!finding) continue;
@@ -427,11 +459,13 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   for (const proposal of selected) {
     if (!await runTestFile(proposal.testPath, proposal.testName, `evidence/flow/apply-${proposal.finding.rank}.json`)) return fail(`\`${proposal.testName}\` no longer passes here; nothing was committed.`);
   }
-  const { report } = await runStryker(payload.ranges, { incremental: false, name: 'apply' });
-  const after = report ? normalizeStrykerReport(report as never, scopeFromRanges(payload.ranges)) : [];
+  // Lost-protection lines are re-run too, so a restoring test is proven, but the score stays the changed-line score.
+  const ranges = [...new Set([...payload.ranges, ...(payload.protectionRanges ?? [])])];
+  const { report } = await runStryker(ranges, { incremental: false, name: 'apply' });
+  const after = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
   const unkilled = selected.filter((proposal) => after.find((mutant) => mutant.fingerprint === proposal.finding.fingerprint)?.status !== 'Killed');
   if (!report || unkilled.length) return fail(`the re-run did not kill finding ${unkilled.map((item) => item.finding.rank).join(', ') || '(no report)'}; nothing was committed.`);
-  const scoreAfter = mutationMetrics(after).score;
+  const scoreAfter = payload.ranges.length ? mutationMetrics(filterMutantsToScope(after, scopeFromRanges(payload.ranges))).score : null;
 
   const now = new Date().toISOString();
   const ledgerPath = '.mutant-review/ledger.json';
@@ -467,8 +501,10 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   const score = (value: number | null) => value === null ? 'n/a' : `${value.toFixed(0)}%`;
   await reply(adapter, mr, [
     `Applied ${ranks.join(' and ')} for @${note.author.username} in ${commit.id.slice(0, 8)}.`,
-    `Changed-line mutation score: **${score(payload.score)} → ${score(scoreAfter)}**. The MR pipeline re-runs the gate on the new commit.`,
+    payload.ranges.length ? `Changed-line mutation score: **${score(payload.score)} → ${score(scoreAfter)}**.` : '',
+    selected.some((item) => item.finding.origin === 'lost-protection') ? `Protection restored: ${selected.filter((item) => item.finding.origin === 'lost-protection').length} change(s) the target branch's tests noticed are noticed again, proven by the re-run.` : '',
+    'The MR pipeline re-runs the gate on the new commit.',
     `AGENTS.md now teaches: ${[...new Set(selected.map((item) => lessonCategory(item.finding).pattern))].join('; ')}.`,
-  ].join('\n\n'), 'applied');
+  ].filter(Boolean).join('\n\n'), 'applied');
   return `Committed ${commit.id}.`;
 }

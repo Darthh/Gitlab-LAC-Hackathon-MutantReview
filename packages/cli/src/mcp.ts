@@ -28,7 +28,7 @@ export interface McpTool {
 type JsonRpc = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
 type Reply = { jsonrpc: '2.0'; id: string | number | null; result?: unknown; error?: { code: number; message: string } };
 
-const INSTRUCTIONS = 'Mutant Review mutation-tests only the lines you changed. Before you finish a change that adds or edits TypeScript, call mutation_check. For each finding, draft one test whose expected value comes from the written requirement, call verify_test, and add the test to the file only when it is verified. Never weaken a test or the evaluator to make a check pass.';
+const INSTRUCTIONS = 'Mutant Review mutation-tests only the lines you changed, and checks that your test edits did not stop existing tests noticing behaviour they noticed on the base branch. Before you finish a change that adds or edits TypeScript or tests, call mutation_check. For each finding, draft one test whose expected value comes from the written requirement, call verify_test, and add the test to the file only when it is verified. Never loosen, delete or skip a test, or change the evaluator, to make a check pass: mutation_check reports it as lost protection and the merge gate blocks it.';
 
 /** One JSON-RPC message in, at most one reply out. Tool calls run one at a time (they share the working tree). */
 export function createServer(tools: McpTool[], version = '0.1.0') {
@@ -72,14 +72,16 @@ export const mutantReviewTools: McpTool[] = [
   {
     name: 'mutation_check',
     title: 'Check my changed lines',
-    description: 'Mutation-test only the TypeScript lines changed since the base (default: where this branch left the default branch; uncommitted edits included). Returns the changes no existing test would notice, the code around each, the requirement docs, and the testing rules this repository has learned. Run it before you push. Read-only.',
+    description: 'Mutation-test only the TypeScript lines changed since the base (default: where this branch left the default branch; uncommitted edits included), and check that edited, moved or deleted tests still notice every change they noticed on the base (lost protection). Returns the changes no test would notice, the code around each, the requirement docs, and the testing rules this repository has learned. Run it before you push. Read-only.',
     inputSchema: { type: 'object', properties: { base: { type: 'string', description: 'Optional branch, tag or commit to compare against.' } }, additionalProperties: false },
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     async run(args) {
       const result = await precheck(baseArgs.parse(args));
       return {
         text: formatPrecheck(result),
-        structured: { status: result.status, score: result.score, counts: result.counts, findings: result.findings.map(({ rank, path, line, original, replacement, operator, why, testPath }) => ({ rank, path, line, original, replacement, operator, why, testPath })), footprintG: result.footprint?.actual.sciG ?? null },
+        structured: { status: result.status, score: result.score, counts: result.counts, findings: result.findings.map(({ rank, path, line, original, replacement, operator, why, testPath, origin }) => ({ rank, path, line, original, replacement, operator, why, testPath, origin: origin ?? 'changed-line' })),
+          protection: result.protection ? { status: result.protection.status, reason: result.protection.reason, lost: result.protection.lost.map(({ path, line, original, replacement, caughtBy }) => ({ path, line, original, replacement, caughtBy: caughtBy.map(({ name, file, fate }) => ({ name, file, fate })) })) } : null,
+          footprintG: result.footprint?.actual.sciG ?? null },
       };
     },
   },

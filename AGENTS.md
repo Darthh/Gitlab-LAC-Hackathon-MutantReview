@@ -35,6 +35,7 @@ Mutant Review mutation-tests every changed line in a merge request. These rules 
 - Do not mock the unit under test. Assert on its real outputs, not on calls to a mock.
 - Never let `toBeDefined`, `toBeTruthy` or `not.toThrow` be the only assertion in a test.
 - Before you finish, a test you add must fail if the line it covers changes behaviour.
+- Never make a failing test pass by loosening its assertion, deleting it or skipping it. Mutant Review re-runs the target branch's tests against your test changes and blocks the merge when protection is lost.
 
 _No repairs approved yet._
 <!-- mutant-review:lessons:end -->
