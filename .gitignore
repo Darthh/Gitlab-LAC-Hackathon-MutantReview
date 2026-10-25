@@ -36,3 +36,6 @@ evidence/gl-code-quality.json
 evidence/metrics.txt
 evidence/precheck/
 evidence/precheck.log
+
+evidence/protection/
+evidence/protection-*/

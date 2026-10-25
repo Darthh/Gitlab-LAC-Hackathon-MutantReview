@@ -7,3 +7,4 @@ export * from './preflight.js';
 export * from './memory.js';
 export * from './footprint.js';
 export * from './reports.js';
+export * from './protection.js';

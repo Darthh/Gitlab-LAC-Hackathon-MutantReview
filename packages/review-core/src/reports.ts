@@ -7,6 +7,7 @@
  * Pure functions; the CLI writes the files.
  */
 import type { FootprintReceipt } from './footprint.js';
+import type { LostProtection } from './protection.js';
 import type { MutantTriage } from './triage.js';
 import type { NormalizedMutant } from './types.js';
 
@@ -23,11 +24,25 @@ const oneLine = (code: string, max = 80) => {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 };
 
-/** Surviving and uncovered mutants on changed lines, minus the arid noise triage already dropped. */
-export function codeQualityReport(mutants: Pick<NormalizedMutant, 'fingerprint' | 'path' | 'location' | 'original' | 'replacement' | 'operator' | 'status'>[], triage?: Pick<MutantTriage, 'arid' | 'ranked'> | null): CodeQualityIssue[] {
+/**
+ * Surviving and uncovered mutants on changed lines, minus the arid noise triage already dropped, plus every change the
+ * target branch's tests noticed and this MR's test changes stopped noticing (critical: protection that existed is gone).
+ */
+export function codeQualityReport(mutants: Pick<NormalizedMutant, 'fingerprint' | 'path' | 'location' | 'original' | 'replacement' | 'operator' | 'status'>[], triage?: Pick<MutantTriage, 'arid' | 'ranked'> | null, lost: LostProtection[] = []): CodeQualityIssue[] {
   const arid = new Set(triage?.arid.map((item) => item.fingerprint) ?? []);
   const priority = new Map(triage?.ranked.map((item) => [item.fingerprint, item.priority]) ?? []);
-  return mutants
+  const lostIssues = lost.map((item): CodeQualityIssue => {
+    const test = item.caughtBy[0]!;
+    return {
+      description: `Mutant Review: lost protection. \`${oneLine(item.original)}\` → \`${oneLine(item.replacement)}\` was caught by "${oneLine(test.name, 100)}" on the target branch; after this MR's test changes no test fails (test ${test.fate}).`,
+      check_name: 'mutant-review/lost-protection',
+      fingerprint: item.fingerprint.slice(0, 32),
+      severity: 'critical',
+      location: { path: item.path, lines: { begin: item.line } },
+    };
+  });
+  const lostPrints = new Set(lost.map((item) => item.fingerprint));
+  return [...lostIssues, ...mutants.filter((mutant) => !lostPrints.has(mutant.fingerprint))
     .filter((mutant) => (mutant.status === 'Survived' || mutant.status === 'NoCoverage') && !arid.has(mutant.fingerprint))
     .map((mutant) => {
       const ranked = priority.get(mutant.fingerprint);
@@ -42,7 +57,7 @@ export function codeQualityReport(mutants: Pick<NormalizedMutant, 'fingerprint' 
         severity,
         location: { path: mutant.path, lines: { begin: mutant.location.start.line } },
       };
-    });
+    })];
 }
 
 export interface MetricsInput {
@@ -53,6 +68,8 @@ export interface MetricsInput {
   mutantsAvoided: number | null;
   aiCallsAvoided: number;
   modelInputTokensAvoided?: number | null;
+  /** Null when the MR changed no existing test, so the widget shows the metric only where it was measured. */
+  lostProtection?: number | null;
   footprint?: FootprintReceipt | null;
 }
 
@@ -61,6 +78,7 @@ export function metricsReport(input: MetricsInput): string {
   const lines: [string, number | null][] = [
     ['mutant_review_changed_line_score_percent', input.score === null ? null : Number(input.score.toFixed(1))],
     ['mutant_review_unnoticed_changes', input.survived + input.noCoverage],
+    ['mutant_review_lost_protection', input.lostProtection ?? null],
     ['mutant_review_mutants_run', input.mutantsRun],
     ['mutant_review_mutants_avoided', input.mutantsAvoided],
     ['mutant_review_ai_calls_avoided', input.aiCallsAvoided],

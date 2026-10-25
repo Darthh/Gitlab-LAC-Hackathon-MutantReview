@@ -18,13 +18,14 @@ export function executionEnvironment(environment: NodeJS.ProcessEnv = process.en
   return { ...Object.fromEntries(Object.entries(environment).filter(([name]) => names.has(name.toLowerCase()))), CI: 'true', NO_COLOR: '1' };
 }
 
-export async function execute(args: string[], log: string, timeoutMs = 180_000): Promise<Execution> {
+/** `cwd` lets a run execute in another checkout (the target-branch worktree); `log` is always relative to this process. */
+export async function execute(args: string[], log: string, timeoutMs = 180_000, cwd = process.cwd()): Promise<Execution> {
   const started = Date.now();
   await mkdir(dirname(resolve(log)), { recursive: true });
   // Executions are sequential, so the delta of reaped-children CPU time belongs to this child alone.
   const cpuBefore = childrenCpuMs();
   return await new Promise((resolvePromise, reject) => {
-    const child = spawn(process.execPath, args, { cwd: process.cwd(), shell: false, windowsHide: true, env: executionEnvironment(), detached: process.platform !== 'win32' });
+    const child = spawn(process.execPath, args, { cwd, shell: false, windowsHide: true, env: executionEnvironment(), detached: process.platform !== 'win32' });
     let output = '';
     let timedOut = false;
     const timer = setTimeout(() => {

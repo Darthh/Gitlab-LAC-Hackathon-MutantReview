@@ -6,11 +6,13 @@ import { mutationMetrics, normalizeStrykerReport, evaluateGate } from '../../rev
 import { preflight } from '../../review-core/src/preflight.js';
 import type { MemoryLesson } from '../../review-core/src/memory.js';
 import { modelInputSavings, triageMutants } from '../../review-core/src/triage.js';
+import { withLostProtection, type ProtectionResult } from '../../review-core/src/protection.js';
 import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
 import { execute, type Execution } from './runner.js';
 import { machine } from './cpu.js';
 import { digest, makeProposal, verifySandbox } from './proof.js';
+import { checkProtection, demoProtection, type ProtectionRun } from './protection.js';
 
 export const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }).trim();
 export const json = async (path: string) => JSON.parse(await readFile(path, 'utf8'));
@@ -56,17 +58,22 @@ export async function versionedLessons(): Promise<MemoryLesson[]> {
   return records;
 }
 
-/** Runs Stryker on exact `path:start-end` ranges using the project's own Stryker configuration. */
-export async function runStryker(ranges: string[], options: { incremental: boolean; name: string; dryRunOnly?: boolean; timeoutMs?: number }) {
+/**
+ * Runs Stryker on exact `path:start-end` ranges using the project's own Stryker configuration (always this checkout's,
+ * which is protected). `cwd` runs it in another checkout, such as the target-branch worktree of the protection check.
+ */
+export async function runStryker(ranges: string[], options: { incremental: boolean; name: string; dryRunOnly?: boolean; timeoutMs?: number; cwd?: string }) {
   const config = await json('stryker.config.json');
+  // Stryker resolves its paths against its own working directory, so a run elsewhere gets absolute ones.
+  const here = (path: string) => options.cwd ? resolve(path) : path;
   config.mutate = ranges;
   config.incremental = options.incremental;
-  config.incrementalFile = 'evidence/incremental/mutation.json';
-  config.jsonReporter = { fileName: `evidence/${options.name}/mutation.json` };
+  config.incrementalFile = here('evidence/incremental/mutation.json');
+  config.jsonReporter = { fileName: here(`evidence/${options.name}/mutation.json`) };
   if (options.dryRunOnly) config.dryRunOnly = true;
   await save(`evidence/stryker.${options.name}.json`, config);
   await rm(`evidence/${options.name}/mutation.json`, { force: true });
-  const run = await execute(['node_modules/@stryker-mutator/core/bin/stryker.js', 'run', `evidence/stryker.${options.name}.json`], `evidence/${options.name}.log`, options.timeoutMs ?? 180_000);
+  const run = await execute([here('node_modules/@stryker-mutator/core/bin/stryker.js'), 'run', here(`evidence/stryker.${options.name}.json`)], `evidence/${options.name}.log`, options.timeoutMs ?? 180_000, options.cwd);
   const report = await json(`evidence/${options.name}/mutation.json`).catch(() => null) as Record<string, unknown> | null;
   return { run, report };
 }
@@ -84,6 +91,11 @@ export function usageOf(run: Execution | null): Usage | null {
   if (!run) return null;
   const host = machine();
   return { wallMs: run.durationMs, cpuMs: run.cpuMs, vCpus: host.vCpus, memoryGb: host.memoryGb };
+}
+
+/** An unfinished lost-protection check fails closed: the gate is inconclusive rather than passing. */
+export function protectionBlocks(protection: Pick<ProtectionResult, 'status' | 'reason'> | null | undefined): string | null {
+  return protection && (protection.status === 'inconclusive' || protection.status === 'over-budget') ? protection.reason ?? protection.status : null;
 }
 
 export async function runReview(context: ReviewContext) {
@@ -162,6 +174,14 @@ export async function runReview(context: ReviewContext) {
     }
     if (wholeFileMutants !== null && wholeFileMutants < mutants.length) wholeFileMutants = null;
   }
+  // Test edits can remove protection the target branch had, which no changed source line shows: run both sides.
+  let protectionRun: ProtectionRun | null = null;
+  if (baselinePassed) {
+    protectionRun = demo ? await demoProtection({ files: budget.files, runtimeMs: budget.runtimeMs })
+      : await checkProtection({ base: baseSha!, head: headSha, budget: { files: budget.files, runtimeMs: budget.runtimeMs } });
+  }
+  const protection: ProtectionResult | null = protectionRun?.result ?? null;
+  const lost = protection?.lost ?? [];
   const metrics = mutationMetrics(mutants);
   // An MR with no executable changed source has nothing to mutate: the analysis is complete and the gate reports no-applicable-scope.
   // Stryker can also generate no mutants for real changes (e.g. inside a TypeScript `as` expression).
@@ -169,9 +189,13 @@ export async function runReview(context: ReviewContext) {
   const nothingToMutate = baselinePassed && (!scope.length || mutantFree);
   const complete = nothingToMutate || Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && rawReport && metrics.total <= budget.mutants && metrics.pending === 0 && metrics.invalid === 0);
   const threshold = policy.mutationThreshold ?? 100;
-  const gate = evaluateGate({ baselinePassed, complete, expectedHeadSha: headSha, evidenceHeadSha: headSha, metrics, threshold, actionableSurvivors: metrics.survived, protectedFilesChanged: protectedChanges });
-  const sources = Object.fromEntries(Object.entries((rawReport as { files?: Record<string, { source: string }> } | null)?.files ?? {}).map(([path, file]) => [path.replaceAll('\\', '/').replace(/^\.\//, ''), file.source]));
-  const triage = triageMutants(mutants, sources);
+  // The demo's protection scenario is a second, separate fixture MR; it is shown, not gated, so the demo gate stays the boundary story.
+  const gated = demo ? null : protection;
+  const gate = evaluateGate({ baselinePassed, complete, expectedHeadSha: headSha, evidenceHeadSha: headSha, metrics, threshold, actionableSurvivors: metrics.survived, protectedFilesChanged: protectedChanges,
+    lostProtection: gated?.lost.length ?? 0, protectionRechecked: gated?.rechecked ?? 0, protectionInconclusive: protectionBlocks(gated) });
+  const sources = { ...(demo ? {} : protectionRun?.sources), ...Object.fromEntries(Object.entries((rawReport as { files?: Record<string, { source: string }> } | null)?.files ?? {}).map(([path, file]) => [path.replaceAll('\\', '/').replace(/^\.\//, ''), file.source])) };
+  // Lost protection is a regression, not a pre-existing gap, so it is ranked ahead of changed-line findings.
+  const triage = withLostProtection(triageMutants(mutants, sources), demo ? [] : lost);
   const lessons = await versionedLessons();
   const savings = {
     mutantsChangedLines: metrics.total,
@@ -182,7 +206,7 @@ export async function runReview(context: ReviewContext) {
     aiCallsAvoided: triage.arid.length + triage.overflow,
     lessonsInMemory: lessons.length,
     // Characters of drafting-brief context triage keeps out of the model prompt (measured; tokens are an estimate).
-    modelInput: modelInputSavings(mutants, sources, triage),
+    modelInput: modelInputSavings([...mutants, ...(demo ? [] : protectionRun?.mutants ?? [])], sources, triage),
   };
   // SCI of this review from measured CPU time, plus the projected cost of mutating the whole changed files.
   const changedLinesUsage = usageOf(mutationRun);
@@ -192,6 +216,7 @@ export async function runReview(context: ReviewContext) {
       { label: 'Baseline tests with coverage', usage: usageOf(baselineRun) },
       { label: 'Stryker on changed lines', usage: changedLinesUsage },
       { label: 'Whole-file mutant count (dry run)', usage: wholeFileDryUsage },
+      ...(demo ? [] : protectionRun?.runs ?? []).map(({ step, run }) => ({ label: `Lost-protection check: ${step}`, usage: usageOf(run) })),
     ].flatMap(({ label, usage }) => (usage ? [Object.assign(usage, { step: label })] : [])),
     changedLinesRun: changedLinesUsage,
     wholeFileDryRun: wholeFileDryUsage,
@@ -200,6 +225,12 @@ export async function runReview(context: ReviewContext) {
     env: process.env,
     modelCalls: { made: 0, avoided: savings.aiCallsAvoided },
   });
+  // What the protection check itself cost, measured the same way (its runs are part of the review footprint above, except in the demo).
+  if (protection && protectionRun?.runs.length) {
+    const own = footprintReceipt({ review: protectionRun.runs.flatMap(({ step, run }) => { const usage = usageOf(run); return usage ? [{ ...usage, step }] : []; }),
+      changedLinesRun: null, wholeFileDryRun: null, changedMutants: 0, wholeFileMutants: null, env: process.env });
+    if (own) protection.cost = { cpuSeconds: own.actual.cpuSeconds, energyWh: own.actual.energyWh, sciG: own.actual.sciG };
+  }
   const targeted = mutants.find((mutant) => mutant.status === 'Survived' && mutant.operator === 'EqualityOperator' && mutant.replacement === 'subtotalCents > 10_000' && mutant.path === 'packages/demo-domain/src/shipping.ts');
   // The fixture proof is for the local demo console only; MR reviews use the Duo flow's verifyDraft.
   const proposal = targeted && demo ? await makeProposal() : null;
@@ -228,6 +259,7 @@ export async function runReview(context: ReviewContext) {
     mutation: { status: complete ? 'complete' : 'inconclusive', score: metrics.score, counts: { killed: metrics.killed, survived: metrics.survived, noCoverage: metrics.noCoverage, timedOut: metrics.timedOut, invalid: metrics.invalid, ignored: metrics.ignored, pending: metrics.pending }, mutants: mutants.map((mutant) => ({ ...mutant, line: mutant.location.start.line })), durationMs: mutationRun?.durationMs ?? null, reportPath: rawReport ? 'evidence/mutation/mutation.json' : null, incremental: context.mode === 'ci', cacheKey },
     triage,
     savings,
+    protection,
     footprint,
     findings,
     verification,

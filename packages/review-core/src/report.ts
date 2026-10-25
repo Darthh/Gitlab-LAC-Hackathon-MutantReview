@@ -62,6 +62,12 @@ export interface GateInput {
   actionableSurvivors?: number;
   protectedFilesChanged?: boolean;
   maintainerApprovedPolicy?: boolean;
+  /** Changes the target branch's tests noticed that this MR's test changes stopped noticing (protection.ts). */
+  lostProtection?: number;
+  /** Target-branch kills re-checked at the head. With no changed source, all of them still killed is a real pass. */
+  protectionRechecked?: number;
+  /** Why the lost-protection check could not finish, when it could not. Fails closed. */
+  protectionInconclusive?: string | null;
 }
 export interface GateDecision { status: 'passed' | 'failed' | 'inconclusive' | 'no-applicable-scope'; reasons: string[] }
 
@@ -73,9 +79,15 @@ export function evaluateGate(input: GateInput): GateDecision {
   if (input.metrics.invalid || input.metrics.pending) inconclusive.push('Mutation execution contains invalid, error, or pending results.');
   if (input.protectedFilesChanged && !input.maintainerApprovedPolicy) inconclusive.push('Authoritative policy or evaluator changed; explicit maintainer review is required.');
   if (!Number.isFinite(input.threshold) || input.threshold < 0 || input.threshold > 100) inconclusive.push('Mutation threshold is invalid.');
+  if (input.protectionInconclusive) inconclusive.push(`Lost-protection check: ${input.protectionInconclusive}`);
   if (inconclusive.length) return { status: 'inconclusive', reasons: inconclusive };
-  if (input.metrics.score === null) return { status: 'no-applicable-scope', reasons: ['No applicable mutants. This is not a passing changed-source assessment.'] };
   const reasons: string[] = [];
+  if (input.lostProtection) reasons.push(`${input.lostProtection} change(s) the target branch's tests noticed are no longer noticed after this MR's test changes (lost protection).`);
+  if (input.metrics.score === null) {
+    if (reasons.length) return { status: 'failed', reasons };
+    if (input.protectionRechecked) return { status: 'passed', reasons: [] };
+    return { status: 'no-applicable-scope', reasons: ['No applicable mutants. This is not a passing changed-source assessment.'] };
+  }
   if (input.metrics.score < input.threshold) reasons.push(`Mutation score ${input.metrics.score.toFixed(1)}% is below the ${input.threshold}% project policy.`);
   if (input.actionableSurvivors) reasons.push(`${input.actionableSurvivors} actionable surviving finding(s) require repair or an explicit human waiver.`);
   return { status: reasons.length ? 'failed' : 'passed', reasons };

@@ -11,6 +11,8 @@ export interface RankedFinding {
   status: 'Survived' | 'NoCoverage';
   priority: 'high' | 'medium' | 'low';
   why: string;
+  /** Set when the target branch's tests noticed this change and the MR's test changes stopped them (see protection.ts). */
+  origin?: 'lost-protection';
 }
 export interface MutantTriage {
   policy: 'arid-v1';
