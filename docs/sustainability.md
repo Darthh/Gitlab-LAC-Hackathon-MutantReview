@@ -56,6 +56,7 @@ Two things this shows. First, the demo's change spans its whole file, so scoping
 | Never show a useless draft | Each draft runs against its mutant; rejected drafts are logged, not shown | `verify:hallucination-check` job on every pipeline; ledger `rejected-proposal` entries |
 | Catch it before the pipeline | MCP `mutation_check` / `verify_test` and `npm run check` run the same review locally | `packages/cli/src/mcp.e2e.ts`; a gap fixed before push costs no MR pipeline and no review round |
 | Don't compute what will be thrown away | MR jobs are `interruptible`; mutation jobs have `rules: changes`, so docs-only MRs run no mutation; Stryker's incremental cache persists per MR | `.gitlab-ci.yml` |
+| Check edited tests narrowly, and only when they change | The lost-protection check runs only on MRs that edit, move or delete a test; on the target branch it mutates only the files those tests import, and at the head it re-runs only the mutants an edited test killed. A test-only MR used to be a warning a human had to judge; now it is a measured verdict | `protection.cost` in every evidence file and on Front Desk's Test changes page; the demo's second scenario costs 12.4 CPU-s (≈21 mgCO2e) for 5 target-branch mutants and 5 re-checked |
 | Learn once | Approved repairs become AGENTS.md rules read by every agent, so the same useless test is not written, found and repaired again | `lessonsInMemory`, ledger |
 | Low-carbon hosting for the console | Cloud Run in us-central1 (88% carbon-free energy), scales to zero, max 2 instances | `ci/release.gitlab-ci.yml` |
 
@@ -73,6 +74,7 @@ Front Desk's Footprint page re-prices the measured usage of a review in each Goo
 
 - Coefficients are published averages, not wattmeter readings; the receipt range shows their spread.
 - Location-based average grid intensity, not marginal, and annual rather than hourly.
+- The lost-protection check's runs are part of the review's footprint on GitLab (steps prefixed "Lost-protection check"). In the local demo its scenario is a separate fixture MR, so its cost is reported on its own (`protection.cost`) and kept out of the demo review's receipt.
 - The boundary excludes job setup, network, storage and model inference. Those are real; they are not attributed to the review.
 - Per-MR whole-file figures are projections (dry-run cost plus measured cost per mutant); executed comparisons come only from the energy benchmark.
 - CPU time is measured only on Linux. Measurements are single runs; shared runners add noise.

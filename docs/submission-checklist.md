@@ -10,6 +10,7 @@
 - [x] SCI footprint per review (evidence, MR comment, metrics widget, Front Desk Footprint page) and `docs/sustainability.md`
 - [x] Code Quality and metrics MR widgets; interruptible jobs; docs-only MRs skip mutation; gate warns instead of blocking when nothing is mutable
 - [x] MCP pre-push server (`mutation_check`, `verify_test`) with `.gitlab/duo/mcp.json` and `.mcp.json`; `npm run check`
+- [x] Lost-protection check: test-only MRs that loosen, delete or skip tests are blocked by execution (`protection.ts`, e2e in `protection.e2e.ts`), Front Desk Test changes page, MCP pre-push report, AGENTS.md lesson
 - [x] MIT license, README, setup, deploy, demo script, Devpost text
 
 ## You need to do on GitLab (docs/setup.md)
@@ -19,6 +20,8 @@
 - [ ] Replace the flow definition with `.gitlab/duo/mutant-review.yml`; enable Mention + Assign reviewer; confirm the service-account handle
 - [ ] Merge `main` into `demo/shipping-boundary`; mention the flow on !1; reply `apply 1`; confirm the gate turns green
 - [ ] Merge !1 so the release path runs on `main`
+- [ ] Merge the `feat/footprint-precheck-widgets` work into `main` (GitHub) and push `main` to GitLab, so MR pipelines run the lost-protection check
+- [ ] Open MR !2 from `demo/weakened-test` (docs/setup.md §7): confirm `mutation:gate` fails with lost protection, the Code Quality widget shows the critical finding, and the comment shows the before/after assertion; record it for the video
 
 - [ ] Group owner: Settings > GitLab Duo > Change configuration > **Allow external MCP tools**, so Duo Agentic Chat can use `.gitlab/duo/mcp.json` (record it for the video)
 - [ ] On the next MR pipeline, confirm the Code Quality and metrics widgets appear on the MR

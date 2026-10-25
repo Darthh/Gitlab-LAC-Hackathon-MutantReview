@@ -56,6 +56,20 @@ To see an override instead: as a Maintainer, comment `@ai-mutant-review-evidence
 
 Without an agent, `npm run check` prints the same report and exits 1 when a changed line has a change no test notices; add it to a `pre-push` hook if you like.
 
+## 7. See lost protection on a real MR
+
+The check runs inside `mutation:review` on every MR that edits, moves or deletes an existing test; nothing to configure. To demonstrate it after !1 has merged (so `main` has the exact-$100 test that `apply 1` committed):
+
+```sh
+git fetch gitlab && git checkout -b demo/weakened-test gitlab/main
+# In the exact-$100 test in packages/demo-domain/src/shipping.test.ts, change toBe(0) to toBeLessThanOrEqual(500)
+git commit -am "test: make the shipping tests robust to fee changes" && git push gitlab demo/weakened-test
+```
+
+Open the MR. Tests stay green and branch coverage stays 100%, and no source line changed, so before this check the gate would only warn. Now `mutation:review` logs `Lost-protection check: lost`, the Code Quality widget shows a *critical* `mutant-review/lost-protection` finding on `shipping.ts:4`, `mutation:notify` posts the *Lost protection* section with the before/after assertion, and `mutation:gate` fails. Mention the flow to get a verified restoring test, or revert the line.
+
+If !1 has not merged yet, the GitHub branch `demo/weakened-test` loosens the existing `ships for free above the threshold` test instead (`toBe(0)` to `toBeLessThanOrEqual(500)`): the lost change is the free-shipping condition forced to `false`, i.e. every order pays $5 and no test fails. Push it to GitLab once this check is on `main`.
+
 ## Commands reference
 
 | Command | Where | What |
@@ -67,6 +81,6 @@ Without an agent, `npm run check` prints the same report and exits 1 when a chan
 | `npm run mr -- flow publish --handle @x` | Duo flow | Verify drafts by execution, comment |
 | `npm run mr -- memory [--check]` | anywhere | Rebuild or check the AGENTS.md lessons section |
 | `npm run demo` | local | Demo-contract review with sandbox proof and SCI receipt |
-| `npm run check [-- --base <ref>]` | local | Pre-push mutation check of uncommitted and unpushed changes |
+| `npm run check [-- --base <ref>]` | local | Pre-push mutation check of uncommitted and unpushed changes, including protection your test edits removed |
 | `node node_modules/tsx/dist/cli.mjs packages/cli/src/mcp.ts` | IDE / agent | MCP server (`mutation_check`, `verify_test`) over stdio |
 | `node node_modules/tsx/dist/cli.mjs benchmarks/energy.ts` | Linux / CI | Executed changed-line vs whole-file energy on es-toolkit; then `benchmarks/energy-report.ts` |
