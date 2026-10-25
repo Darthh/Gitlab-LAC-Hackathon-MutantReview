@@ -123,6 +123,7 @@ export async function runReview(context: ReviewContext) {
   const policy = await json('.mutant-review/policy.json').catch(() => ({ version: '1', threshold: 100 }));
   // Budgets live in .mutant-review/policy.json only; defaults apply when the policy is missing.
   const budget = { files: policy.budgets?.files ?? 5, changedLines: policy.budgets?.changedLines ?? 100, mutants: policy.budgets?.mutants ?? 100, runtimeMs: (policy.budgets?.runtimeSeconds ?? 180) * 1000 };
+  const [vitest, stryker] = await Promise.all([json('node_modules/vitest/package.json'), json('node_modules/@stryker-mutator/core/package.json')]);
   const provenance = {
     projectId: context.projectId,
     mrIid: context.mrIid,
@@ -133,7 +134,7 @@ export async function runReview(context: ReviewContext) {
     pipelineUrl: context.pipelineUrl,
     projectUrl: context.projectUrl,
     policyVersion: String(policy.version ?? '1'),
-    toolchain: { node: process.version, vitest: '3.2.7', stryker: '10.1.1' },
+    toolchain: { node: process.version, vitest: vitest.version, stryker: stryker.version },
     scopeKind: demo ? 'local demonstration fixture; not an MR comparison' : context.mode === 'flow' ? 'merge request changed source (GitLab Duo flow workload)' : 'merge request changed source',
     workingTreeHash: digest(await readFile('packages/demo-domain/src/shipping.ts', 'utf8')),
   };

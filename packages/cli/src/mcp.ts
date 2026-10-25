@@ -35,6 +35,9 @@ export function createServer(tools: McpTool[], version = '0.1.0') {
   let queue: Promise<unknown> = Promise.resolve();
   const serial = <T>(work: () => Promise<T>): Promise<T> => { const next = queue.then(work, work); queue = next.catch(() => undefined); return next; };
   return async function handle(message: JsonRpc): Promise<Reply | null> {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
+      return { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request' } };
+    }
     const id = message.id ?? null;
     const ok = (result: unknown): Reply => ({ jsonrpc: '2.0', id, result });
     const fail = (code: number, text: string): Reply => ({ jsonrpc: '2.0', id, error: { code, message: text } });

@@ -19,7 +19,7 @@ variables:
 demo:evidence:
   extends: [.node, .main_push]
   stage: package
-  needs: [baseline]
+  needs: [baseline, 'verify:hallucination-check']
   script:
     - npm run demo
   artifacts:

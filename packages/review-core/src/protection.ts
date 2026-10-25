@@ -219,7 +219,7 @@ export function candidateRanges(candidates: ProtectionCandidate[]): string[] {
 
 /** The `it(...)` block that starts on `line` (1-based), by bracket depth, skipping string and template contents. */
 export function testBlock(source: string, line: number, maxLines = 40): string[] {
-  const lines = source.split('\n').slice(line - 1, line - 1 + maxLines);
+  const lines = source.split(/\r?\n/).slice(line - 1, line - 1 + maxLines);
   const out: string[] = [];
   let depth = 0, opened = false, quote: string | null = null;
   for (const text of lines) {

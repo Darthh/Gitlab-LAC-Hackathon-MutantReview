@@ -24,14 +24,14 @@ done
 
 gcloud iam workload-identity-pools create gitlab --location global --project $PROJECT_ID
 gcloud iam workload-identity-pools providers create-oidc gitlab-com --location global --workload-identity-pool gitlab \
-  --project $PROJECT_ID --issuer-uri https://gitlab.com --allowed-audiences https://gitlab.com \
+  --project $PROJECT_ID --issuer-uri https://gitlab.com \
   --attribute-mapping "google.subject=assertion.sub,attribute.project_path=assertion.project_path,attribute.ref=assertion.ref" \
   --attribute-condition "assertion.project_path == 'mutant-review1/mutant-review' && assertion.ref == 'main'"
 gcloud iam service-accounts add-iam-policy-binding $SA --role roles/iam.workloadIdentityUser \
   --member "principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/gitlab/attribute.project_path/mutant-review1/mutant-review"
 ```
 
-The pipeline requests its ID token with audience `https://iam.googleapis.com/<provider>`; if you keep the provider's default allowed audience instead of `https://gitlab.com`, drop `--allowed-audiences`.
+The provider uses its default allowed audience, `https://iam.googleapis.com/<provider>`, matching the pipeline's ID token. Do not set the allowed audience to `https://gitlab.com`: that differs from the token the pipeline requests and authentication fails. See [Google Cloud's audience guidance](https://docs.cloud.google.com/iam/docs/best-practices-for-using-workload-identity-federation).
 
 Then add these CI/CD variables (protected is fine; deploys run on `main`):
 

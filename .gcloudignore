@@ -1,4 +1,6 @@
 .git
+.local
+.npm
 node_modules
 dist
 coverage
@@ -6,6 +8,9 @@ coverage
 .env.*
 .stryker-tmp
 .mutant-review/work
+.mutant-review/tmp
+.mutant-review/cache
+.mutant-review/proposals
 evidence/incremental
 evidence/verification
 benchmarks/results/raw

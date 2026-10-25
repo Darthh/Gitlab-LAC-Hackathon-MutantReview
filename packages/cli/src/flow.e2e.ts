@@ -1,6 +1,6 @@
 // Runs real Vitest + Stryker against the demo shipping contract. Separate from `npm test`
 // because it rewrites the demo test file in place while it verifies drafts.
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { normalizeStrykerReport } from '../../review-core/src/report.js';
 import { triageMutants } from '../../review-core/src/triage.js';
@@ -35,6 +35,17 @@ describe('execution is the hallucination check', () => {
     const wrong = await verifyDraft(draft("it('charges at exactly $100', () => {\n  expect(shippingFee(10_000)).toBe(500);\n});"), finding, 3);
     expect(wrong).toMatchObject({ reason: expect.stringContaining('fails or does not run') });
 
+    // A stale finding cannot credit a useless draft for a kill by an existing test, even with the same name.
+    try {
+      await writeFile(testPath, `${before}\n${boundaryTest}\n`);
+      const stale = await verifyDraft(draft(boundaryTest.replace('10_000', '10_001').replace('ships free at exactly $100', 'checks an already guarded case')), finding, 4);
+      expect(stale).toMatchObject({ reason: expect.stringContaining('did not establish that this draft killed it') });
+      const duplicate = await verifyDraft(draft(boundaryTest.replace('10_000', '10_001')), finding, 5);
+      expect(duplicate).toMatchObject({ reason: expect.stringContaining('use a unique test name') });
+    } finally {
+      await writeFile(testPath, before);
+    }
+
     expect(await readFile(testPath, 'utf8')).toBe(before);
 
     // Human replies "apply 1": commit exactly the verified test, ledger, lesson and AGENTS.md.
@@ -53,8 +64,32 @@ describe('execution is the hallucination check', () => {
       commitToMergeRequest: async (_iid: number, expected: string, files: { path: string; content: string }[]) => { expect(expected).toBe(head); committed = files; return { id: 'c'.repeat(40), web_url: 'https://gitlab.com/g/p/-/commit/c' }; },
     } as never;
     try {
+      // An approved proposal can stop passing. Refusing it must undo the temporary file write.
+      posted.body = encodePayload({ ...payload, proposals: [{ ...kept as VerifiedProposal, test: boundaryTest.replace('toBe(0)', 'toBe(500)') }] });
+      expect(await flowApply(adapter, { iid: 1, sha: head, web_url: 'https://gitlab.com/g/p/-/merge_requests/1' } as never, '@ai-mutant-review', command, [1])).toContain('no longer passes');
+      expect(committed).toEqual([]);
+      expect(await readFile(testPath, 'utf8')).toBe(before);
+      posted.body = `summary\n${encodePayload(payload)}`;
+
+      // A broken history file must never be replaced by a new, empty history.
+      const ledgerPath = '.mutant-review/ledger.json';
+      const ledgerBefore = await readFile(ledgerPath, 'utf8').catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      try {
+        await writeFile(ledgerPath, '{broken history');
+        await expect(flowApply(adapter, { iid: 1, sha: head, web_url: 'https://gitlab.com/g/p/-/merge_requests/1' } as never, '@ai-mutant-review', command, [1])).rejects.toThrow();
+        expect(committed).toEqual([]);
+        expect(await readFile(ledgerPath, 'utf8')).toBe('{broken history');
+        expect(await readFile(testPath, 'utf8')).toBe(before);
+      } finally {
+        if (ledgerBefore === null) await rm(ledgerPath, { force: true }); else await writeFile(ledgerPath, ledgerBefore);
+      }
+
       const result = await flowApply(adapter, { iid: 1, sha: head, web_url: 'https://gitlab.com/g/p/-/merge_requests/1' } as never, '@ai-mutant-review', command, [1]);
       expect(result).toBe(`Committed ${'c'.repeat(40)}.`);
+      expect(await readFile(testPath, 'utf8')).toBe(before);
     } finally {
       await writeFile(testPath, before);
     }

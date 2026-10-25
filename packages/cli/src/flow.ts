@@ -8,7 +8,7 @@ import { formatGrams, type FootprintReceipt } from '../../review-core/src/footpr
 import { mutationMetrics, normalizeStrykerReport, type GateOverride } from '../../review-core/src/report.js';
 import { learnFromRepair, lessonCategory, updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
 import { filterMutantsToScope, normalizePath } from '../../review-core/src/scope.js';
-import type { ProtectionResult } from '../../review-core/src/protection.js';
+import type { ProtectionResult, StrykerReportWithTests } from '../../review-core/src/protection.js';
 import { findingContext, type RankedFinding } from '../../review-core/src/triage.js';
 import type { MutationScope } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
@@ -218,15 +218,22 @@ async function runTestFile(testPath: string, name: string, report: string) {
   const config = (await json('stryker.config.json')).vitest?.configFile ?? 'vitest.config.ts';
   const run = await execute(['node_modules/vitest/vitest.mjs', 'run', testPath, '--config', config, '--reporter=json', `--outputFile=${report}`], report.replace(/\.json$/, '.log'), 60_000);
   const result = await json(report).catch(() => null) as { testResults?: { assertionResults: { title: string; fullName: string; status: string }[] }[] } | null;
-  const ran = result?.testResults?.flatMap((suite) => suite.assertionResults).find((test) => test.title === name || test.fullName.endsWith(name));
-  return run.exitCode === 0 && !run.timedOut && ran?.status === 'passed';
+  const ran = result?.testResults?.flatMap((suite) => suite.assertionResults).filter((test) => test.title === name || test.fullName.endsWith(name)) ?? [];
+  return run.exitCode === 0 && !run.timedOut && ran.length === 1 && ran[0]!.status === 'passed';
 }
 
-async function mutantKilled(findings: RankedFinding[], name: string): Promise<Record<string, boolean>> {
+async function mutantKilled(findings: RankedFinding[], name: string, test: { path: string; name: string; line: number }): Promise<Record<string, boolean>> {
   const ranges = findings.map((finding) => `${finding.path}:${finding.line}-${finding.endLine ?? finding.line}`);
-  const { report } = await runStryker(ranges, { incremental: false, name });
+  const { run, report } = await runStryker(ranges, { incremental: false, name });
+  const tests = Object.entries((report as unknown as StrykerReportWithTests | null)?.testFiles ?? {})
+    .filter(([path]) => normalizePath(path) === test.path).flatMap(([, file]) => file.tests)
+    .filter((item) => item.name === test.name && item.location?.start.line === test.line);
+  const ids = new Set(tests.map((item) => String(item.id)));
   const mutants = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
-  return Object.fromEntries(findings.map((finding) => [finding.fingerprint, mutants.find((mutant) => mutant.fingerprint === finding.fingerprint)?.status === 'Killed']));
+  return Object.fromEntries(findings.map((finding) => {
+    const mutant = mutants.find((item) => item.fingerprint === finding.fingerprint);
+    return [finding.fingerprint, run.exitCode === 0 && !run.timedOut && mutant?.status === 'Killed' && mutant.killedBy.some((id) => ids.has(id))];
+  }));
 }
 
 /** A drafted test is kept only if it passes on this code AND fails on the targeted mutant. */
@@ -237,10 +244,12 @@ export async function verifyDraft(draft: Draft, finding: RankedFinding, index: n
   if (problem) return reject(problem);
   const existed = await exists(draft.testPath);
   const original = await readOr(draft.testPath);
+  const content = withTest(original, draft.imports, draft.test);
   try {
-    await writeFile(draft.testPath, withTest(original, draft.imports, draft.test));
-    if (!await runTestFile(draft.testPath, name, `evidence/flow/draft-${index}.json`)) return reject('fails or does not run on the current code');
-    if (!(await mutantKilled([finding], `verify-${index}`))[finding.fingerprint]) return reject('passes on the mutant too, so it cannot notice the change (hallucinated or ineffective test)');
+    await writeFile(draft.testPath, content);
+    if (!await runTestFile(draft.testPath, name, `evidence/flow/draft-${index}.json`)) return reject('fails or does not run unambiguously on the current code (use a unique test name)');
+    const test = { path: draft.testPath, name, line: content.split('\n').length - draft.test.trim().split('\n').length };
+    if (!(await mutantKilled([finding], `verify-${index}`, test))[finding.fingerprint]) return reject('passes on the mutant too, or the run did not establish that this draft killed it');
     return { ...draft, finding, testName: name };
   } finally {
     if (existed) await writeFile(draft.testPath, original); else await rm(draft.testPath, { force: true });
@@ -459,22 +468,36 @@ export async function flowApply(adapter: GitLabAdapter, mr: MergeRequest, handle
   if (unsafe) return fail(`finding ${unsafe.finding.rank} targets a file the agent may not change; nothing was committed.`);
 
   const files = new Map<string, string>();
-  for (const proposal of selected) files.set(proposal.testPath, withTest(files.get(proposal.testPath) ?? await readOr(proposal.testPath), proposal.imports, proposal.test));
-  for (const [path, content] of files) { await writeFile(path, content); }
+  const originals = new Map<string, string | null>();
   for (const proposal of selected) {
-    if (!await runTestFile(proposal.testPath, proposal.testName, `evidence/flow/apply-${proposal.finding.rank}.json`)) return fail(`\`${proposal.testName}\` no longer passes here; nothing was committed.`);
+    if (!originals.has(proposal.testPath)) originals.set(proposal.testPath, await exists(proposal.testPath) ? await readFile(proposal.testPath, 'utf8') : null);
+    files.set(proposal.testPath, withTest(files.get(proposal.testPath) ?? originals.get(proposal.testPath) ?? '', proposal.imports, proposal.test));
   }
-  // Lost-protection lines are re-run too, so a restoring test is proven, but the score stays the changed-line score.
-  const ranges = [...new Set([...payload.ranges, ...(payload.protectionRanges ?? [])])];
-  const { report } = await runStryker(ranges, { incremental: false, name: 'apply' });
-  const after = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
-  const unkilled = selected.filter((proposal) => after.find((mutant) => mutant.fingerprint === proposal.finding.fingerprint)?.status !== 'Killed');
-  if (!report || unkilled.length) return fail(`the re-run did not kill finding ${unkilled.map((item) => item.finding.rank).join(', ') || '(no report)'}; nothing was committed.`);
-  const scoreAfter = payload.ranges.length ? mutationMetrics(filterMutantsToScope(after, scopeFromRanges(payload.ranges))).score : null;
+  let scoreAfter: number | null;
+  try {
+    for (const [path, content] of files) { await writeFile(path, content); }
+    for (const proposal of selected) {
+      if (!await runTestFile(proposal.testPath, proposal.testName, `evidence/flow/apply-${proposal.finding.rank}.json`)) return await fail(`\`${proposal.testName}\` no longer passes here; nothing was committed.`);
+    }
+    // Lost-protection lines are re-run too, so a restoring test is proven, but the score stays the changed-line score.
+    const ranges = [...new Set([...payload.ranges, ...(payload.protectionRanges ?? [])])];
+    const { run, report } = await runStryker(ranges, { incremental: false, name: 'apply' });
+    const after = report ? normalizeStrykerReport(report as never, scopeFromRanges(ranges)) : [];
+    const unkilled = selected.filter((proposal) => after.find((mutant) => mutant.fingerprint === proposal.finding.fingerprint)?.status !== 'Killed');
+    if (run.exitCode !== 0 || run.timedOut || !report || unkilled.length) return await fail(`the re-run did not kill finding ${unkilled.map((item) => item.finding.rank).join(', ') || '(unfinished run)'}; nothing was committed.`);
+    scoreAfter = payload.ranges.length ? mutationMetrics(filterMutantsToScope(after, scopeFromRanges(payload.ranges))).score : null;
+  } finally {
+    for (const [path, original] of originals) {
+      if (original === null) await rm(path, { force: true }); else await writeFile(path, original);
+    }
+  }
 
   const now = new Date().toISOString();
   const ledgerPath = '.mutant-review/ledger.json';
-  const ledger = await json(ledgerPath).catch(() => ({ schemaVersion: 1, entries: [] })) as { schemaVersion: 1; entries: LedgerEntry[] };
+  const ledger = await json(ledgerPath).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return { schemaVersion: 1, entries: [] };
+    throw error;
+  }) as { schemaVersion: 1; entries: LedgerEntry[] };
   const add = (entry: LedgerEntry) => { if (!ledger.entries.some((item) => item.id === entry.id)) ledger.entries.push(entry); };
   const lessons = new Map<string, MemoryLesson>();
   for (const name of (await readdir('.mutant-review/lessons').catch(() => [])).filter((item) => item.endsWith('.json'))) {

@@ -201,6 +201,12 @@ describe('lost protection in the review', () => {
 });
 
 describe('test blocks for the reviewer', () => {
+  it('renders Windows and Unix line endings as the same test block', () => {
+    const unix = "it('checks a value', () => {\n  expect(f()).toBe(1);\n});\n";
+    for (const source of [unix, unix.replaceAll('\n', '\r\n')]) {
+      expect(testBlock(source, 1)).toEqual(["it('checks a value', () => {", '  expect(f()).toBe(1);', '});']);
+    }
+  });
   it('cuts one it(...) block by bracket depth, ignoring brackets in strings', () => {
     const text = "it('handles ) and { in names', () => {\n  expect(f('}')).toBe(1);\n});\nit('next', () => {});";
     expect(testBlock(text, 1)).toEqual(["it('handles ) and { in names', () => {", "  expect(f('}')).toBe(1);", '});']);

@@ -42,7 +42,8 @@ export function summarizeBenchmark(input: unknown): BenchmarkSummary {
 }
 
 export async function readBenchmark(directory: string): Promise<BenchmarkSummary | null> {
-  const names = (await readdir(directory).catch(() => [])).filter((name) => name.endsWith(".json")).sort();
+  const names = (await readdir(directory).catch(() => []))
+    .filter((name) => name.endsWith(".json") && !name.endsWith("-model-input.json")).sort();
   if (!names.length) return null;
   const file = join(directory, names[0]!);
   if ((await stat(file)).size > 5_000_000) throw new Error("Benchmark results exceed the 5 MB limit.");

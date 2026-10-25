@@ -17,6 +17,10 @@ describe('MCP server', () => {
     expect(await call(handle, 'resources/list')).toMatchObject({ error: { code: -32601 } });
     expect(await handle({ id: 3, method: 'ping' })).toMatchObject({ error: { code: -32600 } });
   });
+  it.each([null, 1, 'ping', []])('rejects a non-object request (%j) and keeps serving', async (message) => {
+    expect(await handle(message as never)).toEqual({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request' } });
+    expect(await call(handle, 'ping')).toEqual({ jsonrpc: '2.0', id: 1, result: {} });
+  });
   it('lists tools without their implementation', async () => {
     const reply = await call(handle, 'tools/list') as { result: { tools: Record<string, unknown>[] } };
     expect(reply.result.tools.map((tool) => tool.name)).toEqual(['echo', 'broken']);

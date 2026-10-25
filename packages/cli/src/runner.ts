@@ -47,7 +47,12 @@ export async function execute(args: string[], log: string, timeoutMs = 180_000, 
     child.on('close', async (exitCode) => {
       clearTimeout(timer);
       const cpuAfter = childrenCpuMs();
-      await writeFile(log, output.replace(/\x1b\[[0-9;]*m/g, ''));
+      try {
+        await writeFile(log, output.replace(/\x1b\[[0-9;]*m/g, ''));
+      } catch (error) {
+        reject(error);
+        return;
+      }
       resolvePromise({ exitCode, durationMs: Date.now() - started, cpuMs: cpuBefore === null || cpuAfter === null ? null : Math.round(cpuAfter - cpuBefore), timedOut, log });
     });
   });
