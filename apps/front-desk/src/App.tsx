@@ -203,6 +203,7 @@ export default function App() {
     setMobileNav(false);
     setQuery("");
     setDialog(null);
+    document.querySelector(".app-shell")?.scrollTo(0, 0);
   }
   async function copy(text: string) {
     try {
@@ -448,15 +449,12 @@ export default function App() {
       <a className="skip-link" href="#main">
         Skip to review
       </a>
-      <aside
-        id="main-navigation"
-        className={`sidebar ${mobileNav ? "open" : ""}`}
-      >
+      <header className="global-header">
         <a
-          href="#"
+          href="#main"
           className="brand"
-          onClick={(e) => {
-            e.preventDefault();
+          onClick={(event) => {
+            event.preventDefault();
             navigate("overview");
           }}
         >
@@ -465,6 +463,34 @@ export default function App() {
             Mutant Review<span className="brand-subtitle">Front Desk</span>
           </span>
         </a>
+        <button
+          className="search-trigger"
+          onClick={() => setDialog("search")}
+          aria-label="Search evidence"
+        >
+          <Search size={16} />
+          <span>Search or go to…</span>
+          <kbd>/</kbd>
+        </button>
+        <div className="topbar-right">
+          <Badge tone="purple" dot>
+            {evidence?.source === "gitlab" ? "GitLab evidence" : "Local execution"}
+          </Badge>
+          <button
+            className="icon-button"
+            aria-label="Project connection"
+            onClick={() => setDialog("connection")}
+          >
+            <Settings2 size={17} />
+          </button>
+          <span className="header-avatar" aria-label="Mutant Review project">MR</span>
+        </div>
+      </header>
+      <aside
+        id="main-navigation"
+        className={`sidebar ${mobileNav ? "open" : ""}`}
+      >
+        <div className="nav-caption">Your work</div>
         <button
           className="workspace-select"
           onClick={() => setDialog("connection")}
@@ -478,7 +504,6 @@ export default function App() {
           </span>
           <ChevronDown size={14} />
         </button>
-        <div className="nav-caption">Workspace</div>
         <nav aria-label="Main navigation">
           {navigation.map(({ key, label, icon: Icon }) => (
             <button
@@ -568,22 +593,6 @@ export default function App() {
             </span>
             <ChevronRight size={12} />
             <b>{currentLabel}</b>
-          </div>
-          <div className="topbar-right">
-            <button
-              className="search-trigger"
-              onClick={() => setDialog("search")}
-              aria-label="Search evidence"
-            >
-              <Search size={16} />
-              <kbd>
-                {navigator.userAgent.includes("Mac") ? "⌘ K" : "Ctrl K"}
-              </kbd>
-            </button>
-            <span className="topbar-divider" />
-            <Badge tone="purple" dot>
-              {evidence?.source === "gitlab" ? "GitLab evidence" : "Local execution"}
-            </Badge>
           </div>
         </header>
         <main id="main">
