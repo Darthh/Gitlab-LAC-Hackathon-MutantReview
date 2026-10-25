@@ -8,7 +8,7 @@ import { formatGrams, type FootprintReceipt } from '../../review-core/src/footpr
 import { mutationMetrics, normalizeStrykerReport, type GateOverride } from '../../review-core/src/report.js';
 import { learnFromRepair, lessonCategory, updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
 import { normalizePath } from '../../review-core/src/scope.js';
-import type { RankedFinding } from '../../review-core/src/triage.js';
+import { findingContext, type RankedFinding } from '../../review-core/src/triage.js';
 import type { MutationScope } from '../../review-core/src/types.js';
 import { execute } from './runner.js';
 import { git, json, protectedPath, runReview, runStryker, save } from './review.js';
@@ -168,12 +168,6 @@ export async function findOverride(adapter: GitLabAdapter, mrIid: number, headSh
 
 // ---------- Review: brief for the model ----------
 
-function excerpt(source: string, line: number, radius = 8) {
-  const lines = source.split('\n');
-  const from = Math.max(1, line - radius), to = Math.min(lines.length, line + radius);
-  return lines.slice(from - 1, to).map((text, index) => `${String(from + index).padStart(4)}${from + index === line ? ' >' : '  '} ${text}`).join('\n');
-}
-
 async function requirementDocs(path: string): Promise<string> {
   for (let dir = posix.dirname(path); ; dir = posix.dirname(dir)) {
     for (const name of ['CONTRACTS.md', 'SPEC.md']) {
@@ -195,10 +189,7 @@ export async function buildBrief(ranked: RankedFinding[], sources: Record<string
     const existing = await readOr(testPath);
     targets.push({ ...finding, testPath });
     sections.push([
-      `### Finding ${finding.rank}: ${finding.path}:${finding.line} (${finding.priority} priority)`,
-      finding.why,
-      `Mutation that no test noticed: \`${finding.original}\` -> \`${finding.replacement}\` (${finding.operator}, ${finding.status})`,
-      '```ts', excerpt(sources[finding.path] ?? '', finding.line), '```',
+      findingContext(finding, sources[finding.path] ?? ''),
       `Requirement sources: doc comments above, plus:\n${await requirementDocs(finding.path) || '(no CONTRACTS.md found; use doc comments and names only, and say so in expectedFrom)'}`,
       existing ? `Write the test into the existing file \`${testPath}\` (first 60 lines):\n\`\`\`ts\n${existing.split('\n').slice(0, 60).join('\n')}\n\`\`\`` : `No test file exists yet; use \`${testPath}\` and import from 'vitest' and the module under test.`,
     ].join('\n'));

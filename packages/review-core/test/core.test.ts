@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  evaluateGate, filterMutantsToScope, mutationMetrics, normalizePath, normalizeStrykerReport, parseDiff, preflight, strykerRanges,
+  coversCandidateLines, evaluateGate, filterMutantsToScope, isCandidateLine, mutationMetrics, normalizePath, normalizeStrykerReport, parseDiff, preflight, strykerRanges,
 } from '../src/index.js';
 import type { NormalizedMutant } from '../src/index.js';
 
@@ -40,6 +40,19 @@ describe('changed-source scope', () => {
     const filtered = filterMutantsToScope([mutant('Survived', 3), mutant('Killed', 30)], [{ path: 'src/shipping.ts', change: 'modified', lines: [{ start: 3, end: 3 }] }]);
     expect(mutationMetrics(filtered).score).toBe(0);
     expect(filtered).toHaveLength(1);
+  });
+});
+
+describe('whole-file coverage of a changed-line scope', () => {
+  const source = ['/** CONTRACT: free at 10,000 cents.', ' * Smaller orders pay 500. */', 'export function fee(cents: number): number {', '  return cents >= 10_000 ? 0 : 500;', '}', ''].join('\n');
+  it('treats comments, imports, types and braces as lines without mutation sites', () => {
+    expect([' * Smaller orders', 'import { a } from "./a";', 'export type A = 1;', '};', '', '  return 1;'].map(isCandidateLine)).toEqual([false, false, false, false, false, true]);
+  });
+  it('is true only when every candidate line of every changed file is in scope', () => {
+    expect(coversCandidateLines([{ path: 'src/fee.ts', lines: [{ start: 3, end: 5 }], change: 'modified' }], { 'src/fee.ts': source })).toBe(true);
+    expect(coversCandidateLines([{ path: 'src/fee.ts', lines: [{ start: 4, end: 4 }], change: 'modified' }], { 'src/fee.ts': source })).toBe(false);
+    expect(coversCandidateLines([{ path: 'src/fee.ts', lines: [{ start: 3, end: 5 }], change: 'modified' }], {})).toBe(false);
+    expect(coversCandidateLines([], { 'src/fee.ts': source })).toBe(false);
   });
 });
 

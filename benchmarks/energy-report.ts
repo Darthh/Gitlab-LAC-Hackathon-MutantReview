@@ -2,7 +2,7 @@
  * Renders benchmarks/ENERGY.md from benchmarks/energy/es-toolkit.json.
  *   node node_modules/tsx/dist/cli.mjs benchmarks/energy-report.ts
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatGrams, GRID_REGIONS, POWER_MODELS } from '../packages/review-core/src/footprint.js';
@@ -15,6 +15,9 @@ if (!summary) throw new Error('No completed energy measurements to report.');
 const c = POWER_MODELS.central;
 const wh = (value: number) => (value >= 1 ? `${value.toFixed(2)} Wh` : `${(value * 1000).toFixed(1)} mWh`);
 const failed = (raw.pullRequests as { number: number; status: string; reason?: string }[]).filter((pr) => pr.status !== 'completed');
+// Optional: prompt context triage keeps out on the same PRs (benchmarks/model-input.ts).
+const modelInputFile = join(HERE, 'results', 'es-toolkit-model-input.json');
+const modelInput = existsSync(modelInputFile) ? JSON.parse(readFileSync(modelInputFile, 'utf8')) as { reports: string; summary: { prs: number; withOpenMutants: number; findingsSent: number; findingsOpen: number; aridFiltered: number; charsOpen: number; charsAvoided: number; tokensAvoidedApprox: number; avoidedPercent: number } } : null;
 
 const lines = [
   `# Energy: changed-line vs whole-file mutation testing on ${summary.repository}`,
@@ -37,6 +40,12 @@ const lines = [
   '',
   summary.projectionErrorPercent === null ? '' : `**Per-MR projection check.** Every MR review projects the whole-file cost from two runs it already makes (the changed-line run and a whole-file dry run). Against the executed whole-file runs here, that projection's median absolute error on CPU time is **${summary.projectionErrorPercent.toFixed(0)}%**.`,
   '',
+  ...(modelInput ? [
+    '## Model input kept out of the drafting prompt',
+    '',
+    `The second saving is model input. On ${modelInput.summary.prs} of these PRs (${modelInput.summary.withOpenMutants} with surviving or uncovered mutants), an agent asked to write a test for every surviving mutant would receive **${modelInput.summary.findingsOpen}** findings. Mutant Review's deterministic triage (arid filter, one finding per line, at most three per MR) sends **${modelInput.summary.findingsSent}**, keeping **${modelInput.summary.avoidedPercent.toFixed(0)}%** of the per-finding brief context out of the prompt: ${modelInput.summary.charsAvoided.toLocaleString('en-US')} characters, roughly ${modelInput.summary.tokensAvoidedApprox.toLocaleString('en-US')} tokens at 4 characters per token. Characters are measured by building the brief both ways with the product's own \`findingContext\`; the shared preamble, requirement docs and test-file excerpts are left out of both sides, so the real difference is larger. Source: [\`results/es-toolkit-model-input.json\`](results/es-toolkit-model-input.json) (${modelInput.reports}).`,
+    '',
+  ] : []),
   '## Per PR',
   '',
   '| PR | Changed lines | Mutants (changed / whole) | CPU-s (changed / whole) | Energy (changed / whole) | Projected whole CPU-s |',

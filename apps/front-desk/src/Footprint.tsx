@@ -94,6 +94,7 @@ interface EnergySummary {
   machine: string;
   changedLines: { cpuSeconds: number; energyWh: number; sciG: number; mutants: number };
   wholeFile: { cpuSeconds: number; energyWh: number; sciG: number; mutants: number };
+  modelInput?: { findingsSent: number; findingsOpen: number; tokensAvoidedApprox: number; avoidedPercent: number } | null;
   savedPercent: number;
   projectionErrorPercent: number | null;
   reportUrl: string;
@@ -144,7 +145,7 @@ const PRACTICES = (e: Evidence) => {
       icon: <Sparkles size={15} />,
       title: "No model in CI, one model call at most",
       body: "Deterministic triage drops noise and caps findings at three before any AI runs; drafting happens once, only when a person asks.",
-      effect: `${e.metrics.modelCalls ?? 0} model calls in this review · ${f?.modelCalls.avoided ?? s?.aiCallsAvoided ?? 0} avoided by triage`,
+      effect: `${e.metrics.modelCalls ?? 0} model calls in this review · ${f?.modelCalls.avoided ?? s?.aiCallsAvoided ?? 0} findings filtered${s?.modelInput ? ` · ≈${s.modelInput.tokensAvoidedApprox.toLocaleString("en-US")} prompt tokens kept out` : ""}`,
     },
     {
       icon: <GitPullRequestArrow size={15} />,
@@ -197,6 +198,7 @@ export function FootprintPage({ evidence }: { evidence: Evidence }) {
   const picked = regions.find((item) => item.name === region) ?? regions[0]!;
   const comparison = f.changedLinesRun && f.projectedWholeFile ? [f.changedLinesRun, f.projectedWholeFile] : null;
   const wholeFileScope = comparison !== null && comparison[0].mutants === comparison[1].mutants;
+  const dryRunSkipped = Boolean(evidence.savings?.wholeFileCount?.includes("no dry run"));
   const steps = f.steps ?? [];
   const biggestStep = Math.max(...steps.map((step) => step.sciG), 1e-9);
   return (
@@ -307,10 +309,8 @@ export function FootprintPage({ evidence }: { evidence: Evidence }) {
                 />
                 <p className="footprint-note">
                   {wholeFileScope
-                    ? "This change touches every mutable line of its file, so scoping had nothing to skip. On real MRs it usually does: see the open-source benchmark on the Overview. "
-                    : ""}
-                  Projection: the whole-file dry run (fixed cost, measured) plus the measured cost per
-                  changed-line mutant times the whole-file count.
+                    ? `This change touches every mutable line of its file, so scoping had nothing to skip${dryRunSkipped ? ", and the review skipped the whole-file dry run as well: there was nothing extra to count" : ""}. On real MRs scoping usually saves most of the work: see the open-source benchmark below.`
+                    : "Projection: the whole-file dry run (fixed cost, measured) plus the measured cost per changed-line mutant times the whole-file count."}
                 </p>
               </>
             ) : (
@@ -388,9 +388,13 @@ export function FootprintPage({ evidence }: { evidence: Evidence }) {
             </a>
           </h2>
           <div className="metrics-grid">
-            <Tile title="Energy avoided" value={`${energy.savedPercent.toFixed(0)}%`} icon={<Leaf size={16} />} tone="green" subtitle={`${wh(energy.changedLines.energyWh)} instead of ${wh(energy.wholeFile.energyWh)}`} foot="Changed lines vs whole files, both executed" />
-            <Tile title="CPU time" value={`${Math.round(energy.changedLines.cpuSeconds)}s`} icon={<Cpu size={16} />} tone="purple" subtitle={`whole files: ${Math.round(energy.wholeFile.cpuSeconds)}s`} foot={energy.machine} />
-            <Tile title="SCI, all PRs" value={grams(energy.changedLines.sciG)} icon={<Factory size={16} />} tone="neutral" subtitle={`whole files: ${grams(energy.wholeFile.sciG)}`} foot="GitLab hosted runner region (us-east1)" />
+            <Tile title="Energy avoided" value={`${energy.savedPercent.toFixed(0)}%`} icon={<Leaf size={16} />} tone="green" subtitle={`${wh(energy.changedLines.energyWh)} instead of ${wh(energy.wholeFile.energyWh)}`} foot={`${Math.round(energy.changedLines.cpuSeconds)} vs ${Math.round(energy.wholeFile.cpuSeconds)} CPU-s, both executed`} />
+            <Tile title="SCI, all PRs" value={grams(energy.changedLines.sciG)} icon={<Factory size={16} />} tone="neutral" subtitle={`whole files: ${grams(energy.wholeFile.sciG)}`} foot={`us-east1 grid · ${energy.machine.split(",")[0]}`} />
+            {energy.modelInput ? (
+              <Tile title="Prompt input kept out" value={energy.modelInput.tokensAvoidedApprox >= 1000 ? `≈${Math.round(energy.modelInput.tokensAvoidedApprox / 1000)}k tokens` : `≈${energy.modelInput.tokensAvoidedApprox} tokens`} icon={<Sparkles size={16} />} tone="purple" subtitle={`${energy.modelInput.findingsSent} of ${energy.modelInput.findingsOpen} open mutants reach a prompt`} foot={`${energy.modelInput.avoidedPercent.toFixed(0)}% of per-finding context · ≈4 chars/token`} />
+            ) : (
+              <Tile title="CPU time" value={`${Math.round(energy.changedLines.cpuSeconds)}s`} icon={<Cpu size={16} />} tone="purple" subtitle={`whole files: ${Math.round(energy.wholeFile.cpuSeconds)}s`} foot={energy.machine} />
+            )}
             <Tile title="Projection error" value={energy.projectionErrorPercent == null ? "n/a" : `${energy.projectionErrorPercent.toFixed(0)}%`} icon={<FlaskConical size={16} />} tone="neutral" subtitle="Per-MR estimate vs executed whole-file run" foot="Median absolute error" />
           </div>
         </section>

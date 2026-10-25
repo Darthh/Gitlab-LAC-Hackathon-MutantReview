@@ -78,6 +78,18 @@ app.get("/api/benchmark", async (_req, res) => {
   }
 });
 // Executed changed-line vs whole-file energy, when benchmarks/energy.ts has been run. Hidden otherwise.
+/** Prompt context triage keeps out on the same PRs (benchmarks/model-input.ts), when present. */
+async function readModelInput() {
+  try {
+    const raw = JSON.parse(await readFile(resolve(root, "benchmarks/results/es-toolkit-model-input.json"), "utf8"));
+    const summary = raw?.summary;
+    const count = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+    if (![summary?.findingsSent, summary?.findingsOpen, summary?.tokensAvoidedApprox, summary?.avoidedPercent].every(count) || summary.avoidedPercent > 100) return null;
+    return { findingsSent: summary.findingsSent, findingsOpen: summary.findingsOpen, tokensAvoidedApprox: summary.tokensAvoidedApprox, avoidedPercent: summary.avoidedPercent, prs: summary.prs };
+  } catch {
+    return null;
+  }
+}
 app.get("/api/energy", async (_req, res) => {
   try {
     const filename = resolve(root, "benchmarks/energy/es-toolkit.json");
@@ -85,7 +97,7 @@ app.get("/api/energy", async (_req, res) => {
     const summary = summarizeEnergy(JSON.parse(await readFile(filename, "utf8")));
     if (!summary) return void res.status(404).json({ error: "No completed energy measurements in this build." });
     const { rows: _rows, ...headline } = summary;
-    res.json({ ...headline, reportUrl: `${publicProject}/-/blob/main/benchmarks/ENERGY.md` });
+    res.json({ ...headline, modelInput: await readModelInput(), reportUrl: `${publicProject}/-/blob/main/benchmarks/ENERGY.md` });
   } catch (error) {
     const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
     res.status(missing ? 404 : 500).json({ error: missing ? "No energy benchmark in this build." : "Energy results are malformed." });

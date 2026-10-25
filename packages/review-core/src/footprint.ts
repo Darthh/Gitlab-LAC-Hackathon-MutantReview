@@ -179,7 +179,10 @@ export function footprintReceipt(input: {
   const { region, basis } = runnerRegion(input.env);
   const intensity = GRID_REGIONS[region]!.gridIntensity;
   const changed = input.changedLinesRun ? { ...footprint(input.changedLinesRun, intensity), mutants: input.changedMutants } : null;
-  const projectedUsage = input.changedLinesRun && input.wholeFileDryRun ? projectWholeFile(input.changedLinesRun, input.wholeFileDryRun, input.changedMutants, input.wholeFileMutants) : null;
+  // When the whole files hold no mutants beyond the changed lines, the whole-file alternative is this very run.
+  const projectedUsage = !input.changedLinesRun ? null
+    : input.wholeFileMutants !== null && input.wholeFileMutants === input.changedMutants ? input.changedLinesRun
+      : input.wholeFileDryRun ? projectWholeFile(input.changedLinesRun, input.wholeFileDryRun, input.changedMutants, input.wholeFileMutants) : null;
   const projected = projectedUsage ? { ...footprint(projectedUsage, intensity), mutants: input.wholeFileMutants!, projected: true as const } : null;
   const savedG = projected && changed ? round(Math.max(0, projected.sciG - changed.sciG)) : null;
   return {

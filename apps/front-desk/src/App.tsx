@@ -1551,6 +1551,8 @@ function Workflow({
 /** Measured counts only: a missing or null value reads "Not measured", never zero. */
 const tally = (n: number | null | undefined) =>
   n == null ? "Not measured" : String(n).padStart(2, "0");
+const tokens = (n: number) =>
+  n >= 10_000 ? `${Math.round(n / 1000)}k tokens` : n >= 1000 ? `${(n / 1000).toFixed(1)}k tokens` : `${n} tokens`;
 const oneLine = (code: string) => {
   const flat = code.replace(/\s+/g, " ").trim();
   return flat.length > 90 ? `${flat.slice(0, 89)}…` : flat;
@@ -1604,12 +1606,16 @@ function SavingsTiles({
           foot="Removed before any AI call"
         />
         <Metric
-          title="AI calls avoided"
-          value={tally(s?.aiCallsAvoided)}
+          title="Model input avoided"
+          value={s?.modelInput ? `≈${tokens(s.modelInput.tokensAvoidedApprox)}` : tally(s?.aiCallsAvoided)}
           icon={<Sparkles size={16} />}
-          tone={tone(s?.aiCallsAvoided, "green")}
-          subtitle="Arid + over-budget findings"
-          foot="Tokens never spent on noise"
+          tone={tone(s?.modelInput?.tokensAvoidedApprox ?? s?.aiCallsAvoided, "green")}
+          subtitle={
+            s?.modelInput
+              ? `${s.modelInput.findingsSent} of ${s.modelInput.findingsOpen} open mutants reach the prompt`
+              : "Arid + over-budget findings"
+          }
+          foot={s?.modelInput ? `${s.modelInput.charsAvoided.toLocaleString("en-US")} characters measured · ≈4 per token` : "Tokens never spent on noise"}
         />
         <Metric
           title="Lessons in agent memory"

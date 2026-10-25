@@ -12,6 +12,7 @@ async function review(demo: boolean) {
   const { mutation, gate, triage, savings } = evidence;
   console.log(`${demo ? 'Local demonstration' : 'MR review'}: baseline ${evidence.baseline.status}; changed-line mutation score ${mutation.score ?? 'unavailable'}; ${mutation.counts.survived} survivor(s); gate ${gate.status}.`);
   console.log(`Triage: ${triage.arid.length} arid mutant(s) filtered, ${triage.ranked.length} finding(s) to comment, ${triage.overflow} over budget. Mutants run ${savings.mutantsChangedLines}${savings.mutantsWholeFiles === null ? '' : ` of ${savings.mutantsWholeFiles} in the whole changed files`}.`);
+  console.log(`Model input: ${savings.modelInput.findingsSent} of ${savings.modelInput.findingsOpen} open mutant(s) would reach the drafting prompt; ${savings.modelInput.charsAvoided} characters (≈${savings.modelInput.tokensAvoidedApprox} tokens) kept out by triage.`);
   if (evidence.footprint) {
     const { actual, changedLinesRun, projectedWholeFile, savedPercent, region, gridIntensity } = evidence.footprint;
     console.log(`Footprint (SCI per review): ${formatGrams(actual.sciG)}, ${actual.energyWh.toFixed(2)} Wh, ${actual.cpuSeconds} CPU-s${actual.cpuMeasured ? '' : ' (CPU time not measurable here: full utilisation assumed)'}, ${region} grid at ${gridIntensity} gCO2e/kWh.`);
@@ -19,7 +20,7 @@ async function review(demo: boolean) {
   }
   // Native MR widgets: Code Quality lists each unnoticed change on its line; Metrics compares score and footprint with the target branch.
   await save('evidence/gl-code-quality.json', codeQualityReport(mutation.mutants, triage));
-  await writeFile('evidence/metrics.txt', metricsReport({ score: mutation.score, survived: mutation.counts.survived, noCoverage: mutation.counts.noCoverage, mutantsRun: savings.mutantsChangedLines, mutantsAvoided: savings.mutantsAvoided, aiCallsAvoided: savings.aiCallsAvoided, footprint: evidence.footprint }));
+  await writeFile('evidence/metrics.txt', metricsReport({ score: mutation.score, survived: mutation.counts.survived, noCoverage: mutation.counts.noCoverage, mutantsRun: savings.mutantsChangedLines, mutantsAvoided: savings.mutantsAvoided, aiCallsAvoided: savings.aiCallsAvoided, modelInputTokensAvoided: savings.modelInput.tokensAvoidedApprox, footprint: evidence.footprint }));
   console.log('Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt');
   if (!baselinePassed || !complete) process.exitCode = 2;
 }

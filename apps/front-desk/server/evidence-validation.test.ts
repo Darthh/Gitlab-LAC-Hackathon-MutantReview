@@ -93,6 +93,15 @@ describe('triage and savings', () => {
     const calls = copy(); calls.savings.aiCallsAvoided = 7;
     expect(() => validateEvidence(calls)).toThrow('savings do not match');
   });
+  it('accepts measured model-input savings and rejects ones that do not add up', () => {
+    const input = { findingsSent: 1, findingsOpen: 1, charsSent: 600, charsOpen: 600, charsAvoided: 0, tokensAvoidedApprox: 0 };
+    const value = copy(); value.savings.modelInput = input;
+    expect(validateEvidence(value).savings!.modelInput).toEqual(input);
+    const inflated = copy(); inflated.savings.modelInput = { ...input, charsOpen: 4000, charsAvoided: 3400, tokensAvoidedApprox: 9000 };
+    expect(() => validateEvidence(inflated)).toThrow('model input');
+    const phantom = copy(); phantom.savings.modelInput = { ...input, findingsOpen: 40 };
+    expect(() => validateEvidence(phantom)).toThrow('model input');
+  });
 });
 
 describe('footprint', () => {

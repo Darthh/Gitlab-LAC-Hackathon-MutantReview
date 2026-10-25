@@ -30,6 +30,10 @@ describe('GitLab metrics report', () => {
     expect(metricsReport({ score: 75, survived: 1, noCoverage: 0, mutantsRun: 4, mutantsAvoided: null, aiCallsAvoided: 0 })).toBe(
       'mutant_review_changed_line_score_percent 75\nmutant_review_unnoticed_changes 1\nmutant_review_mutants_run 4\nmutant_review_ai_calls_avoided 0\n');
   });
+  it('reports the model input triage kept out, labelled as an approximation', () => {
+    expect(metricsReport({ score: 75, survived: 1, noCoverage: 0, mutantsRun: 4, mutantsAvoided: null, aiCallsAvoided: 2, modelInputTokensAvoided: 512 }))
+      .toMatch(/^mutant_review_model_input_tokens_avoided_approx 512$/m);
+  });
   it('includes the measured footprint of the review', () => {
     const usage = { wallMs: 60_000, cpuMs: 60_000, vCpus: 2, memoryGb: 8 };
     const footprint = footprintReceipt({ review: [usage], changedLinesRun: null, wholeFileDryRun: null, changedMutants: 0, wholeFileMutants: null, env: {} });

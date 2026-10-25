@@ -103,6 +103,14 @@ describe('footprint receipt', () => {
     expect(receipt.modelCalls).toEqual({ made: 0, avoided: 2 });
   });
 
+  it('needs no dry run when the whole files hold no other mutants: the alternative is the same run, and nothing is saved', () => {
+    const receipt = footprintReceipt({ review: [baseline, scoped], changedLinesRun: scoped, wholeFileDryRun: null, changedMutants: 5, wholeFileMutants: 5, env: {} })!;
+    expect(receipt.steps).toHaveLength(2);
+    expect(receipt.projectedWholeFile).toMatchObject({ mutants: 5, sciG: receipt.changedLinesRun!.sciG });
+    expect(receipt.savedG).toBe(0);
+    expect(receipt.savedPercent).toBe(0);
+  });
+
   it('claims no saving it cannot project, and nothing without a measurement', () => {
     const receipt = footprintReceipt({ review: [baseline], changedLinesRun: null, wholeFileDryRun: null, changedMutants: 0, wholeFileMutants: null, env: {} })!;
     expect(receipt.projectedWholeFile).toBeNull();

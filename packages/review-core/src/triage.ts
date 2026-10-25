@@ -54,6 +54,12 @@ function why(mutant: NormalizedMutant, line: number): string {
   }
 }
 
+function finding(mutant: NormalizedMutant): RankedFinding {
+  const line = mutant.location.start.line;
+  return { rank: 0, fingerprint: mutant.fingerprint, path: mutant.path, line, operator: mutant.operator, original: mutant.original, replacement: mutant.replacement,
+    status: mutant.status as RankedFinding['status'], priority: mutant.status === 'NoCoverage' ? 'high' : PRIORITY[mutant.operator] ?? 'low', why: why(mutant, line) };
+}
+
 /**
  * Deterministic, model-free triage: drop arid mutants, keep one finding per line,
  * rank by how likely the gap hides a real behavioural bug, and cap comments at `limit`.
@@ -66,11 +72,54 @@ export function triageMutants(mutants: NormalizedMutant[], sources: Record<strin
     const line = mutant.location.start.line;
     const reason = aridReason(mutant, sources[mutant.path]?.split('\n')[line - 1] ?? '');
     if (reason) { arid.push({ fingerprint: mutant.fingerprint, path: mutant.path, line, reason }); continue; }
-    const finding: RankedFinding = { rank: 0, fingerprint: mutant.fingerprint, path: mutant.path, line, operator: mutant.operator, original: mutant.original, replacement: mutant.replacement,
-      status: mutant.status as RankedFinding['status'], priority: mutant.status === 'NoCoverage' ? 'high' : PRIORITY[mutant.operator] ?? 'low', why: why(mutant, line) };
+    const candidate = finding(mutant);
     const key = `${mutant.path}:${line}`, prior = byLine.get(key);
-    if (!prior || ORDER[finding.priority] < ORDER[prior.priority]) byLine.set(key, finding);
+    if (!prior || ORDER[candidate.priority] < ORDER[prior.priority]) byLine.set(key, candidate);
   }
   const sorted = [...byLine.values()].sort((a, b) => ORDER[a.priority] - ORDER[b.priority] || a.path.localeCompare(b.path) || a.line - b.line);
-  return { policy: 'arid-v1', considered: open.length, arid, ranked: sorted.slice(0, limit).map((finding, index) => ({ ...finding, rank: index + 1 })), overflow: Math.max(0, sorted.length - limit) };
+  return { policy: 'arid-v1', considered: open.length, arid, ranked: sorted.slice(0, limit).map((item, index) => ({ ...item, rank: index + 1 })), overflow: Math.max(0, sorted.length - limit) };
+}
+
+/** Source lines around `line`, numbered, with the mutated line marked ">". */
+export function excerpt(source: string, line: number, radius = 8): string {
+  const lines = source.split('\n');
+  const from = Math.max(1, line - radius), to = Math.min(lines.length, line + radius);
+  return lines.slice(from - 1, to).map((text, index) => `${String(from + index).padStart(4)}${from + index === line ? ' >' : '  '} ${text}`).join('\n');
+}
+
+/** The part of the drafting brief that every finding adds: what changed, why it matters and the code around it. */
+export function findingContext(item: RankedFinding, source: string): string {
+  return [
+    `### Finding ${item.rank}: ${item.path}:${item.line} (${item.priority} priority)`,
+    item.why,
+    `Mutation that no test noticed: \`${item.original}\` -> \`${item.replacement}\` (${item.operator}, ${item.status})`,
+    '```ts', excerpt(source, item.line), '```',
+  ].join('\n');
+}
+
+export interface ModelInput {
+  /** Findings in the drafting brief (at most three) versus every surviving or uncovered mutant. */
+  findingsSent: number;
+  findingsOpen: number;
+  /** Characters of per-finding brief context, measured by building it both ways. */
+  charsSent: number;
+  charsOpen: number;
+  charsAvoided: number;
+  /** charsAvoided ÷ 4, a common characters-per-token rule of thumb. An estimate, labelled as one. */
+  tokensAvoidedApprox: number;
+}
+
+/**
+ * Model input that triage keeps out of the prompt. The alternative is an agent asked to "write a test for every
+ * surviving mutant": it receives every open mutant with the same per-finding context. Measured in characters on the
+ * brief text itself; the shared preamble, requirement docs and test-file excerpts are left out of both sides,
+ * so the real saving is larger.
+ */
+export function modelInputSavings(mutants: NormalizedMutant[], sources: Record<string, string>, triage: Pick<MutantTriage, 'ranked'>): ModelInput {
+  const open = mutants.filter((mutant) => mutant.status === 'Survived' || mutant.status === 'NoCoverage').map((mutant, index) => ({ ...finding(mutant), rank: index + 1 }));
+  const size = (items: RankedFinding[]) => items.reduce((sum, item) => sum + findingContext(item, sources[item.path] ?? '').length, 0);
+  const charsSent = size(triage.ranked);
+  const charsOpen = Math.max(size(open), charsSent);
+  const charsAvoided = charsOpen - charsSent;
+  return { findingsSent: triage.ranked.length, findingsOpen: open.length, charsSent, charsOpen, charsAvoided, tokensAvoidedApprox: Math.round(charsAvoided / 4) };
 }

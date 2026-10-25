@@ -25,6 +25,25 @@ function readGitPath(text: string): string | null {
   return normalizePath(value.replace(/^[ab]\//, ''));
 }
 
+/** A line that may hold a mutation site: not blank, a comment, an import, a type declaration or only braces. */
+export function isCandidateLine(text: string): boolean {
+  const code = text.trim();
+  return Boolean(code) && !/^(\/\/|\/\*|\*|import\b|export\s+type\b|type\b|interface\b)/.test(code) && !/^[{};]+$/.test(code);
+}
+
+/**
+ * True when the changed lines already include every candidate line of each changed file (a new file, or a file
+ * rewritten end to end). Then mutating the whole files means exactly the same mutants, and counting them again
+ * with a separate Stryker dry run would only spend energy.
+ */
+export function coversCandidateLines(scope: MutationScope[], sources: Record<string, string | undefined>): boolean {
+  return scope.length > 0 && scope.every((file) => {
+    const source = sources[file.path];
+    if (source === undefined) return false;
+    return source.split(/\r?\n/).every((text, index) => !isCandidateLine(text) || file.lines.some((range) => index + 1 >= range.start && index + 1 <= range.end));
+  });
+}
+
 /** Parse `git diff --unified=0 --no-ext-diff BASE HEAD`; only added-side lines enter scope. */
 export function parseDiff(diff: string): MutationScope[] {
   const result: MutationScope[] = [];
@@ -48,9 +67,8 @@ export function parseDiff(diff: string): MutationScope[] {
     if (hunk) { cursor = Number(hunk[1]); inHunk = true; continue; }
     if (!inHunk) continue;
     if (line.startsWith('+')) {
-      const code = line.slice(1).trim();
       // This is a conservative candidate scope. Stryker determines executable mutation sites.
-      if (current && code && !/^(\/\/|\/\*|\*|import\b|export\s+type\b|type\b|interface\b)/.test(code) && !/^[{};]+$/.test(code)) {
+      if (current && isCandidateLine(line.slice(1))) {
         const prior = current.lines.at(-1);
         if (prior && prior.end + 1 === cursor) prior.end = cursor;
         else current.lines.push({ start: cursor, end: cursor });

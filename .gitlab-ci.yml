@@ -144,7 +144,8 @@ mutation:gate:
 
 # Optional, manual: measures what changed-line scoping saves in energy on a real repository,
 # on the hosted runner the review itself uses. Runs the 25 es-toolkit PRs from benchmarks/RESULTS.md
-# three ways (changed lines, whole-file dry run, whole files) and renders benchmarks/ENERGY.md.
+# three ways (changed lines, whole-file dry run, whole files), measures the prompt context triage keeps
+# out of the drafting model, and renders benchmarks/ENERGY.md.
 # Start it from Build > Pipelines > Run pipeline with RUN_ENERGY_BENCHMARK=1.
 benchmark:energy:
   extends: .node
@@ -154,9 +155,10 @@ benchmark:energy:
   interruptible: false
   script:
     - node node_modules/tsx/dist/cli.mjs benchmarks/energy.ts --workdir /tmp/mrbench
+    - node node_modules/tsx/dist/cli.mjs benchmarks/model-input.ts --reports /tmp/mrbench/energy
     - node node_modules/tsx/dist/cli.mjs benchmarks/energy-report.ts
   timeout: 3h
   artifacts:
     when: always
     expire_in: 90 days
-    paths: [benchmarks/energy/, benchmarks/ENERGY.md]
+    paths: [benchmarks/energy/, benchmarks/ENERGY.md, benchmarks/results/es-toolkit-model-input.json]

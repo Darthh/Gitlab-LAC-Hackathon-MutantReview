@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOverride, learnFromRepair, parseReviewCommand, renderLessons, triageMutants, updateAgentsMd } from '../src/index.js';
+import { applyOverride, excerpt, findingContext, learnFromRepair, modelInputSavings, parseReviewCommand, renderLessons, triageMutants, updateAgentsMd } from '../src/index.js';
 import type { GateDecision, NormalizedMutant, RankedFinding } from '../src/index.js';
 
 const handle = '@ai-mutant-review';
@@ -51,6 +51,43 @@ describe('deterministic triage', () => {
     const triage = triageMutants([logsOnly, behaves], { 'src/cart.ts': 'function f() {' });
     expect(triage.arid).toHaveLength(1);
     expect(triage.ranked.map((item) => item.fingerprint)).toEqual([behaves.fingerprint]);
+  });
+});
+
+describe('model input kept out of the drafting prompt', () => {
+  it('measures the per-finding brief context for the ranked findings against every open mutant', () => {
+    const mutants = [
+      mutant(2, 'StringLiteral', '`items: ${items}`', '``'),
+      mutant(3, 'StringLiteral', '"negative cart"', '""'),
+      mutant(4, 'EqualityOperator', 'items >= 100', 'items > 100'),
+      mutant(4, 'ArithmeticOperator', '5 + items * 0', '5 - items * 0'),
+      mutant(6, 'ConditionalExpression', 'n > 1', 'true'),
+      mutant(4, 'BlockStatement', '{}', '{}', 'Killed'),
+    ];
+    const sources = { 'src/cart.ts': source };
+    const triage = triageMutants(mutants, sources, 1);
+    const input = modelInputSavings(mutants, sources, triage);
+    expect(input.findingsSent).toBe(1);
+    expect(input.findingsOpen).toBe(5);
+    expect(input.charsSent).toBe(findingContext(triage.ranked[0]!, source).length);
+    expect(input.charsOpen).toBeGreaterThan(4 * input.charsSent);
+    expect(input.charsAvoided).toBe(input.charsOpen - input.charsSent);
+    expect(input.tokensAvoidedApprox).toBe(Math.round(input.charsAvoided / 4));
+  });
+  it('reports nothing avoided when every open mutant is already in the brief', () => {
+    const mutants = [mutant(4, 'EqualityOperator', 'items >= 100', 'items > 100')];
+    const sources = { 'src/cart.ts': source };
+    expect(modelInputSavings(mutants, sources, triageMutants(mutants, sources))).toMatchObject({ findingsSent: 1, findingsOpen: 1, charsAvoided: 0, tokensAvoidedApprox: 0 });
+  });
+  it('builds the same context the drafting agent reads: the mutation, why it matters and the marked line', () => {
+    const [item] = triageMutants([mutant(4, 'EqualityOperator', 'items >= 100', 'items > 100')], { 'src/cart.ts': source }).ranked;
+    const text = findingContext(item!, source);
+    expect(text.split('\n').slice(0, 3)).toEqual([
+      '### Finding 1: src/cart.ts:4 (high priority)',
+      'Changing `items >= 100` to `items > 100` on line 4 fails no test. The boundary value itself is untested.',
+      'Mutation that no test noticed: `items >= 100` -> `items > 100` (EqualityOperator, Survived)',
+    ]);
+    expect(excerpt(source, 4, 1).split('\n')).toEqual(['   3     if (items < 0) throw new Error("negative cart");', '   4 >   return items >= 100 ? 0 : 5 + items * 0;', '   5   }']);
   });
 });
 

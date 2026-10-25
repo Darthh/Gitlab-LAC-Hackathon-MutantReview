@@ -32,8 +32,9 @@ const triage = z.object({
     status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text })).max(3),
   overflow: count,
 });
+const modelInput = z.object({ findingsSent: z.number().int().min(0).max(3), findingsOpen: count, charsSent: count, charsOpen: count, charsAvoided: count, tokensAvoidedApprox: count });
 const savings = z.object({ mutantsChangedLines: count, mutantsWholeFiles: count.nullable(), mutantsAvoided: count.nullable(),
-  aridFiltered: count, aiCallsAvoided: count, lessonsInMemory: count });
+  aridFiltered: count, aiCallsAvoided: count, lessonsInMemory: count, modelInput: modelInput.optional(), wholeFileCount: text.nullable().optional() });
 const grams = z.number().finite().nonnegative();
 const usage = z.object({ wallMs: duration, cpuMs: duration.nullable(), vCpus: z.number().int().positive().max(1024), memoryGb: z.number().finite().positive().max(100_000) });
 const footprintValue = z.object({ energyWh: grams, operationalG: grams, embodiedG: grams, sciG: grams, cpuSeconds: grams, utilization: z.number().finite().min(0).max(1), cpuMeasured: z.boolean() });
@@ -125,6 +126,10 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     const { mutantsWholeFiles: whole, mutantsAvoided: avoided, mutantsChangedLines: changed, aridFiltered, aiCallsAvoided } = evidence.savings;
     if ((whole === null) !== (avoided === null) || (whole !== null && avoided !== whole - changed)) fail('avoided mutants do not equal whole-file minus changed-line mutants');
     if (evidence.triage && (aridFiltered !== evidence.triage.arid.length || aiCallsAvoided !== aridFiltered + evidence.triage.overflow)) fail('savings do not match the triage record');
+    const input = evidence.savings.modelInput;
+    if (input && (input.charsAvoided !== input.charsOpen - input.charsSent || input.tokensAvoidedApprox !== Math.round(input.charsAvoided / 4)
+      || input.findingsOpen !== evidence.mutation.counts.survived + evidence.mutation.counts.noCoverage
+      || (evidence.triage && input.findingsSent !== evidence.triage.ranked.length))) fail('model input savings do not match the triage record');
   }
   if (evidence.footprint) {
     const { actual, range, changedLinesRun, projectedWholeFile, savedG, modelCalls, steps } = evidence.footprint;

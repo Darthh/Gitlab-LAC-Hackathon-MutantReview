@@ -52,6 +52,7 @@ export interface MetricsInput {
   mutantsRun: number;
   mutantsAvoided: number | null;
   aiCallsAvoided: number;
+  modelInputTokensAvoided?: number | null;
   footprint?: FootprintReceipt | null;
 }
 
@@ -63,6 +64,7 @@ export function metricsReport(input: MetricsInput): string {
     ['mutant_review_mutants_run', input.mutantsRun],
     ['mutant_review_mutants_avoided', input.mutantsAvoided],
     ['mutant_review_ai_calls_avoided', input.aiCallsAvoided],
+    ['mutant_review_model_input_tokens_avoided_approx', input.modelInputTokensAvoided ?? null],
     ['mutant_review_review_cpu_seconds', input.footprint?.actual.cpuSeconds ?? null],
     ['mutant_review_review_energy_mwh', input.footprint ? Number((input.footprint.actual.energyWh * 1000).toFixed(1)) : null],
     ['mutant_review_review_sci_mgco2e', input.footprint ? Number((input.footprint.actual.sciG * 1000).toFixed(1)) : null],

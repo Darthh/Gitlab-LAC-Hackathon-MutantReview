@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { parseDiff, strykerRanges } from '../../review-core/src/scope.js';
+import { coversCandidateLines, parseDiff, strykerRanges } from '../../review-core/src/scope.js';
 import { mutationMetrics, normalizeStrykerReport, evaluateGate } from '../../review-core/src/report.js';
 import { preflight } from '../../review-core/src/preflight.js';
 import type { MemoryLesson } from '../../review-core/src/memory.js';
-import { triageMutants } from '../../review-core/src/triage.js';
+import { modelInputSavings, triageMutants } from '../../review-core/src/triage.js';
 import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
 import { execute, type Execution } from './runner.js';
@@ -136,6 +136,7 @@ export async function runReview(context: ReviewContext) {
   let cacheKey: string | null = null;
   let wholeFileMutants: number | null = null;
   let wholeFileRun: Execution | null = null;
+  let wholeFileCount: string | null = null;
   const skippedReason = !baselinePassed ? 'Inconclusive: the unmodified test suite failed.' : !scope.length ? 'Changed-source mode has no applicable source scope.' : !scopeWithinBudget ? 'The MR scope exceeds the configured file or line budget.' : null;
   if (!skippedReason) {
     // Dependency, runner, policy, snapshot, environment and toolchain changes invalidate reuse.
@@ -149,7 +150,16 @@ export async function runReview(context: ReviewContext) {
     rawReport = stryker.report;
     if (rawReport) mutants = normalizeStrykerReport(rawReport as never, scope, { headSha, ...(baseSha ? { baseSha } : {}), toolchain: provenance.toolchain, fresh: demo });
     await save('evidence/incremental/key.json', { cacheKey });
-    ({ count: wholeFileMutants, run: wholeFileRun } = await countWholeFileMutants(scope.map((file) => file.path)));
+    // When the changed lines already cover every candidate line of their files, the whole files hold exactly these
+    // mutants: skip the dry run that would only count them again (it is a third of a small review's energy).
+    const fileSources = Object.fromEntries(await Promise.all(scope.map(async (file) => [file.path, await readFile(file.path, 'utf8').catch(() => undefined)] as const)));
+    if (rawReport && coversCandidateLines(scope, fileSources)) {
+      wholeFileMutants = mutants.length;
+      wholeFileCount = 'changed lines cover every candidate line of their files; no dry run needed';
+    } else {
+      ({ count: wholeFileMutants, run: wholeFileRun } = await countWholeFileMutants(scope.map((file) => file.path)));
+      wholeFileCount = wholeFileMutants === null ? null : 'Stryker dry run of the whole changed files';
+    }
     if (wholeFileMutants !== null && wholeFileMutants < mutants.length) wholeFileMutants = null;
   }
   const metrics = mutationMetrics(mutants);
@@ -167,9 +177,12 @@ export async function runReview(context: ReviewContext) {
     mutantsChangedLines: metrics.total,
     mutantsWholeFiles: wholeFileMutants,
     mutantsAvoided: wholeFileMutants === null ? null : wholeFileMutants - metrics.total,
+    wholeFileCount,
     aridFiltered: triage.arid.length,
     aiCallsAvoided: triage.arid.length + triage.overflow,
     lessonsInMemory: lessons.length,
+    // Characters of drafting-brief context triage keeps out of the model prompt (measured; tokens are an estimate).
+    modelInput: modelInputSavings(mutants, sources, triage),
   };
   // SCI of this review from measured CPU time, plus the projected cost of mutating the whole changed files.
   const changedLinesUsage = usageOf(mutationRun);
