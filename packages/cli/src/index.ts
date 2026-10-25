@@ -1,6 +1,8 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { mutationMetrics, evaluateGate, applyOverride } from '../../review-core/src/report.js';
 import { updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
+import { formatGrams } from '../../review-core/src/footprint.js';
+import { codeQualityReport, metricsReport } from '../../review-core/src/reports.js';
 import { ciContext, demoContext, git, json, protectedPath, runReview, save } from './review.js';
 import { findOverride, flowAdapter, flowHandle, flowNotify, flowPrepare, flowPublish } from './flow.js';
 
@@ -9,7 +11,15 @@ async function review(demo: boolean) {
   const { mutation, gate, triage, savings } = evidence;
   console.log(`${demo ? 'Local demonstration' : 'MR review'}: baseline ${evidence.baseline.status}; changed-line mutation score ${mutation.score ?? 'unavailable'}; ${mutation.counts.survived} survivor(s); gate ${gate.status}.`);
   console.log(`Triage: ${triage.arid.length} arid mutant(s) filtered, ${triage.ranked.length} finding(s) to comment, ${triage.overflow} over budget. Mutants run ${savings.mutantsChangedLines}${savings.mutantsWholeFiles === null ? '' : ` of ${savings.mutantsWholeFiles} in the whole changed files`}.`);
-  console.log('Evidence: evidence/latest.json');
+  if (evidence.footprint) {
+    const { actual, changedLinesRun, projectedWholeFile, savedPercent, region, gridIntensity } = evidence.footprint;
+    console.log(`Footprint (SCI per review): ${formatGrams(actual.sciG)}, ${actual.energyWh.toFixed(2)} Wh, ${actual.cpuSeconds} CPU-s${actual.cpuMeasured ? '' : ' (CPU time not measurable here: full utilisation assumed)'}, ${region} grid at ${gridIntensity} gCO2e/kWh.`);
+    if (changedLinesRun && projectedWholeFile) console.log(`Mutation work: ${changedLinesRun.mutants} changed-line mutants at ${formatGrams(changedLinesRun.sciG)} instead of ${projectedWholeFile.mutants} whole-file mutants projected at ${formatGrams(projectedWholeFile.sciG)} (${savedPercent}% avoided).`);
+  }
+  // Native MR widgets: Code Quality lists each unnoticed change on its line; Metrics compares score and footprint with the target branch.
+  await save('evidence/gl-code-quality.json', codeQualityReport(mutation.mutants, triage));
+  await writeFile('evidence/metrics.txt', metricsReport({ score: mutation.score, survived: mutation.counts.survived, noCoverage: mutation.counts.noCoverage, mutantsRun: savings.mutantsChangedLines, mutantsAvoided: savings.mutantsAvoided, aiCallsAvoided: savings.aiCallsAvoided, footprint: evidence.footprint }));
+  console.log('Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt');
   if (!baselinePassed || !complete) process.exitCode = 2;
 }
 
@@ -43,7 +53,9 @@ async function gate() {
   await save('evidence/gate.json', { ...final, headSha, threshold: policy.mutationThreshold ?? 100, score: storedMetrics.score, checkedAt: new Date().toISOString() });
   console.log(JSON.stringify(final, null, 2));
   if (final.status === 'failed') console.log(`Add the tests Mutant Review proposed, or have a Maintainer comment "${process.env.MUTANT_REVIEW_HANDLE ?? '@<flow-account>'} override <reason>" and re-run this job.`);
-  if (final.status !== 'passed' && final.status !== 'overridden') process.exitCode = 1;
+  // No executable changed lines is not a pass and not a block: exit 3, which CI shows as a warning (allow_failure: exit_codes).
+  if (final.status === 'no-applicable-scope') { console.log('No mutable changed lines: nothing for the mutation gate to protect. Not a pass; shown as a warning.'); process.exitCode = 3; }
+  else if (final.status !== 'passed' && final.status !== 'overridden') process.exitCode = 1;
 }
 
 /** Regenerates the AGENTS.md section from approved lessons; CI fails if it drifted. */

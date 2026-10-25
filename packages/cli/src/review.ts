@@ -6,8 +6,10 @@ import { mutationMetrics, normalizeStrykerReport, evaluateGate } from '../../rev
 import { preflight } from '../../review-core/src/preflight.js';
 import type { MemoryLesson } from '../../review-core/src/memory.js';
 import { triageMutants } from '../../review-core/src/triage.js';
+import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 import type { MutationScope, NormalizedMutant } from '../../review-core/src/types.js';
-import { execute } from './runner.js';
+import { execute, type Execution } from './runner.js';
+import { machine } from './cpu.js';
 import { digest, makeProposal, verifySandbox } from './proof.js';
 
 export const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 8_000_000 }).trim();
@@ -69,12 +71,19 @@ export async function runStryker(ranges: string[], options: { incremental: boole
   return { run, report };
 }
 
-/** Measured, not estimated: how many mutants the whole changed files would have generated. */
-export async function countWholeFileMutants(paths: string[]): Promise<number | null> {
-  if (!paths.length) return null;
+/** Measured, not estimated: how many mutants the whole changed files would have generated. The run is also the fixed cost of any Stryker run on those files. */
+export async function countWholeFileMutants(paths: string[]): Promise<{ count: number | null; run: Execution | null }> {
+  if (!paths.length) return { count: null, run: null };
   const { run } = await runStryker(paths, { incremental: false, name: 'whole-file-count', dryRunOnly: true, timeoutMs: 120_000 });
   const match = /Instrumented \d+ source file\(s\) with (\d+) mutant\(s\)/.exec(await readFile(run.log, 'utf8').catch(() => ''));
-  return match ? Number(match[1]) : null;
+  return { count: match ? Number(match[1]) : null, run };
+}
+
+/** The runner VM is reserved for the job, so its vCPUs and memory are the resources the review holds. */
+export function usageOf(run: Execution | null): Usage | null {
+  if (!run) return null;
+  const host = machine();
+  return { wallMs: run.durationMs, cpuMs: run.cpuMs, vCpus: host.vCpus, memoryGb: host.memoryGb };
 }
 
 export async function runReview(context: ReviewContext) {
@@ -126,6 +135,7 @@ export async function runReview(context: ReviewContext) {
   let rawReport: Record<string, unknown> | null = null;
   let cacheKey: string | null = null;
   let wholeFileMutants: number | null = null;
+  let wholeFileRun: Execution | null = null;
   const skippedReason = !baselinePassed ? 'Inconclusive: the unmodified test suite failed.' : !scope.length ? 'Changed-source mode has no applicable source scope.' : !scopeWithinBudget ? 'The MR scope exceeds the configured file or line budget.' : null;
   if (!skippedReason) {
     // Dependency, runner, policy, snapshot, environment and toolchain changes invalidate reuse.
@@ -139,11 +149,15 @@ export async function runReview(context: ReviewContext) {
     rawReport = stryker.report;
     if (rawReport) mutants = normalizeStrykerReport(rawReport as never, scope, { headSha, ...(baseSha ? { baseSha } : {}), toolchain: provenance.toolchain, fresh: demo });
     await save('evidence/incremental/key.json', { cacheKey });
-    wholeFileMutants = await countWholeFileMutants(scope.map((file) => file.path));
+    ({ count: wholeFileMutants, run: wholeFileRun } = await countWholeFileMutants(scope.map((file) => file.path)));
     if (wholeFileMutants !== null && wholeFileMutants < mutants.length) wholeFileMutants = null;
   }
   const metrics = mutationMetrics(mutants);
-  const complete = Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && rawReport && metrics.total <= budget.mutants && metrics.pending === 0 && metrics.invalid === 0);
+  // An MR with no executable changed source has nothing to mutate: the analysis is complete and the gate reports no-applicable-scope.
+  // Stryker can also generate no mutants for real changes (e.g. inside a TypeScript `as` expression).
+  const mutantFree = Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && !rawReport && /mutant-free world/i.test(await readFile(mutationRun.log, 'utf8').catch(() => '')));
+  const nothingToMutate = baselinePassed && (!scope.length || mutantFree);
+  const complete = nothingToMutate || Boolean(!skippedReason && mutationRun?.exitCode === 0 && !mutationRun.timedOut && rawReport && metrics.total <= budget.mutants && metrics.pending === 0 && metrics.invalid === 0);
   const threshold = policy.mutationThreshold ?? 100;
   const gate = evaluateGate({ baselinePassed, complete, expectedHeadSha: headSha, evidenceHeadSha: headSha, metrics, threshold, actionableSurvivors: metrics.survived, protectedFilesChanged: protectedChanges });
   const sources = Object.fromEntries(Object.entries((rawReport as { files?: Record<string, { source: string }> } | null)?.files ?? {}).map(([path, file]) => [path.replaceAll('\\', '/').replace(/^\.\//, ''), file.source]));
@@ -157,6 +171,18 @@ export async function runReview(context: ReviewContext) {
     aiCallsAvoided: triage.arid.length + triage.overflow,
     lessonsInMemory: lessons.length,
   };
+  // SCI of this review from measured CPU time, plus the projected cost of mutating the whole changed files.
+  const changedLinesUsage = usageOf(mutationRun);
+  const wholeFileDryUsage = usageOf(wholeFileRun);
+  const footprint = footprintReceipt({
+    review: [usageOf(baselineRun), changedLinesUsage, wholeFileDryUsage].filter((item): item is Usage => item !== null),
+    changedLinesRun: changedLinesUsage,
+    wholeFileDryRun: wholeFileDryUsage,
+    changedMutants: metrics.total,
+    wholeFileMutants: wholeFileMutants === null || wholeFileMutants < metrics.total ? null : wholeFileMutants,
+    env: process.env,
+    modelCalls: { made: 0, avoided: savings.aiCallsAvoided },
+  });
   const targeted = mutants.find((mutant) => mutant.status === 'Survived' && mutant.operator === 'EqualityOperator' && mutant.replacement === 'subtotalCents > 10_000' && mutant.path === 'packages/demo-domain/src/shipping.ts');
   // The fixture proof is for the local demo console only; MR reviews use the Duo flow's verifyDraft.
   const proposal = targeted && demo ? await makeProposal() : null;
@@ -185,6 +211,7 @@ export async function runReview(context: ReviewContext) {
     mutation: { status: complete ? 'complete' : 'inconclusive', score: metrics.score, counts: { killed: metrics.killed, survived: metrics.survived, noCoverage: metrics.noCoverage, timedOut: metrics.timedOut, invalid: metrics.invalid, ignored: metrics.ignored, pending: metrics.pending }, mutants: mutants.map((mutant) => ({ ...mutant, line: mutant.location.start.line })), durationMs: mutationRun?.durationMs ?? null, reportPath: rawReport ? 'evidence/mutation/mutation.json' : null, incremental: context.mode === 'ci', cacheKey },
     triage,
     savings,
+    footprint,
     findings,
     verification,
     metrics: { modelCalls: 0, tokens: null, repairAttempts: proposal ? 1 : 0, verifiedRepairs: 0, localSandboxProofs: verification.status === 'passed' ? 1 : 0, mutantsGenerated: metrics.total, freshExecutions: demo ? metrics.total : null, cachedResults: demo ? 0 : null, totalDurationMs: Date.now() - started, lessonsApproved: lessons.length, lessonApplications: 0 },

@@ -26,8 +26,10 @@ variables:
   MUTANT_REVIEW_HANDLE: "@ai-mutant-review-evidence-triage-mutant-review"
 
 # Node jobs only; GitLab's SAST and secret-detection analyzers bring their own images.
+# Interruptible: a newer push to the same MR cancels work whose result would be thrown away.
 .node:
   image: node:24.16.0-bookworm
+  interruptible: true
   before_script:
     - npm ci --no-audit --no-fund
   cache:
@@ -62,8 +64,23 @@ verify:hallucination-check:
     - npm run test:e2e
   timeout: 10 minutes
 
+# The mutation jobs run only when an MR touches TypeScript or the evaluator itself. A docs-only
+# MR spends no runner time on mutation testing (there is nothing for the gate to protect).
+.mutation_inputs: &mutation_inputs
+  paths:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - ".mutant-review/**/*"
+    - ".gitlab-ci.yml"
+    - "ci/**/*"
+    - "stryker.config.json"
+    - "package.json"
+    - "package-lock.json"
+
 # Stryker on the changed lines only, every MR pipeline. Deterministic triage drops arid
-# mutants and ranks at most three findings.
+# mutants and ranks at most three findings. Every review records its own SCI footprint
+# (measured CPU time) in evidence/latest.json, and publishes two native MR widgets:
+# Code Quality (each unnoticed change on its line) and Metrics (score and footprint vs target).
 mutation:review:
   extends: .node
   stage: review
@@ -76,6 +93,7 @@ mutation:review:
       paths: [evidence/incremental/]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *mutation_inputs
   script:
     - npm run review
   timeout: 10 minutes
@@ -83,6 +101,9 @@ mutation:review:
     when: always
     expire_in: 30 days
     paths: [evidence/]
+    reports:
+      codequality: evidence/gl-code-quality.json
+      metrics: evidence/metrics.txt
 
 # Posts the ranked findings once per head (at most three inline comments) and invites the
 # author to mention the flow for verified test proposals. No model call happens here.
@@ -94,12 +115,14 @@ mutation:notify:
       artifacts: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $MUTANT_REVIEW_TOKEN'
+      changes: *mutation_inputs
   script:
     - npm run mr -- flow notify
   allow_failure: true
 
 # Changed-line mutation score must clear .mutant-review/policy.json, or a Maintainer must
 # comment "<handle> override <reason>" after the latest push. evidence/gate.json is the audit.
+# Exit 3 means no mutable changed lines: not a pass and not a block, so it shows as a warning.
 mutation:gate:
   extends: .node
   stage: govern
@@ -108,10 +131,12 @@ mutation:gate:
       artifacts: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *mutation_inputs
       when: always
   script:
     - npm run gate
-  allow_failure: false
+  allow_failure:
+    exit_codes: [3]
   artifacts:
     when: always
     expire_in: 30 days

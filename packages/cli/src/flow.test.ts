@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { checkDraft, decodePayload, encodePayload, flowApply, inert, pendingTrigger, summaryBody, testFileCandidates, testName, withTest, type ProposalPayload } from './flow.js';
 import type { RankedFinding } from '../../review-core/src/triage.js';
+import { footprintReceipt, type Usage } from '../../review-core/src/footprint.js';
 
 const handle = '@ai-mutant-review';
 const good = { finding: 1, testPath: 'src/shipping.test.ts', imports: ["import { shippingFee } from './shipping.js';"], test: "it('ships free at exactly $100', () => {\n  expect(shippingFee(10_000)).toBe(0);\n});", expectedFrom: 'SHIPPING-001' };
 const finding: RankedFinding = { rank: 1, fingerprint: 'f'.repeat(64), path: 'src/shipping.ts', line: 4, operator: 'EqualityOperator', original: 'a >= b', replacement: 'a > b', status: 'Survived', priority: 'high', why: 'Changing `a >= b` to `a > b` on line 4 fails no test.' };
+const dry: Usage = { wallMs: 10_000, cpuMs: 8_000, vCpus: 2, memoryGb: 8 };
+const scoped: Usage = { wallMs: 20_000, cpuMs: 28_000, vCpus: 2, memoryGb: 8 };
 const note = (id: number, body: string, system = false) => ({ id, body, system, created_at: '2026-10-24T12:00:00Z', author: { id: 9, username: 'dev' } });
 
 describe('draft guardrails', () => {
@@ -64,6 +67,13 @@ describe('proposal payload', () => {
     expect(body).toContain('`@ai-mutant-review apply 1`');
     expect(body).toContain('"Untested boundary value"');
     expect(body).toContain('Filtered as noise before any AI call: 1 (logging statement)');
+    expect(body).not.toContain('Footprint');
+  });
+  it('closes the summary with the review footprint and the mutation work scoping avoided', () => {
+    const evidence = { mutation: { score: 75, counts: { killed: 3, survived: 1, noCoverage: 0 } }, gate: { status: 'failed' }, triage: { arid: [], overflow: 0 },
+      footprint: footprintReceipt({ review: [scoped, dry], changedLinesRun: scoped, wholeFileDryRun: dry, changedMutants: 10, wholeFileMutants: 40, env: { CI_RUNNER_DESCRIPTION: '1-green.saas-linux-small-arm64.runners-manager.gitlab.com' } }) };
+    const line = summaryBody(evidence, [finding], payload, handle, 90).split('\n\n').at(-1)!;
+    expect(line).toMatch(/^<sub>Footprint of this review: \*\*\d+ mgCO2e\*\* \(SCI per review, 36 CPU-s measured, us-central1 grid\); changed-line scoping ran 10 of 40 mutants, avoiding ~\d+% of the mutation energy \(projected\)\.<\/sub>$/);
   });
 });
 

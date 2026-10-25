@@ -34,7 +34,20 @@ const triage = z.object({
 });
 const savings = z.object({ mutantsChangedLines: count, mutantsWholeFiles: count.nullable(), mutantsAvoided: count.nullable(),
   aridFiltered: count, aiCallsAvoided: count, lessonsInMemory: count });
+const grams = z.number().finite().nonnegative();
+const usage = z.object({ wallMs: duration, cpuMs: duration.nullable(), vCpus: z.number().int().positive().max(1024), memoryGb: z.number().finite().positive().max(100_000) });
+const footprintValue = z.object({ energyWh: grams, operationalG: grams, embodiedG: grams, sciG: grams, cpuSeconds: grams, utilization: z.number().finite().min(0).max(1), cpuMeasured: z.boolean() });
+const footprint = z.object({
+  functionalUnit: z.literal('one merge-request review'), boundary: text, region: label, regionBasis: label,
+  gridIntensity: grams, machine: z.object({ vCpus: z.number().int().positive(), memoryGb: z.number().finite().positive() }),
+  measured: usage, actual: footprintValue, range: z.object({ lowG: grams, highG: grams }),
+  changedLinesRun: footprintValue.extend({ mutants: count }).nullable(),
+  projectedWholeFile: footprintValue.extend({ mutants: count, projected: z.literal(true) }).nullable(),
+  savedG: grams.nullable(), savedPercent: z.number().finite().min(0).max(100).nullable(),
+  modelCalls: z.object({ made: count, avoided: count }),
+});
 export type EvidenceTriage = z.infer<typeof triage>;
+export type EvidenceFootprint = z.infer<typeof footprint>;
 export type EvidenceSavings = z.infer<typeof savings>;
 export { label, text, path as repositoryPath };
 
@@ -63,7 +76,7 @@ export const evidenceSchema = z.object({
   integrations: z.object({ gitlab: label, duo: label }),
   gate: z.object({ status: z.enum(['passed', 'failed', 'inconclusive', 'no-applicable-scope']), reasons: z.array(text).max(100) }),
   evidenceFiles: z.array(path).max(200),
-  triage: triage.optional(), savings: savings.optional(),
+  triage: triage.optional(), savings: savings.optional(), footprint: footprint.nullable().optional(),
 });
 
 export interface EvidenceExpectations {
@@ -111,6 +124,14 @@ export function validateEvidence(input: unknown, expected: EvidenceExpectations 
     const { mutantsWholeFiles: whole, mutantsAvoided: avoided, mutantsChangedLines: changed, aridFiltered, aiCallsAvoided } = evidence.savings;
     if ((whole === null) !== (avoided === null) || (whole !== null && avoided !== whole - changed)) fail('avoided mutants do not equal whole-file minus changed-line mutants');
     if (evidence.triage && (aridFiltered !== evidence.triage.arid.length || aiCallsAvoided !== aridFiltered + evidence.triage.overflow)) fail('savings do not match the triage record');
+  }
+  if (evidence.footprint) {
+    const { actual, range, changedLinesRun, projectedWholeFile, savedG, modelCalls } = evidence.footprint;
+    if (Math.abs(actual.operationalG + actual.embodiedG - actual.sciG) > 0.001 || range.lowG > actual.sciG + 0.001 || range.highG < actual.sciG - 0.001) fail('footprint does not add up');
+    if (changedLinesRun && changedLinesRun.mutants !== evidence.mutation.mutants.length) fail('footprint mutant count does not match the raw inventory');
+    if (projectedWholeFile && (evidence.savings?.mutantsWholeFiles !== projectedWholeFile.mutants || !changedLinesRun)) fail('footprint projection does not match the measured whole-file count');
+    if ((savedG === null) !== (projectedWholeFile === null)) fail('footprint saving has no projection behind it');
+    if (evidence.savings && modelCalls.avoided !== evidence.savings.aiCallsAvoided) fail('footprint model calls do not match the savings record');
   }
   if (evidence.mutation.status === 'complete' && (!evidence.scope.complete || metrics.invalid || metrics.pending || evidence.baseline.status !== 'passed')) fail('completed analysis contains incomplete or failed execution');
   if (evidence.gate.status === 'passed' && (evidence.baseline.status !== 'passed' || !evidence.scope.complete || evidence.mutation.status !== 'complete' || metrics.score === null || metrics.invalid || metrics.pending || evidence.scope.protectedFilesChanged)) fail('passing gate contradicts the execution evidence');

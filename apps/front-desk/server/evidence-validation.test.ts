@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateEvidence } from './evidence-validation.js';
+import { footprintReceipt } from '../../../packages/review-core/src/footprint.js';
 
 // A captured actual engine run makes these parser tests work before a fresh demo run.
 // The application never serves this fixture; assertions mutate only trust boundaries.
@@ -91,5 +92,39 @@ describe('triage and savings', () => {
     expect(() => validateEvidence(inflated)).toThrow('avoided mutants');
     const calls = copy(); calls.savings.aiCallsAvoided = 7;
     expect(() => validateEvidence(calls)).toThrow('savings do not match');
+  });
+});
+
+describe('footprint', () => {
+  const dry = { wallMs: 4_000, cpuMs: 3_000, vCpus: 2, memoryGb: 8 };
+  const scoped = { wallMs: 6_000, cpuMs: 7_000, vCpus: 2, memoryGb: 8 };
+  const withFootprint = (wholeFileMutants = 40) => {
+    const value = copy();
+    value.savings.mutantsWholeFiles = wholeFileMutants; value.savings.mutantsAvoided = wholeFileMutants - 5;
+    value.footprint = footprintReceipt({ review: [scoped, dry], changedLinesRun: scoped, wholeFileDryRun: dry, changedMutants: 5, wholeFileMutants, env: {} });
+    return value;
+  };
+  it('passes a measured receipt through, and accepts runs without one', () => {
+    const evidence = validateEvidence(withFootprint());
+    expect(evidence.footprint!.functionalUnit).toBe('one merge-request review');
+    expect(evidence.footprint!.projectedWholeFile!.mutants).toBe(40);
+    expect(evidence.footprint!.savedPercent).toBeGreaterThan(0);
+    expect(validateEvidence(measured)).not.toHaveProperty('footprint');
+  });
+  it('rejects receipts that do not add up or disagree with the inventory', () => {
+    const sum = withFootprint(); sum.footprint.actual.sciG += 1;
+    expect(() => validateEvidence(sum)).toThrow('footprint does not add up');
+    const count = withFootprint(); count.footprint.changedLinesRun.mutants = 4;
+    expect(() => validateEvidence(count)).toThrow('footprint mutant count');
+    const whole = withFootprint(); whole.footprint.projectedWholeFile.mutants = 80;
+    expect(() => validateEvidence(whole)).toThrow('footprint projection');
+    const claim = withFootprint(); claim.footprint.projectedWholeFile = null;
+    expect(() => validateEvidence(claim)).toThrow('saving has no projection');
+    const calls = withFootprint(); calls.footprint.modelCalls.avoided = 3;
+    expect(() => validateEvidence(calls)).toThrow('model calls');
+  });
+  it('rejects a saving larger than the projection', () => {
+    const value = withFootprint(); value.footprint.savedPercent = 140;
+    expect(() => validateEvidence(value)).toThrow('Evidence format');
   });
 });

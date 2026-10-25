@@ -4,6 +4,7 @@ import { dirname, posix } from 'node:path';
 import { z } from 'zod';
 import { GitLabAdapter, type MergeRequest } from '../../gitlab-adapter/src/index.js';
 import { parseReviewCommand, type ReviewCommand } from '../../review-core/src/approval.js';
+import { formatGrams, type FootprintReceipt } from '../../review-core/src/footprint.js';
 import { mutationMetrics, normalizeStrykerReport, type GateOverride } from '../../review-core/src/report.js';
 import { learnFromRepair, lessonCategory, updateAgentsMd, type MemoryLesson } from '../../review-core/src/memory.js';
 import { normalizePath } from '../../review-core/src/scope.js';
@@ -19,14 +20,15 @@ type Note = Awaited<ReturnType<GitLabAdapter['listMergeRequestNotes']>>[number];
 
 // ---------- Pure helpers (unit-tested) ----------
 
+export const draftTestSchema = z.object({
+  finding: z.number().int().min(1).max(3),
+  testPath: z.string().min(1).max(300),
+  imports: z.array(z.string().max(300)).max(5).default([]),
+  test: z.string().min(10).max(4000),
+  expectedFrom: z.string().max(500).default(''),
+}).strict();
 export const draftSchema = z.object({
-  proposals: z.array(z.object({
-    finding: z.number().int().min(1).max(3),
-    testPath: z.string().min(1).max(300),
-    imports: z.array(z.string().max(300)).max(5).default([]),
-    test: z.string().min(10).max(4000),
-    expectedFrom: z.string().max(500).default(''),
-  }).strict()).max(3).default([]),
+  proposals: z.array(draftTestSchema).max(3).default([]),
   equivalent: z.array(z.object({ finding: z.number().int().min(1).max(3), reason: z.string().min(1).max(1000) }).strict()).max(3).default([]),
 }).strict();
 export type Draft = z.infer<typeof draftSchema>['proposals'][number];
@@ -264,7 +266,7 @@ function table(payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equiva
   return ['| # | Where | Change no test noticed | Verified test |', '|---|---|---|---|', ...rows].join('\n');
 }
 
-export function summaryBody(evidence: { mutation: { score: number | null; counts: { killed: number; survived: number; noCoverage: number } }; gate: { status: string }; triage: { arid: { reason: string }[]; overflow: number } }, ranked: RankedFinding[], payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equivalent'>, handle: string, threshold: number) {
+export function summaryBody(evidence: { mutation: { score: number | null; counts: { killed: number; survived: number; noCoverage: number } }; gate: { status: string }; triage: { arid: { reason: string }[]; overflow: number }; footprint?: FootprintReceipt | null }, ranked: RankedFinding[], payload: Pick<ProposalPayload, 'proposals' | 'rejected' | 'equivalent'>, handle: string, threshold: number) {
   const { counts, score } = evidence.mutation;
   const open = counts.survived + counts.noCoverage;
   const verified = payload.proposals.map((item) => item.finding.rank);
@@ -280,7 +282,17 @@ export function summaryBody(evidence: { mutation: { score: number | null; counts
       ? `Reply \`${handle} apply ${verified.join(' and ')}\` to commit ${verified.length === 1 ? 'this verified test' : 'these verified tests'} to this MR (Developer role or higher). Approving also adds ${lessons.map((item) => `"${item}"`).join(', ')} to this repository's AGENTS.md, so future agents stop repeating it.`
       : `Mention \`${handle}\` to draft a test for each finding. Every draft is executed against the mutant before you see it.`,
     `A Maintainer can waive the gate with \`${handle} override <written reason>\`; the reason is recorded in the gate job.`,
+    footprintLine(evidence.footprint),
   ].filter(Boolean).join('\n\n');
+}
+
+/** One line: what this review cost (SCI, measured CPU time) and the mutation work scoping avoided. */
+export function footprintLine(receipt: FootprintReceipt | null | undefined): string {
+  if (!receipt) return '';
+  const { actual, changedLinesRun, projectedWholeFile, savedPercent, region } = receipt;
+  const parts = [`<sub>Footprint of this review: **${formatGrams(actual.sciG)}** (SCI per review, ${actual.cpuSeconds} CPU-s ${actual.cpuMeasured ? 'measured' : 'assumed at full load'}, ${region} grid)`];
+  if (changedLinesRun && projectedWholeFile && savedPercent) parts.push(`changed-line scoping ran ${changedLinesRun.mutants} of ${projectedWholeFile.mutants} mutants, avoiding ~${savedPercent.toFixed(0)}% of the mutation energy (projected)`);
+  return `${parts.join('; ')}.</sub>`;
 }
 
 function inlineBody(finding: RankedFinding, proposal: VerifiedProposal | undefined, handle: string) {
