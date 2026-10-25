@@ -7,7 +7,9 @@ Mutation testing has a reputation for burning compute: every mutant re-runs test
 | What | Result | Status |
 | --- | --- | --- |
 | Mutants avoided by mutating only changed lines, 25 merged es-toolkit PRs | **3,031 of 4,088 (74%)** | Measured counts ([RESULTS.md](../benchmarks/RESULTS.md)) |
-| Energy avoided by the same scoping, both arms executed | `benchmarks/energy.ts` → [ENERGY.md](../benchmarks/ENERGY.md) | Harness and manual CI job ready; see [Reproduce](#reproduce) |
+| Energy avoided by the same scoping, both arms executed, same 25 PRs | **49%**: 4.26 Wh instead of 8.30 Wh (2,088 vs 4,268 CPU-s); 2.8 vs 5.4 gCO2e at us-east1 | Executed on a 2 vCPU / 7.8 GB Linux container ([ENERGY.md](../benchmarks/ENERGY.md)); less than the 74% of mutants because Stryker's start-up and initial test run are paid either way |
+| Per-MR whole-file projection vs the executed whole-file runs | **15%** median absolute error on CPU time | Same run |
+| Drafting-prompt context kept out by deterministic triage, same PRs | **92%**: 23 of 293 open mutants reach a prompt (≈59k tokens kept out, at 4 chars/token) | [es-toolkit-model-input.json](../benchmarks/results/es-toolkit-model-input.json) |
 | SCI of one review of the demo MR (2 vCPU / 7.8 GB Linux, us-east1 grid) | **17 mgCO2e** (range 12–20) per review | Measured CPU time, see the worked example |
 | Model calls made by the CI review and gate | **0** | By construction; at most one per human request in the Duo flow |
 | AI drafts that a reviewer has to read and reject | **0** | Every draft is executed against its mutant first |

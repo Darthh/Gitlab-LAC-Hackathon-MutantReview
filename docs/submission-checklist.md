@@ -25,7 +25,8 @@
 
 - [ ] Group owner: Settings > GitLab Duo > Change configuration > **Allow external MCP tools**, so Duo Agentic Chat can use `.gitlab/duo/mcp.json` (record it for the video)
 - [ ] On the next MR pipeline, confirm the Code Quality and metrics widgets appear on the MR
-- [ ] Optional: Build > Pipelines > Run pipeline on `main` with `RUN_ENERGY_BENCHMARK=1`; commit `benchmarks/energy/es-toolkit.json` and `benchmarks/ENERGY.md` from the job artifacts, then quote the energy number in Devpost
+- [x] Energy benchmark executed on all 25 PRs in a 2 vCPU cloud container: `benchmarks/ENERGY.md` (49% less energy, 15% projection error, 92% prompt context kept out), quoted in Devpost
+- [ ] Optional: re-run it on GitLab's runner (Build > Pipelines > Run pipeline on `main` with `RUN_ENERGY_BENCHMARK=1`) and commit the job's `benchmarks/energy/es-toolkit.json` and `benchmarks/ENERGY.md` if you want the GitLab-runner numbers instead
 
 ## Google Cloud bonus (docs/deploy.md)
 

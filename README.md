@@ -131,7 +131,7 @@ Every review records an [SCI](https://greensoftware.foundation/standards/sci/) r
 
 ![Front Desk Footprint: SCI per review, step breakdown, and the same review priced in other regions](docs/images/front-desk-footprint.png)
 
-Design choices that keep it small, each with its evidence: mutate only the diff (74% of mutants avoided on es-toolkit), no model call in CI, one model call per human request, verify drafts before a human reads them, interruptible jobs, no mutation on docs-only MRs, learn once in AGENTS.md. Full method, boundary and limitations: [docs/sustainability.md](docs/sustainability.md). The executed energy comparison on es-toolkit (`benchmarks/energy.ts`) runs as the manual `benchmark:energy` CI job on GitLab's own hosted runner.
+Design choices that keep it small, each with its evidence: mutate only the diff (74% of mutants avoided on es-toolkit), no model call in CI, one model call per human request, verify drafts before a human reads them, interruptible jobs, no mutation on docs-only MRs, learn once in AGENTS.md. Full method, boundary and limitations: [docs/sustainability.md](docs/sustainability.md). Executed on the same 25 es-toolkit PRs ([ENERGY.md](benchmarks/ENERGY.md)), changed-line scoping used **49% less energy** than mutating the whole changed files (4.26 vs 8.30 Wh), the per-MR projection was within 15% (median), and triage kept 92% of the per-finding prompt context out of the model. `benchmarks/energy.ts` reproduces it, also as the manual `benchmark:energy` CI job on GitLab's hosted runner.
 
 ## DevSecOps stages covered
 
@@ -149,6 +149,7 @@ Design choices that keep it small, each with its evidence: mutate only the diff 
 
 ## Measured, not claimed
 
+- **Energy, executed:** both arms of that comparison were run, not projected: 2,088 vs 4,268 CPU-seconds, 49% less energy for changed lines ([ENERGY.md](benchmarks/ENERGY.md)).
 - **Open-source benchmark:** [es-toolkit](https://github.com/toss/es-toolkit) (MIT, 11k★) describes itself as "battle-tested with 100% test coverage". Run over its last 25 merged PRs, the gate found that **11 shipped a changed line where a behaviour change survived every test** (178 surviving mutants). Scoping to changed lines ran 1,057 mutants instead of 4,088 (74% avoided), 18 seconds median per PR. A survivor is a change no test noticed, not a proven bug; survivors were not human-reviewed. Methodology, all 14 exclusions and per-PR results: [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 - **Live GitLab MR:** [pipeline 2984978409](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2984978409) on [!1](https://gitlab.com/mutant-review1/mutant-review/-/merge_requests/1): 100% branch coverage, 4 mutants, 1 survivor, 75% changed-line score, [gate failed](https://gitlab.com/mutant-review1/mutant-review/-/jobs/17440386477) and blocked the merge.
 - **Local proof:** `npm run demo` reproduces it in about 20 seconds and writes every raw artifact under `evidence/`.
@@ -159,7 +160,7 @@ Design choices that keep it small, each with its evidence: mutate only the diff 
 | --- | --- |
 | Verified on GitLab | Changed-line review and the gate blocking !1; the custom flow enabled and executing in a GitLab Duo workload ([pipeline 2985096882](https://gitlab.com/mutant-review1/mutant-review/-/pipelines/2985096882)) |
 | Verified by automated tests | Lost protection with real git, Vitest and Stryker in scratch repositories (`packages/cli/src/protection.e2e.ts`): a loosened assertion fails the gate and names the test, a rename-only refactor passes, deleted tests lose everything they guarded; arid triage, `apply 1 and 3` parsing and refusals, audited override, AGENTS.md memory, SCI footprint model (hand-worked example), Code Quality and metrics reports, and with real Vitest + Stryker (`npm run test:e2e`, GitLab mocked): draft verification, then `apply 1` committing the test, ledger, lesson and AGENTS.md with the score going 80% → 100%; the MCP server over stdio checking an uncommitted edit and verifying an agent's draft |
-| Wired, first live run pending | The lost-protection check on a GitLab MR (branch `demo/weakened-test`, see [docs/setup.md](docs/setup.md)); the new flow's draft → verify → `apply` loop on !1, and the Cloud Run deploy (needs the GCP variables in [docs/deploy.md](docs/deploy.md)); the Code Quality and metrics MR widgets, `rules: changes` and the warning exit on the gate, the `benchmark:energy` job, and Duo Agentic Chat using `.gitlab/duo/mcp.json` |
+| Wired, first live run pending | The lost-protection check on a GitLab MR (branch `demo/weakened-test`, see [docs/setup.md](docs/setup.md)); the new flow's draft → verify → `apply` loop on !1, and the Cloud Run deploy (needs the GCP variables in [docs/deploy.md](docs/deploy.md)); the Code Quality and metrics MR widgets, `rules: changes` and the warning exit on the gate, the `benchmark:energy` job on GitLab's runner (the same benchmark has been executed in a cloud container: [ENERGY.md](benchmarks/ENERGY.md)), and Duo Agentic Chat using `.gitlab/duo/mcp.json` |
 
 ## Front Desk
 

@@ -36,7 +36,7 @@ const lines = [
   `| SCI, all PRs, ${summary.region} (${GRID_REGIONS[summary.region]!.gridIntensity} gCO2e/kWh) | ${formatGrams(summary.changedLines.sciG)} | ${formatGrams(summary.wholeFile.sciG)} |`,
   `| SCI per review (mean) | ${formatGrams(summary.changedLines.sciG / summary.measured)} | ${formatGrams(summary.wholeFile.sciG / summary.measured)} |`,
   '',
-  `Machine: ${summary.machine}. GitLab's default hosted runner (\`saas-linux-small-amd64\`) is also 2 vCPU / 8 GB.`,
+  `Machine: ${summary.machine}. GitLab's default hosted runner (\`saas-linux-small-amd64\`) is also 2 vCPU / 8 GB.${summary.environment ? ` ${summary.environment}` : ''}`,
   '',
   summary.projectionErrorPercent === null ? '' : `**Per-MR projection check.** Every MR review projects the whole-file cost from two runs it already makes (the changed-line run and a whole-file dry run). Against the executed whole-file runs here, that projection's median absolute error on CPU time is **${summary.projectionErrorPercent.toFixed(0)}%**.`,
   '',

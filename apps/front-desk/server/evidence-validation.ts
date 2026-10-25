@@ -29,7 +29,7 @@ const triage = z.object({
   policy: label, considered: count,
   arid: z.array(z.object({ fingerprint: hash, path, line, reason: text })).max(10000),
   ranked: z.array(z.object({ rank: z.number().int().min(1).max(3), fingerprint: hash, path, line, operator: label, original: text, replacement: text,
-    status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text, origin: z.literal('lost-protection').optional() })).max(3),
+    status: z.enum(['Survived', 'NoCoverage']), priority: z.enum(['high', 'medium', 'low']), why: text, origin: z.literal('lost-protection').optional(), endLine: line.optional() })).max(3),
   overflow: count,
 });
 const modelInput = z.object({ findingsSent: z.number().int().min(0).max(3), findingsOpen: count, charsSent: count, charsOpen: count, charsAvoided: count, tokensAvoidedApprox: count });

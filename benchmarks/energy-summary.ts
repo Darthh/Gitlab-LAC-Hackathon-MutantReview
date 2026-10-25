@@ -14,6 +14,8 @@ const energySchema = z.object({
   repository: z.string().url().max(300).optional(),
   settings: z.object({ concurrency: count }).passthrough(),
   machine: z.object({ platform: z.string().max(80), cpuModel: z.string().max(200), vCpus: z.number().int().positive(), memoryGb: z.number().positive() }),
+  /** Where the run happened when it was not GitLab's hosted runner, and anything that could disturb the timings. */
+  environment: z.string().max(500).optional(),
   pullRequests: z.array(z.object({
     number: count, status: z.string().max(40), title: z.string().max(400).optional(), changedLines: count.optional(),
     scoped: run.optional(), wholeDry: run.optional(), whole: run.optional(),
@@ -35,6 +37,7 @@ export interface EnergySummary {
   repository: string;
   measured: number;
   machine: string;
+  environment?: string;
   region: string;
   changedLines: { cpuSeconds: number; energyWh: number; sciG: number; mutants: number };
   wholeFile: { cpuSeconds: number; energyWh: number; sciG: number; mutants: number };
@@ -85,6 +88,7 @@ export function summarizeEnergy(input: unknown, region = 'us-east1'): EnergySumm
     repository: data.repository?.replace(/^https:\/\/github\.com\//, '') ?? 'benchmark',
     measured: rows.length,
     machine: `${data.machine.vCpus} vCPU / ${data.machine.memoryGb} GB, ${data.machine.cpuModel}, concurrency ${data.settings.concurrency}`,
+    ...(data.environment ? { environment: data.environment } : {}),
     region,
     changedLines,
     wholeFile,

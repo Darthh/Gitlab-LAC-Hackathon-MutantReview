@@ -1,0 +1,1375 @@
+{
+  "schemaVersion": 1,
+  "source": "benchmarks/results/es-toolkit.json (same PRs, merge commits and changed-line ranges)",
+  "repository": "https://github.com/toss/es-toolkit",
+  "generatedAt": "2026-10-25T06:15:55.830Z",
+  "settings": {
+    "stryker": "10.1.1",
+    "testRunner": "vitest",
+    "coverageAnalysis": "perTest",
+    "concurrency": 2,
+    "incremental": false,
+    "runTimeoutMs": 2400000
+  },
+  "machine": {
+    "platform": "linux x64",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "vCpus": 2,
+    "memoryGb": 7.8,
+    "node": "v22.23.4"
+  },
+  "environment": "Measured in a cloud development container, not on a GitLab runner; other Stryker jobs shared the machine during part of the run. CPU time is counted per process tree, so it is far less affected than wall time.",
+  "cpuMeasurement": "user+system CPU time of each Stryker process tree from /proc/self/stat (cutime+cstime) around the run",
+  "pullRequests": [
+    {
+      "number": 2154,
+      "title": "fix[serialize, hash]: make Set and Map output independent of insertion order and detect native functions on JavaScriptCore",
+      "mergeSha": "c64e27288ad98f369b918574a669b5636b98e626",
+      "files": 2,
+      "changedLines": 37,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 35110,
+        "cpuMs": 56130,
+        "instrumentedMutants": 67,
+        "initialTests": 100,
+        "metrics": {
+          "score": 80.59701492537313,
+          "killed": 54,
+          "assertionKills": null,
+          "survived": 13,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 67
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14422,
+        "cpuMs": 18980,
+        "instrumentedMutants": 94,
+        "initialTests": 100,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 38603,
+        "cpuMs": 62850,
+        "instrumentedMutants": 94,
+        "initialTests": 100,
+        "metrics": {
+          "score": 85.1063829787234,
+          "killed": 80,
+          "assertionKills": null,
+          "survived": 14,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 94
+        }
+      }
+    },
+    {
+      "number": 2149,
+      "title": "fix[Semaphore]: keep release fast when may tasks are waiting",
+      "mergeSha": "8df6088fed2db71ddbca54c89f07adb4a128c38b",
+      "files": 1,
+      "changedLines": 3,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 21915,
+        "cpuMs": 23370,
+        "instrumentedMutants": 1,
+        "initialTests": 137,
+        "metrics": {
+          "score": 100,
+          "killed": 1,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 1
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 21515,
+        "cpuMs": 22530,
+        "instrumentedMutants": 22,
+        "initialTests": 137,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 50414,
+        "cpuMs": 31930,
+        "instrumentedMutants": 22,
+        "initialTests": 137,
+        "metrics": {
+          "score": 100,
+          "killed": 22,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 22
+        }
+      }
+    },
+    {
+      "number": 2153,
+      "title": "fix[Queue]: shrink the bundle by shortening node property names",
+      "mergeSha": "4a2a17880bc13c7dcf468a5d8fc3c28c7069c3f6",
+      "files": 1,
+      "changedLines": 18,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 17048,
+        "cpuMs": 23530,
+        "instrumentedMutants": 13,
+        "initialTests": 15,
+        "metrics": {
+          "score": 92.3076923076923,
+          "killed": 12,
+          "assertionKills": null,
+          "survived": 1,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 13
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 13335,
+        "cpuMs": 17360,
+        "instrumentedMutants": 26,
+        "initialTests": 15,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 17352,
+        "cpuMs": 25060,
+        "instrumentedMutants": 26,
+        "initialTests": 15,
+        "metrics": {
+          "score": 96.15384615384616,
+          "killed": 24,
+          "assertionKills": null,
+          "survived": 1,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 26
+        }
+      }
+    },
+    {
+      "number": 2097,
+      "title": "feat(compat): support Node.js 6+ in es-toolkit/compat",
+      "mergeSha": "5b8e3632ab23e20c4afbaa96f18cc23ef2703c7a",
+      "files": 50,
+      "changedLines": 621,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 505974,
+        "cpuMs": 877980,
+        "instrumentedMutants": 637,
+        "initialTests": 2067,
+        "metrics": {
+          "score": 60.43956043956044,
+          "killed": 372,
+          "assertionKills": null,
+          "survived": 136,
+          "noCoverage": 116,
+          "timedOut": 13,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 637
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 58727,
+        "cpuMs": 67050,
+        "instrumentedMutants": 2414,
+        "initialTests": 2067,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 1333883,
+        "cpuMs": 2365520,
+        "instrumentedMutants": 2414,
+        "initialTests": 2067,
+        "metrics": {
+          "score": 79.11313717364277,
+          "killed": 1847,
+          "assertionKills": null,
+          "survived": 331,
+          "noCoverage": 173,
+          "timedOut": 62,
+          "invalid": 1,
+          "ignored": 0,
+          "pending": 0,
+          "total": 2414
+        }
+      }
+    },
+    {
+      "number": 2150,
+      "title": "feat[Queue]: add Queue to es-toolkit/util",
+      "mergeSha": "07fd8f9dd534ceea82e31f878cd29e0b8b2d16ab",
+      "files": 2,
+      "changedLines": 36,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 16507,
+        "cpuMs": 20960,
+        "instrumentedMutants": 16,
+        "initialTests": 15,
+        "metrics": {
+          "score": 93.75,
+          "killed": 15,
+          "assertionKills": null,
+          "survived": 1,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 16
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 12819,
+        "cpuMs": 15480,
+        "instrumentedMutants": 26,
+        "initialTests": 15,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 15678,
+        "cpuMs": 22890,
+        "instrumentedMutants": 26,
+        "initialTests": 15,
+        "metrics": {
+          "score": 96.15384615384616,
+          "killed": 24,
+          "assertionKills": null,
+          "survived": 1,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 26
+        }
+      }
+    },
+    {
+      "number": 2143,
+      "title": "fix[deepFreeze]: freeze symbol and non-enumerable properties",
+      "mergeSha": "ab7f2d6f4ccdd2874ff332673bd185bca7574e83",
+      "files": 1,
+      "changedLines": 1,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 12622,
+        "cpuMs": 16770,
+        "instrumentedMutants": 0,
+        "initialTests": 18,
+        "metrics": {
+          "score": null,
+          "killed": 0,
+          "assertionKills": 0,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 0
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 11804,
+        "cpuMs": 16200,
+        "instrumentedMutants": 29,
+        "initialTests": 18,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 17405,
+        "cpuMs": 25910,
+        "instrumentedMutants": 29,
+        "initialTests": 18,
+        "metrics": {
+          "score": 82.75862068965517,
+          "killed": 21,
+          "assertionKills": null,
+          "survived": 5,
+          "noCoverage": 0,
+          "timedOut": 3,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 29
+        }
+      }
+    },
+    {
+      "number": 2146,
+      "title": "fix[intersectionBy]: match each mapped value at most once in lazy fp pipes",
+      "mergeSha": "678c655c8f9082e45e3b0eee52b08bfc55560aef",
+      "files": 1,
+      "changedLines": 8,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 13957,
+        "cpuMs": 19270,
+        "instrumentedMutants": 5,
+        "initialTests": 7,
+        "metrics": {
+          "score": 100,
+          "killed": 5,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 5
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 12240,
+        "cpuMs": 16710,
+        "instrumentedMutants": 11,
+        "initialTests": 7,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 16968,
+        "cpuMs": 20030,
+        "instrumentedMutants": 11,
+        "initialTests": 7,
+        "metrics": {
+          "score": 100,
+          "killed": 11,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 11
+        }
+      }
+    },
+    {
+      "number": 2113,
+      "title": "fix[head, last, maxBy, minBy]: improve fp type inference",
+      "mergeSha": "1708d31581fb8818be6c9b88914df8605e3e0358",
+      "files": 1,
+      "changedLines": 15,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 14801,
+        "cpuMs": 17170,
+        "instrumentedMutants": 0,
+        "initialTests": 14,
+        "metrics": {
+          "score": null,
+          "killed": 0,
+          "assertionKills": 0,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 0
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14814,
+        "cpuMs": 16360,
+        "instrumentedMutants": 11,
+        "initialTests": 14,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 16095,
+        "cpuMs": 19950,
+        "instrumentedMutants": 11,
+        "initialTests": 14,
+        "metrics": {
+          "score": 81.81818181818181,
+          "killed": 9,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 11
+        }
+      }
+    },
+    {
+      "number": 2121,
+      "title": "feat[query-string]: add stringify to es-toolkit/query-string",
+      "mergeSha": "5f0e6b2190ac820f02bbf11b1d02d840dc46bd51",
+      "files": 2,
+      "changedLines": 13,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 22704,
+        "cpuMs": 23250,
+        "instrumentedMutants": 20,
+        "initialTests": 10,
+        "metrics": {
+          "score": 90,
+          "killed": 14,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 0,
+          "timedOut": 4,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 20
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14691,
+        "cpuMs": 15990,
+        "instrumentedMutants": 24,
+        "initialTests": 10,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 18271,
+        "cpuMs": 24780,
+        "instrumentedMutants": 24,
+        "initialTests": 10,
+        "metrics": {
+          "score": 91.66666666666667,
+          "killed": 18,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 0,
+          "timedOut": 4,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 24
+        }
+      }
+    },
+    {
+      "number": 2133,
+      "title": "fix[orderBy, sortBy]: keep sort order consistent when values contain NaN",
+      "mergeSha": "4404ea89d9c6bab03a91c233d2187a7ff9efe2b6",
+      "files": 1,
+      "changedLines": 5,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 16624,
+        "cpuMs": 22850,
+        "instrumentedMutants": 8,
+        "initialTests": 59,
+        "metrics": {
+          "score": 100,
+          "killed": 8,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 8
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14402,
+        "cpuMs": 19060,
+        "instrumentedMutants": 44,
+        "initialTests": 59,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 26980,
+        "cpuMs": 38190,
+        "instrumentedMutants": 44,
+        "initialTests": 59,
+        "metrics": {
+          "score": 90.9090909090909,
+          "killed": 40,
+          "assertionKills": null,
+          "survived": 4,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 44
+        }
+      }
+    },
+    {
+      "number": 2130,
+      "title": "fix[truncate]: escape string separator in RegExp",
+      "mergeSha": "64efa4154b142c42e088b3d873bf0c998366093c",
+      "files": 1,
+      "changedLines": 1,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 26876,
+        "cpuMs": 30860,
+        "instrumentedMutants": 0,
+        "initialTests": 454,
+        "metrics": {
+          "score": null,
+          "killed": 0,
+          "assertionKills": 0,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 0
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 27439,
+        "cpuMs": 32330,
+        "instrumentedMutants": 59,
+        "initialTests": 454,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 42322,
+        "cpuMs": 53590,
+        "instrumentedMutants": 59,
+        "initialTests": 454,
+        "metrics": {
+          "score": 83.05084745762711,
+          "killed": 49,
+          "assertionKills": null,
+          "survived": 10,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 59
+        }
+      }
+    },
+    {
+      "number": 2124,
+      "title": "fix[deburr]: keep letters of non-Latin scripts as they are",
+      "mergeSha": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+      "files": 1,
+      "changedLines": 27,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 180432,
+        "cpuMs": 242190,
+        "instrumentedMutants": 80,
+        "initialTests": 508,
+        "metrics": {
+          "score": 92.20779220779221,
+          "killed": 69,
+          "assertionKills": null,
+          "survived": 6,
+          "noCoverage": 0,
+          "timedOut": 2,
+          "invalid": 3,
+          "ignored": 0,
+          "pending": 0,
+          "total": 80
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 29695,
+        "cpuMs": 34370,
+        "instrumentedMutants": 185,
+        "initialTests": 508,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 195891,
+        "cpuMs": 316280,
+        "instrumentedMutants": 185,
+        "initialTests": 508,
+        "metrics": {
+          "score": 95.05494505494505,
+          "killed": 172,
+          "assertionKills": null,
+          "survived": 9,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 3,
+          "ignored": 0,
+          "pending": 0,
+          "total": 185
+        }
+      }
+    },
+    {
+      "number": 2114,
+      "title": "fix(compat/unionWith): match lodash comparator argument order",
+      "mergeSha": "644cfd83b9b0207eb918a05adb924fc4c60e8acd",
+      "files": 1,
+      "changedLines": 2,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 28967,
+        "cpuMs": 35110,
+        "instrumentedMutants": 5,
+        "initialTests": 450,
+        "metrics": {
+          "score": 100,
+          "killed": 5,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 5
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 28419,
+        "cpuMs": 33520,
+        "instrumentedMutants": 7,
+        "initialTests": 450,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 31518,
+        "cpuMs": 35510,
+        "instrumentedMutants": 7,
+        "initialTests": 450,
+        "metrics": {
+          "score": 100,
+          "killed": 7,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 7
+        }
+      }
+    },
+    {
+      "number": 2123,
+      "title": "fix[deburr]: only deburr Latin letters like lodash",
+      "mergeSha": "ebea440fe47da124bfa7d9ed6c3084ad5e712832",
+      "files": 1,
+      "changedLines": 19,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 96229,
+        "cpuMs": 116650,
+        "instrumentedMutants": 64,
+        "initialTests": 485,
+        "metrics": {
+          "score": 92.1875,
+          "killed": 57,
+          "assertionKills": null,
+          "survived": 5,
+          "noCoverage": 0,
+          "timedOut": 2,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 64
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 31242,
+        "cpuMs": 33160,
+        "instrumentedMutants": 71,
+        "initialTests": 485,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 88669,
+        "cpuMs": 123930,
+        "instrumentedMutants": 71,
+        "initialTests": 485,
+        "metrics": {
+          "score": 91.54929577464789,
+          "killed": 62,
+          "assertionKills": null,
+          "survived": 6,
+          "noCoverage": 0,
+          "timedOut": 3,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 71
+        }
+      }
+    },
+    {
+      "number": 2122,
+      "title": "fix[groupBy, maxBy, minBy]: call the iteratee with only the element like lodash",
+      "mergeSha": "d830350184b6e4ebe9f5363927f2bf869ef1e888",
+      "files": 3,
+      "changedLines": 10,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 31420,
+        "cpuMs": 38400,
+        "instrumentedMutants": 9,
+        "initialTests": 471,
+        "metrics": {
+          "score": 100,
+          "killed": 8,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 9
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 30149,
+        "cpuMs": 36340,
+        "instrumentedMutants": 84,
+        "initialTests": 471,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 48222,
+        "cpuMs": 69830,
+        "instrumentedMutants": 84,
+        "initialTests": 471,
+        "metrics": {
+          "score": 95.23809523809524,
+          "killed": 79,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 2,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 84
+        }
+      }
+    },
+    {
+      "number": 2120,
+      "title": "refactor(compat): move baseToString into _internal",
+      "mergeSha": "d6f796064886b6229385c5f3e6165dab584ebfb6",
+      "files": 5,
+      "changedLines": 20,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 101281,
+        "cpuMs": 135870,
+        "instrumentedMutants": 40,
+        "initialTests": 1705,
+        "metrics": {
+          "score": 92.5,
+          "killed": 36,
+          "assertionKills": null,
+          "survived": 3,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 40
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 54591,
+        "cpuMs": 55720,
+        "instrumentedMutants": 163,
+        "initialTests": 1705,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 165111,
+        "cpuMs": 196780,
+        "instrumentedMutants": 163,
+        "initialTests": 1705,
+        "metrics": {
+          "score": 96.93251533742331,
+          "killed": 157,
+          "assertionKills": null,
+          "survived": 5,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 163
+        }
+      }
+    },
+    {
+      "number": 2056,
+      "title": "fix(add,subtract,multiply,divide): match Lodash on null operands",
+      "mergeSha": "b26a445dedaf0a307d83fa691c8ddfe9e3b4ddc9",
+      "files": 5,
+      "changedLines": 13,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 56159,
+        "cpuMs": 59060,
+        "instrumentedMutants": 0,
+        "initialTests": 1705,
+        "metrics": {
+          "score": null,
+          "killed": 0,
+          "assertionKills": 0,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 0
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 57877,
+        "cpuMs": 55330,
+        "instrumentedMutants": 157,
+        "initialTests": 1705,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 153589,
+        "cpuMs": 229060,
+        "instrumentedMutants": 157,
+        "initialTests": 1705,
+        "metrics": {
+          "score": 96.81528662420382,
+          "killed": 151,
+          "assertionKills": null,
+          "survived": 5,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 157
+        }
+      }
+    },
+    {
+      "number": 2110,
+      "title": "fix(compat/words): match emoji sequences, non-ASCII numerals and symbols",
+      "mergeSha": "ee72fc74b763d8cb48095e1981a5bcef19ba5cee",
+      "files": 1,
+      "changedLines": 13,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 46589,
+        "cpuMs": 62540,
+        "instrumentedMutants": 13,
+        "initialTests": 500,
+        "metrics": {
+          "score": 61.53846153846154,
+          "killed": 8,
+          "assertionKills": null,
+          "survived": 5,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 13
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 31241,
+        "cpuMs": 37410,
+        "instrumentedMutants": 48,
+        "initialTests": 500,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 62396,
+        "cpuMs": 93300,
+        "instrumentedMutants": 48,
+        "initialTests": 500,
+        "metrics": {
+          "score": 75,
+          "killed": 36,
+          "assertionKills": null,
+          "survived": 12,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 48
+        }
+      }
+    },
+    {
+      "number": 2099,
+      "title": "fix(dedent): keep interpolated values out of the indentation calculation",
+      "mergeSha": "a7c2398838cd6fed5988b7b4447747a7287bbd71",
+      "files": 1,
+      "changedLines": 15,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 17036,
+        "cpuMs": 23650,
+        "instrumentedMutants": 11,
+        "initialTests": 37,
+        "metrics": {
+          "score": 72.72727272727273,
+          "killed": 7,
+          "assertionKills": null,
+          "survived": 3,
+          "noCoverage": 0,
+          "timedOut": 1,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 11
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14165,
+        "cpuMs": 18820,
+        "instrumentedMutants": 141,
+        "initialTests": 37,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 45701,
+        "cpuMs": 77190,
+        "instrumentedMutants": 141,
+        "initialTests": 37,
+        "metrics": {
+          "score": 91.48936170212765,
+          "killed": 124,
+          "assertionKills": null,
+          "survived": 12,
+          "noCoverage": 0,
+          "timedOut": 5,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 141
+        }
+      }
+    },
+    {
+      "number": 2100,
+      "title": "fix(dedent): throw a TypeError for a malformed template literal like String.dedent",
+      "mergeSha": "f348be3ad50acb1eb7fd25f489384a7ab0ebcc30",
+      "files": 1,
+      "changedLines": 11,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 20903,
+        "cpuMs": 31340,
+        "instrumentedMutants": 30,
+        "initialTests": 32,
+        "metrics": {
+          "score": 93.33333333333333,
+          "killed": 28,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 30
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 14299,
+        "cpuMs": 19520,
+        "instrumentedMutants": 133,
+        "initialTests": 32,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 40628,
+        "cpuMs": 68420,
+        "instrumentedMutants": 133,
+        "initialTests": 32,
+        "metrics": {
+          "score": 93.98496240601504,
+          "killed": 122,
+          "assertionKills": null,
+          "survived": 8,
+          "noCoverage": 0,
+          "timedOut": 3,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 133
+        }
+      }
+    },
+    {
+      "number": 2102,
+      "title": "fix(compat/words): keep combining marks attached to the letter they modify",
+      "mergeSha": "0a10a56dd9dfc4e636e180dc7e6eba6003c28e7a",
+      "files": 1,
+      "changedLines": 2,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 38215,
+        "cpuMs": 47250,
+        "instrumentedMutants": 2,
+        "initialTests": 492,
+        "metrics": {
+          "score": 100,
+          "killed": 2,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 2
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 30598,
+        "cpuMs": 37100,
+        "instrumentedMutants": 47,
+        "initialTests": 492,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 56214,
+        "cpuMs": 82240,
+        "instrumentedMutants": 47,
+        "initialTests": 492,
+        "metrics": {
+          "score": 80.85106382978724,
+          "killed": 38,
+          "assertionKills": null,
+          "survived": 9,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 47
+        }
+      }
+    },
+    {
+      "number": 2103,
+      "title": "fix(words): match titlecase letters, aligning with lodash",
+      "mergeSha": "301b0c914297324443e6332da6d35348adbd648b",
+      "files": 1,
+      "changedLines": 1,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 39273,
+        "cpuMs": 47660,
+        "instrumentedMutants": 1,
+        "initialTests": 490,
+        "metrics": {
+          "score": 100,
+          "killed": 1,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 1
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 29168,
+        "cpuMs": 34310,
+        "instrumentedMutants": 47,
+        "initialTests": 490,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 57698,
+        "cpuMs": 86520,
+        "instrumentedMutants": 47,
+        "initialTests": 490,
+        "metrics": {
+          "score": 80.85106382978724,
+          "killed": 38,
+          "assertionKills": null,
+          "survived": 9,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 47
+        }
+      }
+    },
+    {
+      "number": 2101,
+      "title": "fix[forEach, forEachRight, forIn, forInRight, forOwn, forOwnRight, reduce, reduceRight]: resolve the iteratee like lodash",
+      "mergeSha": "8d70a08d09944ae4857e9b8b5f7bbdb836e50d72",
+      "files": 8,
+      "changedLines": 8,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 31747,
+        "cpuMs": 37260,
+        "instrumentedMutants": 0,
+        "initialTests": 580,
+        "metrics": {
+          "score": null,
+          "killed": 0,
+          "assertionKills": 0,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 0
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 30572,
+        "cpuMs": 36110,
+        "instrumentedMutants": 167,
+        "initialTests": 580,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 75663,
+        "cpuMs": 110910,
+        "instrumentedMutants": 167,
+        "initialTests": 580,
+        "metrics": {
+          "score": 91.61676646706587,
+          "killed": 146,
+          "assertionKills": null,
+          "survived": 14,
+          "noCoverage": 0,
+          "timedOut": 7,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 167
+        }
+      }
+    },
+    {
+      "number": 2098,
+      "title": "fix[xorBy, xorWith]: ignore the iteratee and comparator for a single array like lodash",
+      "mergeSha": "0d288f69839a145efcda264fce819d8c8a451b9b",
+      "files": 2,
+      "changedLines": 4,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 29870,
+        "cpuMs": 36950,
+        "instrumentedMutants": 8,
+        "initialTests": 451,
+        "metrics": {
+          "score": 100,
+          "killed": 8,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 8
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 26744,
+        "cpuMs": 32330,
+        "instrumentedMutants": 27,
+        "initialTests": 451,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 31265,
+        "cpuMs": 40750,
+        "instrumentedMutants": 27,
+        "initialTests": 451,
+        "metrics": {
+          "score": 92.5925925925926,
+          "killed": 25,
+          "assertionKills": null,
+          "survived": 2,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 27
+        }
+      }
+    },
+    {
+      "number": 2095,
+      "title": "fix[pull, pullAll, pullAllBy, remove]: handle nullish inputs like lodash",
+      "mergeSha": "9c6ca7dcbec5548bac4bd141b58fb231994ec12a",
+      "files": 4,
+      "changedLines": 7,
+      "status": "completed",
+      "scoped": {
+        "status": "completed",
+        "wallMs": 36666,
+        "cpuMs": 41740,
+        "instrumentedMutants": 27,
+        "initialTests": 461,
+        "metrics": {
+          "score": 100,
+          "killed": 27,
+          "assertionKills": null,
+          "survived": 0,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 27
+        }
+      },
+      "wholeDry": {
+        "status": "completed",
+        "wallMs": 29003,
+        "cpuMs": 31640,
+        "instrumentedMutants": 51,
+        "initialTests": 461,
+        "metrics": null
+      },
+      "whole": {
+        "status": "completed",
+        "wallMs": 38438,
+        "cpuMs": 46980,
+        "instrumentedMutants": 51,
+        "initialTests": 461,
+        "metrics": {
+          "score": 98.03921568627452,
+          "killed": 50,
+          "assertionKills": null,
+          "survived": 1,
+          "noCoverage": 0,
+          "timedOut": 0,
+          "invalid": 0,
+          "ignored": 0,
+          "pending": 0,
+          "total": 51
+        }
+      }
+    }
+  ]
+}
