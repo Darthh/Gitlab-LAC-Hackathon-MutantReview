@@ -27,21 +27,22 @@ The working brief for this project, rewritten from the original pitch so each pa
 8. **Merge gate.** The changed-line score must clear policy, or a Maintainer overrides with a written, audited reason, which opens a test-debt issue.
 9. **Front Desk.** A console of useless tests caught and repaired, AI drafts rejected, and compute and model calls saved.
 10. **Before the push.** The same review as an MCP server (`mutation_check`, `verify_test`) for GitLab Duo Agentic Chat and other coding agents, so an agent verifies its own test before any pipeline runs.
-11. **Measured footprint.** Every review records its SCI (ISO/IEC 21031) from measured CPU time, shown in the MR comment, GitLab's metrics widget and Front Desk, next to the projected cost of the whole-file run it avoided.
+11. **Guard the tests themselves.** When an MR edits, moves or deletes tests, mutate the target branch's code those tests import, keep what they caught, and re-run only that at the head. Caught before and not now blocks the merge, names the test, and shows how it was loosened. Agents cheat by editing tests ([ImpossibleBench](https://arxiv.org/abs/2510.20270): >79% of Claude models' cheats modified test cases); read-only tests aren't an option for an agent that writes tests, so measure the edit instead.
+12. **Measured footprint.** Every review records its SCI (ISO/IEC 21031) from measured CPU time, shown in the MR comment, GitLab's metrics widget and Front Desk, next to the projected cost of the whole-file run it avoided.
 
 ## Lifecycle reach (Technological Implementation, Most Stages)
 
-Plan (test-debt issue) · Create (approved test commits) · Verify (mutation, verified drafts) · Secure (SAST, secret detection, protected evaluator, credential-free execution) · Package (registry image) · Release (Cloud Run, smoke, rollback) · Configure (policy, flow, memory as code) · Monitor (scheduled smoke, Front Desk) · Govern (required gate, audited override, ledger).
+Plan (test-debt issue) · Create (approved test commits) · Verify (mutation, lost-protection check, verified drafts) · Secure (SAST, secret detection, protected evaluator, credential-free execution) · Package (registry image) · Release (Cloud Run, smoke, rollback) · Configure (policy, flow, memory as code) · Monitor (scheduled smoke, Front Desk) · Govern (required gate, audited override, ledger).
 
 ## Proof (measured, not claimed)
 
 - Run the gate over the last 25 merged PRs of a well-known MIT TypeScript repo and publish every exclusion. Result: es-toolkit ("battle-tested with 100% test coverage") shipped a change no test would notice in 11 of 25; changed-line scoping avoided 74% of mutants ([RESULTS.md](../benchmarks/RESULTS.md)). A survivor is a change no test detects, not proof of a production bug.
 - Demo MR: 100% branch coverage, 75% changed-line score, gate blocks; after `apply 1`, 100% and green.
-- CI job `verify:hallucination-check` proves on every pipeline that a plausible-but-useless draft is rejected.
+- CI job `verify:hallucination-check` proves on every pipeline that a plausible-but-useless draft is rejected, and that a test-only MR loosening an assertion is blocked while a rename-only refactor passes.
 
 ## Demo beats (Presentation, under 3 minutes)
 
-Green MR with 100% coverage → gate red at 75% → mention → verified test, rejected draft → `apply 1` → 100%, green → AGENTS.md lesson → merge → Cloud Run + Front Desk → benchmark headline. Script: [demo.md](demo.md).
+Green MR with 100% coverage → gate red at 75% → mention → verified test, rejected draft → `apply 1` → 100%, green → merge → second MR loosens that test, still green and 100% covered → gate red, lost protection named → AGENTS.md lesson and MCP self-check → Cloud Run + Front Desk → benchmark headline. Script: [demo.md](demo.md).
 
 ## Non-goals
 

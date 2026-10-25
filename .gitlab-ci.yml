@@ -53,8 +53,9 @@ baseline:
     expire_in: 30 days
     paths: [evidence/, coverage/]
 
-# Proves the core safety claim on every pipeline: an AI-drafted test is kept only if it
-# passes on the code and fails on its mutant. A plausible-but-useless draft is rejected.
+# Proves the core safety claims on every pipeline: an AI-drafted test is kept only if it
+# passes on the code and fails on its mutant (a plausible-but-useless draft is rejected), and a
+# test-only MR that loosens an assertion is blocked while a rename-only refactor passes.
 verify:hallucination-check:
   extends: .node
   stage: validate
@@ -77,8 +78,10 @@ verify:hallucination-check:
     - "package.json"
     - "package-lock.json"
 
-# Stryker on the changed lines only, every MR pipeline. Deterministic triage drops arid
-# mutants and ranks at most three findings. Every review records its own SCI footprint
+# Stryker on the changed lines only, every MR pipeline. When the MR edits, moves or deletes tests,
+# the lost-protection check also mutates the code those tests import on the target branch (git
+# worktree) and re-runs only the mutants they caught there at the head: caught before and not now
+# fails the gate. Deterministic triage drops arid mutants and ranks at most three findings. Every review records its own SCI footprint
 # (measured CPU time) in evidence/latest.json, and publishes two native MR widgets:
 # Code Quality (each unnoticed change on its line) and Metrics (score and footprint vs target).
 mutation:review:
@@ -96,7 +99,8 @@ mutation:review:
       changes: *mutation_inputs
   script:
     - npm run review
-  timeout: 10 minutes
+  # Changed-line run, whole-file count, and (only when tests changed) two lost-protection runs, each capped by policy.
+  timeout: 15 minutes
   artifacts:
     when: always
     expire_in: 30 days
@@ -120,7 +124,7 @@ mutation:notify:
     - npm run mr -- flow notify
   allow_failure: true
 
-# Changed-line mutation score must clear .mutant-review/policy.json, or a Maintainer must
+# Changed-line mutation score must clear .mutant-review/policy.json and no protection may be lost, or a Maintainer must
 # comment "<handle> override <reason>" after the latest push. evidence/gate.json is the audit.
 # Exit 3 means no mutable changed lines: not a pass and not a block, so it shows as a warning.
 mutation:gate:
