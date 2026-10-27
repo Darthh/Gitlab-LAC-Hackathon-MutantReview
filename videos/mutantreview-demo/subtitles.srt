@@ -1,0 +1,111 @@
+1
+00:00:00,000 --> 00:00:03,500
+Your tests passed. Would they notice the code breaking?
+
+2
+00:00:03,500 --> 00:00:07,000
+MutantReview checks whether your tests can detect a behavior change.
+
+3
+00:00:07,000 --> 00:00:12,000
+This is the real Front Desk, running a fresh local review.
+
+4
+00:00:12,000 --> 00:00:17,000
+Four baseline tests pass, with 100% branch coverage.
+
+5
+00:00:17,000 --> 00:00:22,000
+But one of five mutations survives. The 80% score blocks the 90% gate.
+
+6
+00:00:22,000 --> 00:00:27,000
+MutantReview changes the code slightly and reruns the tests.
+
+7
+00:00:27,000 --> 00:00:31,000
+Here, “at least $100” becomes “more than $100.”
+
+8
+00:00:31,000 --> 00:00:35,000
+An order of exactly $100 loses free shipping. No existing test notices.
+
+9
+00:00:35,000 --> 00:00:40,000
+The written contract says orders of at least $100 ship free.
+
+10
+00:00:40,000 --> 00:00:45,000
+The missing test checks exactly 10,000 cents and expects zero shipping.
+
+11
+00:00:45,000 --> 00:00:49,000
+This local fixture shows the repair. In the Duo flow, the agent drafts it.
+
+12
+00:00:49,000 --> 00:00:54,000
+A proposed test must pass on the original implementation.
+
+13
+00:00:54,000 --> 00:00:59,000
+It must also fail against the exact mutation it claims to catch.
+
+14
+00:00:59,000 --> 00:01:03,000
+A clean rerun reproduces both results. This is execution evidence.
+
+15
+00:01:03,000 --> 00:01:08,000
+A convincing-looking test can still protect nothing.
+
+16
+00:01:08,000 --> 00:01:13,000
+Testing $100.01 passes with both comparisons, so that draft is rejected.
+
+17
+00:01:13,000 --> 00:01:17,000
+The real Vitest and Stryker end-to-end tests verify that rejection.
+
+18
+00:01:17,000 --> 00:01:22,000
+A human selects the verified tests to apply through a merge request comment.
+
+19
+00:01:22,000 --> 00:01:27,000
+The flow checks permissions, proposal integrity, and the reviewed revision.
+
+20
+00:01:27,000 --> 00:01:31,000
+In the local end-to-end test, the approved repair moves the score to 100%.
+
+21
+00:01:31,000 --> 00:01:34,000
+The repair records its result and teaches AGENTS.md.
+
+22
+00:01:34,000 --> 00:01:39,000
+MutantReview also checks whether edited tests lose existing protection.
+
+23
+00:01:39,000 --> 00:01:43,000
+This separate local scenario catches a boundary test that was weakened.
+
+24
+00:01:43,000 --> 00:01:47,000
+Green tests should never hide behavior they used to protect.
+
+25
+00:01:47,000 --> 00:01:52,000
+Changed-line scope and a three-finding limit keep the review focused.
+
+26
+00:01:52,000 --> 00:01:58,000
+The console shows the findings, proof, history, and execution footprint.
+
+27
+00:01:58,000 --> 00:02:03,000
+MutantReview. Tests that notice when the code breaks.
+
+28
+00:02:03,000 --> 00:02:08,000
+Find the project on GitLab. Human approval. Executable proof.

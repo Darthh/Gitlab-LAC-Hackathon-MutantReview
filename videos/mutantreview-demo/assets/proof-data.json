@@ -1,0 +1,171 @@
+{
+  "revision": "a4a79e72b876902fb8e4f985020f2aa3d3506f7d",
+  "runId": "run-2026-10-27T07-28-25-088Z",
+  "baseline": {
+    "status": "passed",
+    "tests": 4,
+    "branchCoverage": 100,
+    "durationMs": 1572,
+    "log": "evidence/baseline.log"
+  },
+  "score": 80,
+  "gate": {
+    "status": "failed",
+    "reasons": [
+      "Mutation score 80.0% is below the 90% project policy.",
+      "1 actionable surviving finding(s) require repair or an explicit human waiver."
+    ]
+  },
+  "original": {
+    "passed": 5,
+    "total": 5
+  },
+  "mutant": {
+    "passed": 4,
+    "total": 5
+  },
+  "e2ePassed": 8,
+  "approval": "Local e2e test; GitLab API simulated. No live approval or remote repair.",
+  "captions": [
+    [
+      0,
+      3.5,
+      "Your tests passed. Would they notice the code breaking?"
+    ],
+    [
+      3.5,
+      7,
+      "MutantReview checks whether your tests can detect a behavior change."
+    ],
+    [
+      7,
+      12,
+      "This is the real Front Desk, running a fresh local review."
+    ],
+    [
+      12,
+      17,
+      "Four baseline tests pass, with 100% branch coverage."
+    ],
+    [
+      17,
+      22,
+      "But one of five mutations survives. The 80% score blocks the 90% gate."
+    ],
+    [
+      22,
+      27,
+      "MutantReview changes the code slightly and reruns the tests."
+    ],
+    [
+      27,
+      31,
+      "Here, “at least $100” becomes “more than $100.”"
+    ],
+    [
+      31,
+      35,
+      "An order of exactly $100 loses free shipping. No existing test notices."
+    ],
+    [
+      35,
+      40,
+      "The written contract says orders of at least $100 ship free."
+    ],
+    [
+      40,
+      45,
+      "The missing test checks exactly 10,000 cents and expects zero shipping."
+    ],
+    [
+      45,
+      49,
+      "This local fixture shows the repair. In the Duo flow, the agent drafts it."
+    ],
+    [
+      49,
+      54,
+      "A proposed test must pass on the original implementation."
+    ],
+    [
+      54,
+      59,
+      "It must also fail against the exact mutation it claims to catch."
+    ],
+    [
+      59,
+      63,
+      "A clean rerun reproduces both results. This is execution evidence."
+    ],
+    [
+      63,
+      68,
+      "A convincing-looking test can still protect nothing."
+    ],
+    [
+      68,
+      73,
+      "Testing $100.01 passes with both comparisons, so that draft is rejected."
+    ],
+    [
+      73,
+      77,
+      "The real Vitest and Stryker end-to-end tests verify that rejection."
+    ],
+    [
+      77,
+      82,
+      "A human selects the verified tests to apply through a merge request comment."
+    ],
+    [
+      82,
+      87,
+      "The flow checks permissions, proposal integrity, and the reviewed revision."
+    ],
+    [
+      87,
+      91,
+      "In the local end-to-end test, the approved repair moves the score to 100%."
+    ],
+    [
+      91,
+      94,
+      "The repair records its result and teaches AGENTS.md."
+    ],
+    [
+      94,
+      99,
+      "MutantReview also checks whether edited tests lose existing protection."
+    ],
+    [
+      99,
+      103,
+      "This separate local scenario catches a boundary test that was weakened."
+    ],
+    [
+      103,
+      107,
+      "Green tests should never hide behavior they used to protect."
+    ],
+    [
+      107,
+      112,
+      "Changed-line scope and a three-finding limit keep the review focused."
+    ],
+    [
+      112,
+      118,
+      "The console shows the findings, proof, history, and execution footprint."
+    ],
+    [
+      118,
+      123,
+      "MutantReview. Tests that notice when the code breaks."
+    ],
+    [
+      123,
+      128,
+      "Find the project on GitLab. Human approval. Executable proof."
+    ]
+  ]
+}

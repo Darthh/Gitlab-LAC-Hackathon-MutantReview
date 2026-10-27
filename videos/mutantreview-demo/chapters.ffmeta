@@ -1,0 +1,54 @@
+;FFMETADATA1
+title=MutantReview — Tests that notice
+artist=MutantReview
+comment=Music: Cipher by Kevin MacLeod (incompetech.com), CC BY 4.0, excerpt and fades. Actual local execution; approval-flow illustration uses a simulated GitLab API.
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=7000
+title=Would your tests notice?
+[CHAPTER]
+TIMEBASE=1/1000
+START=7000
+END=22000
+title=Real Front Desk review
+[CHAPTER]
+TIMEBASE=1/1000
+START=22000
+END=35000
+title=Inspect the surviving mutation
+[CHAPTER]
+TIMEBASE=1/1000
+START=35000
+END=49000
+title=Test the exact boundary
+[CHAPTER]
+TIMEBASE=1/1000
+START=49000
+END=63000
+title=Verify by execution
+[CHAPTER]
+TIMEBASE=1/1000
+START=63000
+END=77000
+title=Reject ineffective drafts
+[CHAPTER]
+TIMEBASE=1/1000
+START=77000
+END=94000
+title=Human approval — local e2e illustration
+[CHAPTER]
+TIMEBASE=1/1000
+START=94000
+END=107000
+title=Catch weakened tests
+[CHAPTER]
+TIMEBASE=1/1000
+START=107000
+END=118000
+title=Focused review and execution footprint
+[CHAPTER]
+TIMEBASE=1/1000
+START=118000
+END=128000
+title=MutantReview and credits

@@ -1,0 +1,14 @@
+renders/
+capture/raw/
+capture/screenshots/
+assets/*.mp3
+assets/*.wav
+assets/*.mp4
+!assets/console-tour.mp4
+!assets/finding-interaction.mp4
+!assets/soundtrack.mp3
+.hyperframes/
+.media/
+node_modules/
+boards/
+.thumbnails/
