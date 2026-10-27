@@ -14,3 +14,4 @@ boards/
 .thumbnails/
 capture/working/
 boards-working/
+.waveform-cache/
