@@ -1,0 +1,579 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-2026-10-27T08-04-18-008Z",
+  "createdAt": "2026-10-27T08:04:51.058Z",
+  "source": "local",
+  "provenance": {
+    "projectId": null,
+    "mrIid": null,
+    "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+    "baseSha": null,
+    "pipelineId": null,
+    "jobId": null,
+    "pipelineUrl": null,
+    "projectUrl": null,
+    "policyVersion": "1.0.0",
+    "toolchain": {
+      "node": "v24.16.0",
+      "vitest": "4.1.12",
+      "stryker": "10.1.1"
+    },
+    "scopeKind": "local demonstration fixture; not an MR comparison",
+    "workingTreeHash": "0ca95a03562f4a13bfa0bc0e31badcf071a72457de1de157c1851a1bfee36092"
+  },
+  "baseline": {
+    "status": "passed",
+    "tests": 4,
+    "branchCoverage": 100,
+    "durationMs": 1782,
+    "log": "evidence/baseline.log"
+  },
+  "scope": {
+    "files": [
+      {
+        "path": "packages/demo-domain/src/shipping.ts",
+        "startLine": 3,
+        "endLine": 5,
+        "lines": [
+          {
+            "start": 3,
+            "end": 5
+          }
+        ]
+      }
+    ],
+    "changedLines": 3,
+    "complete": true,
+    "reason": null,
+    "limits": {
+      "files": 5,
+      "changedLines": 100,
+      "mutants": 100,
+      "runtimeMs": 180000
+    },
+    "protectedFilesChanged": false
+  },
+  "mutation": {
+    "status": "complete",
+    "score": 80,
+    "counts": {
+      "killed": 4,
+      "survived": 1,
+      "noCoverage": 0,
+      "timedOut": 0,
+      "invalid": 0,
+      "ignored": 0,
+      "pending": 0
+    },
+    "mutants": [
+      {
+        "id": "0",
+        "fingerprint": "dd27b36c93d804b433e217d3d7176f3d616b1a5a02a7bff22ebc62343bcb1166",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 2,
+            "line": 5
+          },
+          "start": {
+            "column": 60,
+            "line": 3
+          }
+        },
+        "original": "{\n  return subtotalCents >= 10_000 ? 0 : 500;\n}",
+        "replacement": "{}",
+        "operator": "BlockStatement",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "0"
+        ],
+        "provenance": {
+          "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "4.1.12",
+            "stryker": "10.1.1"
+          },
+          "fresh": true
+        },
+        "line": 3
+      },
+      {
+        "id": "1",
+        "fingerprint": "3cf36cb524b06afa1f0ceb86c38e1521606cde0308d2fd161567fe583f2f6fde",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 33,
+            "line": 4
+          },
+          "start": {
+            "column": 10,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "true",
+        "operator": "ConditionalExpression",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "0"
+        ],
+        "provenance": {
+          "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "4.1.12",
+            "stryker": "10.1.1"
+          },
+          "fresh": true
+        },
+        "line": 4
+      },
+      {
+        "id": "2",
+        "fingerprint": "8533e16cf1b33f62846c1411cd5e2165aa202a9a89c227d57d5a1275b395c2db",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 33,
+            "line": 4
+          },
+          "start": {
+            "column": 10,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "false",
+        "operator": "ConditionalExpression",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "1"
+        ],
+        "provenance": {
+          "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "4.1.12",
+            "stryker": "10.1.1"
+          },
+          "fresh": true
+        },
+        "line": 4
+      },
+      {
+        "id": "3",
+        "fingerprint": "aac76c49fe533731fe1ff120e1665f7a4ac435fc987c94b605dae96f24bf0b78",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 33,
+            "line": 4
+          },
+          "start": {
+            "column": 10,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents > 10_000",
+        "operator": "EqualityOperator",
+        "status": "Survived",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [],
+        "provenance": {
+          "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "4.1.12",
+            "stryker": "10.1.1"
+          },
+          "fresh": true
+        },
+        "line": 4
+      },
+      {
+        "id": "4",
+        "fingerprint": "f667ca6c436f571e4457729683a2a0a266b77785895127b1f479779cc8a40fea",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "location": {
+          "end": {
+            "column": 33,
+            "line": 4
+          },
+          "start": {
+            "column": 10,
+            "line": 4
+          }
+        },
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents < 10_000",
+        "operator": "EqualityOperator",
+        "status": "Killed",
+        "coveredBy": [
+          "0",
+          "1"
+        ],
+        "killedBy": [
+          "0"
+        ],
+        "provenance": {
+          "headSha": "16146b18161af0ed39ca92e978282898bd37729d",
+          "toolchain": {
+            "node": "v24.16.0",
+            "vitest": "4.1.12",
+            "stryker": "10.1.1"
+          },
+          "fresh": true
+        },
+        "line": 4
+      }
+    ],
+    "durationMs": 6204,
+    "reportPath": "evidence/mutation/mutation.json",
+    "incremental": false,
+    "cacheKey": "c930c8189f534e4a915414ca31c6ceebfdb6597acad257e521f091a481e8a76f"
+  },
+  "triage": {
+    "policy": "arid-v1",
+    "considered": 1,
+    "arid": [],
+    "ranked": [
+      {
+        "rank": 1,
+        "fingerprint": "aac76c49fe533731fe1ff120e1665f7a4ac435fc987c94b605dae96f24bf0b78",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "line": 4,
+        "operator": "EqualityOperator",
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents > 10_000",
+        "status": "Survived",
+        "priority": "high",
+        "why": "Changing `subtotalCents >= 10_000` to `subtotalCents > 10_000` on line 4 fails no test. The boundary value itself is untested."
+      }
+    ],
+    "overflow": 0
+  },
+  "savings": {
+    "mutantsChangedLines": 5,
+    "mutantsWholeFiles": 5,
+    "mutantsAvoided": 0,
+    "wholeFileCount": "changed lines cover every candidate line of their files; no dry run needed",
+    "aridFiltered": 0,
+    "aiCallsAvoided": 0,
+    "lessonsInMemory": 0,
+    "modelInput": {
+      "findingsSent": 1,
+      "findingsOpen": 1,
+      "charsSent": 626,
+      "charsOpen": 626,
+      "charsAvoided": 0,
+      "tokensAvoidedApprox": 0
+    }
+  },
+  "protection": {
+    "changedTests": [
+      {
+        "path": "packages/demo-domain/src/shipping.test.ts",
+        "change": "modified",
+        "headPath": "packages/demo-domain/src/shipping.test.ts"
+      }
+    ],
+    "testsInRun": [
+      "packages/demo-domain/src/shipping.test.ts"
+    ],
+    "subjects": [
+      "packages/demo-domain/src/shipping.ts"
+    ],
+    "baseMutants": 5,
+    "guarded": 5,
+    "onChangedLines": 0,
+    "rechecked": 5,
+    "held": 4,
+    "lost": [
+      {
+        "fingerprint": "aac76c49fe533731fe1ff120e1665f7a4ac435fc987c94b605dae96f24bf0b78",
+        "path": "packages/demo-domain/src/shipping.ts",
+        "line": 4,
+        "baseLine": 4,
+        "location": {
+          "start": {
+            "line": 4,
+            "column": 10
+          },
+          "end": {
+            "line": 4,
+            "column": 33
+          }
+        },
+        "operator": "EqualityOperator",
+        "original": "subtotalCents >= 10_000",
+        "replacement": "subtotalCents > 10_000",
+        "status": "Survived",
+        "caughtBy": [
+          {
+            "id": "2",
+            "name": "ships free at exactly $100 (SHIPPING-001)",
+            "file": "packages/demo-domain/src/shipping.test.ts",
+            "line": 14,
+            "failure": "expected 500 to be +0 // Object.is equality",
+            "fate": "weakened"
+          }
+        ],
+        "testDiff": {
+          "file": "packages/demo-domain/src/shipping.test.ts",
+          "name": "ships free at exactly $100 (SHIPPING-001)",
+          "lines": [
+            {
+              "kind": " ",
+              "text": "it('ships free at exactly $100 (SHIPPING-001)', () => {"
+            },
+            {
+              "kind": "-",
+              "text": "  expect(shippingFee(10_000)).toBe(0);"
+            },
+            {
+              "kind": "+",
+              "text": "  expect(shippingFee(10_000)).toBeLessThanOrEqual(500);"
+            },
+            {
+              "kind": " ",
+              "text": "});"
+            }
+          ]
+        },
+        "why": "On the target branch, `ships free at exactly $100 (SHIPPING-001)` failed when `subtotalCents >= 10_000` became `subtotalCents > 10_000` on line 4. This MR changed that test and it no longer fails, so the change goes unnoticed."
+      }
+    ],
+    "unknown": 0,
+    "status": "lost",
+    "reason": "1 change(s) the target branch's tests noticed are no longer noticed after this MR's test changes.",
+    "scenario": "Demonstration fixture, separate from the boundary review: the target branch has the exact-$100 test that apply 1 commits, and the change loosens it from toBe(0) to toBeLessThanOrEqual(500).",
+    "cost": {
+      "cpuSeconds": 366.9,
+      "energyWh": 0.5351,
+      "sciG": 0.3516
+    }
+  },
+  "footprint": {
+    "functionalUnit": "one merge-request review",
+    "boundary": "Processes Mutant Review starts in the review job (baseline tests with coverage, Stryker on the changed lines, the whole-file dry run that counts what scoping avoided) on the reserved runner VM: CPU, memory, data-centre overhead (PUE) and the embodied share of the host. Excludes job setup (image pull, npm ci), network, storage and model inference.",
+    "region": "us-east1",
+    "regionBasis": "default: assumed to match a GitLab hosted x86-64 runner",
+    "gridIntensity": 579,
+    "machine": {
+      "vCpus": 24,
+      "memoryGb": 31.4
+    },
+    "measured": {
+      "wallMs": 7986,
+      "cpuMs": null,
+      "vCpus": 24,
+      "memoryGb": 31.4
+    },
+    "actual": {
+      "energyWh": 0.2795,
+      "operationalG": 0.1618,
+      "embodiedG": 0.0218,
+      "sciG": 0.1837,
+      "cpuSeconds": 191.7,
+      "utilization": 1,
+      "cpuMeasured": false
+    },
+    "steps": [
+      {
+        "step": "Baseline tests with coverage",
+        "cpuSeconds": 42.8,
+        "energyWh": 0.0624,
+        "sciG": 0.041
+      },
+      {
+        "step": "Stryker on changed lines",
+        "cpuSeconds": 148.9,
+        "energyWh": 0.2171,
+        "sciG": 0.1427
+      }
+    ],
+    "range": {
+      "lowG": 0.1053,
+      "highG": 0.2081
+    },
+    "changedLinesRun": {
+      "energyWh": 0.2171,
+      "operationalG": 0.1257,
+      "embodiedG": 0.017,
+      "sciG": 0.1427,
+      "cpuSeconds": 148.9,
+      "utilization": 1,
+      "cpuMeasured": false,
+      "mutants": 5
+    },
+    "projectedWholeFile": {
+      "energyWh": 0.2171,
+      "operationalG": 0.1257,
+      "embodiedG": 0.017,
+      "sciG": 0.1427,
+      "cpuSeconds": 148.9,
+      "utilization": 1,
+      "cpuMeasured": false,
+      "mutants": 5,
+      "projected": true
+    },
+    "savedG": 0,
+    "savedPercent": 0,
+    "modelCalls": {
+      "made": 0,
+      "avoided": 0
+    }
+  },
+  "findings": [
+    {
+      "id": "SHIPPING-001-boundary",
+      "title": "The tests missed the exact $100 free-shipping boundary.",
+      "consequence": "Changing >= to > charges $5 shipping on an order of exactly $100 while the original tests remain green.",
+      "requirement": "SHIPPING-001: Orders with a subtotal of at least $100 receive free shipping. Smaller orders pay $5 shipping. Money uses integer cents.",
+      "requirementReference": "packages/demo-domain/CONTRACTS.md#checkout-contracts",
+      "mutantFingerprint": "aac76c49fe533731fe1ff120e1665f7a4ac435fc987c94b605dae96f24bf0b78",
+      "proposal": {
+        "id": "proposal-b2bdf2b3820d",
+        "patch": "--- a/packages/demo-domain/src/shipping.test.ts\n+++ b/packages/demo-domain/src/shipping.test.ts\n@@ -12,0 +13,4 @@\n+\n+it('ships for free at exactly $100 (SHIPPING-001)', () => {\n+  expect(shippingFee(10_000)).toBe(0);\n+});\n",
+        "patchHash": "5cfa0198483d03c586d51793e85b96206b6657fa902bd9215614bb24ac970970",
+        "originalTestHash": "4cea2a5a2dae61a02983c89fa939eba20c678b4c1f6a72dd7ddcdb1c16d8a1a0",
+        "repairedTestHash": "b2bdf2b3820d2256818951e18132af3e7083042da1070b3be1882afaf2f91936",
+        "sourceHash": "0ca95a03562f4a13bfa0bc0e31badcf071a72457de1de157c1851a1bfee36092",
+        "testPath": "packages/demo-domain/src/shipping.test.ts",
+        "originalTest": "import { describe, expect, it } from 'vitest';\nimport { shippingFee } from './shipping.js';\n\ndescribe('shipping fee', () => {\n  it('charges $5 below the free-shipping threshold', () => {\n    expect(shippingFee(9_999)).toBe(500);\n  });\n\n  it('ships for free above the threshold', () => {\n    expect(shippingFee(10_001)).toBe(0);\n  });\n});\n",
+        "repairedTest": "import { describe, expect, it } from 'vitest';\nimport { shippingFee } from './shipping.js';\n\ndescribe('shipping fee', () => {\n  it('charges $5 below the free-shipping threshold', () => {\n    expect(shippingFee(9_999)).toBe(500);\n  });\n\n  it('ships for free above the threshold', () => {\n    expect(shippingFee(10_001)).toBe(0);\n  });\n});\n\nit('ships for free at exactly $100 (SHIPPING-001)', () => {\n  expect(shippingFee(10_000)).toBe(0);\n});\n",
+        "approvalStatus": "awaiting approval",
+        "generatedBy": "deterministic demonstration fixture; not GitLab Duo"
+      },
+      "interpretationSource": "deterministic demonstration fixture; not GitLab Duo",
+      "confidence": null,
+      "approvalStatus": "awaiting approval",
+      "uncertainty": "This is evidence of a missing boundary assertion, not evidence of a production defect."
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "scope": "local sandbox proof; not an approved or committed repair",
+    "originalPasses": true,
+    "mutantFails": true,
+    "cleanRerun": true,
+    "patchHash": "5cfa0198483d03c586d51793e85b96206b6657fa902bd9215614bb24ac970970",
+    "exactMutation": {
+      "original": "subtotalCents >= 10_000",
+      "replacement": "subtotalCents > 10_000"
+    },
+    "runs": [
+      {
+        "attempt": 1,
+        "original": {
+          "exitCode": 0,
+          "durationMs": 2069,
+          "cpuMs": null,
+          "timedOut": false,
+          "log": "evidence/verification/original-1.log"
+        },
+        "mutant": {
+          "exitCode": 1,
+          "durationMs": 2138,
+          "cpuMs": null,
+          "timedOut": false,
+          "log": "evidence/verification/mutant-1.log"
+        },
+        "assertionKilled": true
+      },
+      {
+        "attempt": 2,
+        "original": {
+          "exitCode": 0,
+          "durationMs": 2075,
+          "cpuMs": null,
+          "timedOut": false,
+          "log": "evidence/verification/original-2.log"
+        },
+        "mutant": {
+          "exitCode": 1,
+          "durationMs": 2056,
+          "cpuMs": null,
+          "timedOut": false,
+          "log": "evidence/verification/mutant-2.log"
+        },
+        "assertionKilled": true
+      }
+    ],
+    "logs": [
+      "evidence/verification/original-1.log",
+      "evidence/verification/mutant-1.log",
+      "evidence/verification/original-2.log",
+      "evidence/verification/mutant-2.log"
+    ],
+    "approval": null,
+    "repairCommit": null,
+    "gitlabPipeline": null
+  },
+  "metrics": {
+    "modelCalls": 0,
+    "tokens": null,
+    "repairAttempts": 1,
+    "verifiedRepairs": 0,
+    "localSandboxProofs": 1,
+    "mutantsGenerated": 5,
+    "freshExecutions": 5,
+    "cachedResults": 0,
+    "totalDurationMs": 33050,
+    "lessonsApproved": 0,
+    "lessonApplications": 0
+  },
+  "preflight": {
+    "results": [
+      {
+        "path": "packages/demo-domain/src/shipping.test.ts",
+        "findings": []
+      },
+      {
+        "path": "packages/demo-domain/src/discount.test.ts",
+        "findings": []
+      }
+    ],
+    "note": "Advisory heuristics. A clean preflight does not establish behavioral adequacy."
+  },
+  "integrations": {
+    "gitlab": "unconfigured",
+    "duo": "not_executed"
+  },
+  "gate": {
+    "status": "failed",
+    "reasons": [
+      "Mutation score 80.0% is below the 90% project policy.",
+      "1 actionable surviving finding(s) require repair or an explicit human waiver."
+    ]
+  },
+  "evidenceFiles": [
+    "evidence/baseline.json",
+    "evidence/baseline.log",
+    "evidence/coverage/coverage-summary.json",
+    "evidence/mutation/mutation.json",
+    "evidence/mutation.log",
+    "evidence/verification/original-1.log",
+    "evidence/verification/mutant-1.log",
+    "evidence/verification/original-2.log",
+    "evidence/verification/mutant-2.log"
+  ]
+}

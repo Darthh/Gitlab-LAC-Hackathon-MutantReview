@@ -1,0 +1,244 @@
+{
+  "duration": 118.817,
+  "width": 3840,
+  "height": 2160,
+  "music": {
+    "file": "aruarian dance.mp3",
+    "providedBy": "user",
+    "volume": 0.3
+  },
+  "clips": [
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 0.6,
+      "sourceEnd": 8.2,
+      "rate": 1,
+      "start": 0,
+      "end": 7.6,
+      "label": "Start the real review",
+      "output": "renders/working-parts/00.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 8.2,
+      "sourceEnd": 40.5,
+      "rate": 5,
+      "start": 7.6,
+      "end": 14.059999999999999,
+      "label": "Review execution — sped up 5×",
+      "output": "renders/working-parts/01.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 40.5,
+      "sourceEnd": 54.5,
+      "rate": 1,
+      "start": 14.059999999999999,
+      "end": 28.06,
+      "label": "Baseline, survivor and failed gate",
+      "output": "renders/working-parts/02.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 138.95,
+      "sourceEnd": 150.05,
+      "rate": 1,
+      "start": 28.06,
+      "end": 39.160000000000025,
+      "label": "Inspect the boundary and requirement",
+      "output": "renders/working-parts/03.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 150.05,
+      "sourceEnd": 165,
+      "rate": 1,
+      "start": 39.160000000000025,
+      "end": 54.110000000000014,
+      "label": "Execute and reject the ineffective draft",
+      "output": "renders/working-parts/04.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 175.75,
+      "sourceEnd": 191.5,
+      "rate": 1,
+      "start": 54.110000000000014,
+      "end": 69.86000000000001,
+      "label": "Execute and verify the exact boundary test",
+      "output": "renders/working-parts/05.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 225.6,
+      "sourceEnd": 236.3,
+      "rate": 1,
+      "start": 69.86000000000001,
+      "end": 80.56000000000003,
+      "label": "Inspect the verified proposal",
+      "output": "renders/working-parts/06.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 236.3,
+      "sourceEnd": 244.5,
+      "rate": 1,
+      "start": 80.56000000000003,
+      "end": 88.76000000000002,
+      "label": "Apply the verified test locally",
+      "output": "renders/working-parts/07.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 244.5,
+      "sourceEnd": 258,
+      "rate": 3.5,
+      "start": 88.76000000000002,
+      "end": 92.61714285714288,
+      "label": "Repair execution — sped up 3.5×",
+      "output": "renders/working-parts/08.mp4"
+    },
+    {
+      "source": "capture/working/page@86055bb133d14210a50f1c9e31021fc4.webm",
+      "sourceStart": 269.5,
+      "sourceEnd": 278.2,
+      "rate": 1,
+      "start": 92.61714285714288,
+      "end": 101.31714285714287,
+      "label": "Fresh result: 100% and gate passed",
+      "output": "renders/working-parts/09.mp4"
+    },
+    {
+      "source": "capture/working/page@bbd2c5394381368ff3d27bfa873c21fe.webm",
+      "sourceStart": 0.8,
+      "sourceEnd": 18.3,
+      "rate": 1,
+      "start": 101.31714285714287,
+      "end": 118.81714285714287,
+      "label": "Actual repaired dashboard, test file and gate output",
+      "output": "renders/working-parts/10.mp4"
+    }
+  ],
+  "captions": [
+    [
+      0,
+      4,
+      "MutantReview mutation-tests code changed in a merge request."
+    ],
+    [
+      4,
+      7.6,
+      "Here, I run its real engine on the checkout demo."
+    ],
+    [
+      7.6,
+      14.059999999999999,
+      "Vitest and Stryker are running. This wait is sped up 5×."
+    ],
+    [
+      14.059999999999999,
+      19.229999999999997,
+      "The baseline tests pass with 100% branch coverage."
+    ],
+    [
+      19.229999999999997,
+      24.229999999999997,
+      "But one mutation survives: changing >= to > goes undetected."
+    ],
+    [
+      24.229999999999997,
+      28.059999999999995,
+      "The 80% score is below the 90% policy, so the gate fails."
+    ],
+    [
+      28.059999999999995,
+      33.23,
+      "The finding identifies the exact $100 free-shipping boundary."
+    ],
+    [
+      33.23,
+      39.16,
+      "The contract says orders of at least $100 ship free."
+    ],
+    [
+      39.16,
+      44.23,
+      "First, I propose a test for an order of $100.01."
+    ],
+    [
+      44.23,
+      49.23,
+      "MutantReview executes it on the original code and the mutant."
+    ],
+    [
+      49.23,
+      54.11,
+      "It passes on both, so the repair is rejected."
+    ],
+    [
+      54.11,
+      59.23,
+      "Now I propose a test at exactly $100, or 10,000 cents."
+    ],
+    [
+      59.23,
+      64.23,
+      "Zero shipping comes from the written requirement, not the implementation."
+    ],
+    [
+      64.23,
+      69.86,
+      "This test passes on the original and kills the exact mutation."
+    ],
+    [
+      69.86,
+      75.23,
+      "I inspect the verified proposal before changing the test file."
+    ],
+    [
+      75.23,
+      80.56,
+      "These are the actual finding, contract, and proposed assertion."
+    ],
+    [
+      80.56,
+      85.03,
+      "I apply that verified test to the local checkout."
+    ],
+    [
+      85.03,
+      88.76,
+      "The updated test file is printed, and a fresh review starts."
+    ],
+    [
+      88.76,
+      92.62,
+      "Stryker reruns the mutations. Execution is sped up 3.5×."
+    ],
+    [
+      92.62,
+      97.23,
+      "Now all five tests pass, and every mutation is caught."
+    ],
+    [
+      97.23,
+      101.32000000000001,
+      "The real gate command returns passed with exit code zero."
+    ],
+    [
+      101.32000000000001,
+      106.73,
+      "The dashboard shows 100% mutation score and zero surviving mutants."
+    ],
+    [
+      106.73,
+      112.23,
+      "Here is the added boundary test in the actual test file."
+    ],
+    [
+      112.23,
+      118.817,
+      "MutantReview found the gap, rejected a weak fix, and proved the repair."
+    ]
+  ]
+}

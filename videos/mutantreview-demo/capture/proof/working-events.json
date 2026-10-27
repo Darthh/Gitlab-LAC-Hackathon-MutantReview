@@ -1,0 +1,432 @@
+[
+  {
+    "type": "start",
+    "text": "review",
+    "at": "2026-10-27T08:04:16.992Z"
+  },
+  {
+    "type": "line",
+    "text": "$ node --import tsx packages/cli/src/index.ts demo",
+    "at": "2026-10-27T08:04:17.356Z"
+  },
+  {
+    "type": "line",
+    "text": "Preparing worktree (detached HEAD 44d554b)",
+    "at": "2026-10-27T08:04:27.150Z"
+  },
+  {
+    "type": "line",
+    "text": "Local demonstration: baseline passed; changed-line mutation score 80; 1 survivor(s); gate failed.",
+    "at": "2026-10-27T08:04:51.060Z"
+  },
+  {
+    "type": "line",
+    "text": "Triage: 0 arid mutant(s) filtered, 1 finding(s) to comment, 0 over budget. Mutants run 5 of 5 in the whole changed files.",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "Model input: 1 of 1 open mutant(s) would reach the drafting prompt; 0 characters (≈0 tokens) kept out by triage.",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "Lost-protection check (demonstration fixture, not gated): lost. 1 change(s) the target branch's tests noticed are no longer noticed after this MR's test changes. Cost 352 mgCO2e, 366.9 CPU-s.",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "  lost: packages/demo-domain/src/shipping.ts:4 `subtotalCents >= 10_000` -> `subtotalCents > 10_000` was caught by \"ships free at exactly $100 (SHIPPING-001)\" (test weakened).",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "Footprint (SCI per review): 184 mgCO2e, 0.28 Wh, 191.7 CPU-s (CPU time not measurable here: full utilisation assumed), us-east1 grid at 579 gCO2e/kWh.",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "Mutation work: 5 changed-line mutants at 143 mgCO2e instead of 5 whole-file mutants projected at 143 mgCO2e (0% avoided).",
+    "at": "2026-10-27T08:04:51.061Z"
+  },
+  {
+    "type": "line",
+    "text": "Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt",
+    "at": "2026-10-27T08:04:51.062Z"
+  },
+  {
+    "type": "line",
+    "text": "Exit code: 0",
+    "at": "2026-10-27T08:04:51.077Z"
+  },
+  {
+    "type": "line",
+    "text": "Baseline: 4 tests passed; branch coverage 100%.",
+    "at": "2026-10-27T08:04:51.079Z"
+  },
+  {
+    "type": "line",
+    "text": "Stryker: 80% mutation score; gate failed.",
+    "at": "2026-10-27T08:04:51.080Z"
+  },
+  {
+    "type": "line",
+    "text": "Surviving change: subtotalCents >= 10_000 -> subtotalCents > 10_000",
+    "at": "2026-10-27T08:04:51.080Z"
+  },
+  {
+    "type": "line",
+    "text": "$ node --import tsx packages/cli/src/index.ts gate",
+    "at": "2026-10-27T08:04:51.080Z"
+  },
+  {
+    "type": "line",
+    "text": "{",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "  \"status\": \"failed\",",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "  \"reasons\": [",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "    \"Mutation score 80.0% is below the 90% project policy.\",",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "    \"1 actionable surviving finding(s) require repair or an explicit human waiver.\"",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "  ]",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "}",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "Add the tests Mutant Review proposed, or have a Maintainer comment \"@<flow-account> override <reason>\" and re-run this job.",
+    "at": "2026-10-27T08:04:51.739Z"
+  },
+  {
+    "type": "line",
+    "text": "Exit code: 1",
+    "at": "2026-10-27T08:04:51.751Z"
+  },
+  {
+    "type": "line",
+    "text": "Completed in 34.8s. Process exit 0.",
+    "at": "2026-10-27T08:04:51.768Z"
+  },
+  {
+    "type": "done",
+    "text": "review",
+    "at": "2026-10-27T08:04:51.768Z"
+  },
+  {
+    "type": "start",
+    "text": "reject",
+    "at": "2026-10-27T08:06:44.541Z"
+  },
+  {
+    "type": "line",
+    "text": "$ MutantReview verifyDraft(above boundary)",
+    "at": "2026-10-27T08:06:45.315Z"
+  },
+  {
+    "type": "line",
+    "text": "it('ships free above $100 (proposed repair)', () => {",
+    "at": "2026-10-27T08:06:45.316Z"
+  },
+  {
+    "type": "line",
+    "text": "  expect(shippingFee(10_001)).toBe(0);",
+    "at": "2026-10-27T08:06:45.316Z"
+  },
+  {
+    "type": "line",
+    "text": "});",
+    "at": "2026-10-27T08:06:45.316Z"
+  },
+  {
+    "type": "line",
+    "text": "Executing real Vitest on the original code, then Stryker on the targeted mutant...",
+    "at": "2026-10-27T08:06:45.316Z"
+  },
+  {
+    "type": "line",
+    "text": "Original implementation: true",
+    "at": "2026-10-27T08:06:54.376Z"
+  },
+  {
+    "type": "line",
+    "text": "REJECTED: passes on the mutant too, or the run did not establish that this draft killed it",
+    "at": "2026-10-27T08:06:54.376Z"
+  },
+  {
+    "type": "line",
+    "text": "Verification restored the test file; the proposal has not been applied.",
+    "at": "2026-10-27T08:06:54.376Z"
+  },
+  {
+    "type": "line",
+    "text": "Completed in 9.8s. Process exit 0.",
+    "at": "2026-10-27T08:06:54.389Z"
+  },
+  {
+    "type": "done",
+    "text": "reject",
+    "at": "2026-10-27T08:06:54.389Z"
+  },
+  {
+    "type": "start",
+    "text": "verify",
+    "at": "2026-10-27T08:07:10.299Z"
+  },
+  {
+    "type": "line",
+    "text": "$ MutantReview verifyDraft(exact boundary)",
+    "at": "2026-10-27T08:07:10.808Z"
+  },
+  {
+    "type": "line",
+    "text": "it('ships free at exactly $100 (SHIPPING-001)', () => {",
+    "at": "2026-10-27T08:07:10.808Z"
+  },
+  {
+    "type": "line",
+    "text": "  expect(shippingFee(10_000)).toBe(0);",
+    "at": "2026-10-27T08:07:10.808Z"
+  },
+  {
+    "type": "line",
+    "text": "});",
+    "at": "2026-10-27T08:07:10.808Z"
+  },
+  {
+    "type": "line",
+    "text": "Executing real Vitest on the original code, then Stryker on the targeted mutant...",
+    "at": "2026-10-27T08:07:10.808Z"
+  },
+  {
+    "type": "line",
+    "text": "Original implementation: true",
+    "at": "2026-10-27T08:07:18.864Z"
+  },
+  {
+    "type": "line",
+    "text": "VERIFIED: this test passes on the original and kills the exact mutation.",
+    "at": "2026-10-27T08:07:18.864Z"
+  },
+  {
+    "type": "line",
+    "text": "Verification restored the test file; the proposal has not been applied.",
+    "at": "2026-10-27T08:07:18.865Z"
+  },
+  {
+    "type": "line",
+    "text": "Completed in 8.6s. Process exit 0.",
+    "at": "2026-10-27T08:07:18.877Z"
+  },
+  {
+    "type": "done",
+    "text": "verify",
+    "at": "2026-10-27T08:07:18.878Z"
+  },
+  {
+    "type": "start",
+    "text": "apply",
+    "at": "2026-10-27T08:08:10.745Z"
+  },
+  {
+    "type": "line",
+    "text": "$ Apply the verified boundary test to this local demo checkout",
+    "at": "2026-10-27T08:08:11.202Z"
+  },
+  {
+    "type": "line",
+    "text": "import { describe, expect, it } from 'vitest';",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "import { shippingFee } from './shipping.js';",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "describe('shipping fee', () => {",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "  it('charges $5 below the free-shipping threshold', () => {",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "    expect(shippingFee(9_999)).toBe(500);",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "  });",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "  it('ships for free above the threshold', () => {",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "    expect(shippingFee(10_001)).toBe(0);",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "  });",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "});",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "it('ships free at exactly $100 (SHIPPING-001)', () => {",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "  expect(shippingFee(10_000)).toBe(0);",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "});",
+    "at": "2026-10-27T08:08:11.203Z"
+  },
+  {
+    "type": "line",
+    "text": "The test file now contains the verified assertion. Rerunning the real review...",
+    "at": "2026-10-27T08:08:11.204Z"
+  },
+  {
+    "type": "line",
+    "text": "$ node --import tsx packages/cli/src/index.ts demo",
+    "at": "2026-10-27T08:08:11.204Z"
+  },
+  {
+    "type": "line",
+    "text": "Preparing worktree (detached HEAD 53bd23b)",
+    "at": "2026-10-27T08:08:21.702Z"
+  },
+  {
+    "type": "line",
+    "text": "Local demonstration: baseline passed; changed-line mutation score 100; 0 survivor(s); gate passed.",
+    "at": "2026-10-27T08:08:36.847Z"
+  },
+  {
+    "type": "line",
+    "text": "Triage: 0 arid mutant(s) filtered, 0 finding(s) to comment, 0 over budget. Mutants run 5 of 5 in the whole changed files.",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "Model input: 0 of 0 open mutant(s) would reach the drafting prompt; 0 characters (≈0 tokens) kept out by triage.",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "Lost-protection check (demonstration fixture, not gated): lost. 1 change(s) the target branch's tests noticed are no longer noticed after this MR's test changes. Cost 341 mgCO2e, 355.7 CPU-s.",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "  lost: packages/demo-domain/src/shipping.ts:4 `subtotalCents >= 10_000` -> `subtotalCents > 10_000` was caught by \"ships free at exactly $100 (SHIPPING-001)\" (test weakened).",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "Footprint (SCI per review): 201 mgCO2e, 0.31 Wh, 209.2 CPU-s (CPU time not measurable here: full utilisation assumed), us-east1 grid at 579 gCO2e/kWh.",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "Mutation work: 5 changed-line mutants at 154 mgCO2e instead of 5 whole-file mutants projected at 154 mgCO2e (0% avoided).",
+    "at": "2026-10-27T08:08:36.848Z"
+  },
+  {
+    "type": "line",
+    "text": "Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt",
+    "at": "2026-10-27T08:08:36.850Z"
+  },
+  {
+    "type": "line",
+    "text": "Exit code: 0",
+    "at": "2026-10-27T08:08:36.863Z"
+  },
+  {
+    "type": "line",
+    "text": "AFTER REPAIR: 5 tests passed, 100% mutation score, gate passed.",
+    "at": "2026-10-27T08:08:36.864Z"
+  },
+  {
+    "type": "line",
+    "text": "$ node --import tsx packages/cli/src/index.ts gate",
+    "at": "2026-10-27T08:08:36.864Z"
+  },
+  {
+    "type": "line",
+    "text": "{",
+    "at": "2026-10-27T08:08:37.538Z"
+  },
+  {
+    "type": "line",
+    "text": "  \"status\": \"passed\",",
+    "at": "2026-10-27T08:08:37.538Z"
+  },
+  {
+    "type": "line",
+    "text": "  \"reasons\": []",
+    "at": "2026-10-27T08:08:37.538Z"
+  },
+  {
+    "type": "line",
+    "text": "}",
+    "at": "2026-10-27T08:08:37.538Z"
+  },
+  {
+    "type": "line",
+    "text": "Exit code: 0",
+    "at": "2026-10-27T08:08:37.551Z"
+  },
+  {
+    "type": "line",
+    "text": "Local repair complete: 80% -> 100%. The previously surviving mutation is now caught.",
+    "at": "2026-10-27T08:08:37.553Z"
+  },
+  {
+    "type": "line",
+    "text": "Completed in 26.8s. Process exit 0.",
+    "at": "2026-10-27T08:08:37.566Z"
+  },
+  {
+    "type": "done",
+    "text": "apply",
+    "at": "2026-10-27T08:08:37.566Z"
+  }
+]

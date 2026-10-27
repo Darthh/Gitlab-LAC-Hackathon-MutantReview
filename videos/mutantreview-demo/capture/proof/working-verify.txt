@@ -1,0 +1,11 @@
+
+$ MutantReview verifyDraft(exact boundary)
+it('ships free at exactly $100 (SHIPPING-001)', () => {
+  expect(shippingFee(10_000)).toBe(0);
+});
+
+Executing real Vitest on the original code, then Stryker on the targeted mutant...
+Original implementation: true
+
+VERIFIED: this test passes on the original and kills the exact mutation.
+Verification restored the test file; the proposal has not been applied.

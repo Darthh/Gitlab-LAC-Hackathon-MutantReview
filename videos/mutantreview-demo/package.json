@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/compose-working-demo.mjs",
+    "edit": "node scripts/build-working-demo.mjs",
     "dev": "npx --yes hyperframes@0.8.207 preview",
     "check": "npx --yes hyperframes@0.8.207 check",
-    "render": "npx --yes hyperframes@0.8.207 render --quality delivery --fps 30 --resolution 4k --video-frame-format png --output renders/MutantReview-Demo-4K.mp4",
+    "render": "npx --yes hyperframes@0.8.207 render --quality delivery --fps 30 --resolution 4k --video-frame-format png --output renders/MutantReview-Working-Demo-4K.mp4",
     "publish": "npx --yes hyperframes@0.8.207 publish"
   }
 }

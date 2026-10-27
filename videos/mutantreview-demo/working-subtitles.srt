@@ -1,0 +1,95 @@
+1
+00:00:00,000 --> 00:00:04,000
+MutantReview mutation-tests code changed in a merge request.
+
+2
+00:00:04,000 --> 00:00:07,600
+Here, I run its real engine on the checkout demo.
+
+3
+00:00:07,600 --> 00:00:14,060
+Vitest and Stryker are running. This wait is sped up 5×.
+
+4
+00:00:14,060 --> 00:00:19,230
+The baseline tests pass with 100% branch coverage.
+
+5
+00:00:19,230 --> 00:00:24,230
+But one mutation survives: changing >= to > goes undetected.
+
+6
+00:00:24,230 --> 00:00:28,060
+The 80% score is below the 90% policy, so the gate fails.
+
+7
+00:00:28,060 --> 00:00:33,230
+The finding identifies the exact $100 free-shipping boundary.
+
+8
+00:00:33,230 --> 00:00:39,160
+The contract says orders of at least $100 ship free.
+
+9
+00:00:39,160 --> 00:00:44,230
+First, I propose a test for an order of $100.01.
+
+10
+00:00:44,230 --> 00:00:49,230
+MutantReview executes it on the original code and the mutant.
+
+11
+00:00:49,230 --> 00:00:54,110
+It passes on both, so the repair is rejected.
+
+12
+00:00:54,110 --> 00:00:59,230
+Now I propose a test at exactly $100, or 10,000 cents.
+
+13
+00:00:59,230 --> 00:01:04,230
+Zero shipping comes from the written requirement, not the implementation.
+
+14
+00:01:04,230 --> 00:01:09,860
+This test passes on the original and kills the exact mutation.
+
+15
+00:01:09,860 --> 00:01:15,230
+I inspect the verified proposal before changing the test file.
+
+16
+00:01:15,230 --> 00:01:20,560
+These are the actual finding, contract, and proposed assertion.
+
+17
+00:01:20,560 --> 00:01:25,030
+I apply that verified test to the local checkout.
+
+18
+00:01:25,030 --> 00:01:28,760
+The updated test file is printed, and a fresh review starts.
+
+19
+00:01:28,760 --> 00:01:32,620
+Stryker reruns the mutations. Execution is sped up 3.5×.
+
+20
+00:01:32,620 --> 00:01:37,230
+Now all five tests pass, and every mutation is caught.
+
+21
+00:01:37,230 --> 00:01:41,320
+The real gate command returns passed with exit code zero.
+
+22
+00:01:41,320 --> 00:01:46,730
+The dashboard shows 100% mutation score and zero surviving mutants.
+
+23
+00:01:46,730 --> 00:01:52,230
+Here is the added boundary test in the actual test file.
+
+24
+00:01:52,230 --> 00:01:58,817
+MutantReview found the gap, rejected a weak fix, and proved the repair.

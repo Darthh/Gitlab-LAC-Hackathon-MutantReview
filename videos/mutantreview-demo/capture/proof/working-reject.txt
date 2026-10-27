@@ -1,0 +1,11 @@
+
+$ MutantReview verifyDraft(above boundary)
+it('ships free above $100 (proposed repair)', () => {
+  expect(shippingFee(10_001)).toBe(0);
+});
+
+Executing real Vitest on the original code, then Stryker on the targeted mutant...
+Original implementation: true
+
+REJECTED: passes on the mutant too, or the run did not establish that this draft killed it
+Verification restored the test file; the proposal has not been applied.

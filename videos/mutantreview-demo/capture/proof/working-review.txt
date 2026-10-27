@@ -1,0 +1,49 @@
+
+$ node --import tsx packages/cli/src/index.ts demo
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.mutant-review/policy.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/CONTRACTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/discount.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/discount.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/shipping.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/shipping.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'stryker.config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tsconfig.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'vitest.domain.config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.mutant-review/policy.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/CONTRACTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/discount.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/discount.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/shipping.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'packages/demo-domain/src/shipping.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'stryker.config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tsconfig.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'vitest.domain.config.ts', LF will be replaced by CRLF the next time Git touches it
+Preparing worktree (detached HEAD 44d554b)
+Local demonstration: baseline passed; changed-line mutation score 80; 1 survivor(s); gate failed.
+Triage: 0 arid mutant(s) filtered, 1 finding(s) to comment, 0 over budget. Mutants run 5 of 5 in the whole changed files.
+Model input: 1 of 1 open mutant(s) would reach the drafting prompt; 0 characters (≈0 tokens) kept out by triage.
+Lost-protection check (demonstration fixture, not gated): lost. 1 change(s) the target branch's tests noticed are no longer noticed after this MR's test changes. Cost 352 mgCO2e, 366.9 CPU-s.
+  lost: packages/demo-domain/src/shipping.ts:4 `subtotalCents >= 10_000` -> `subtotalCents > 10_000` was caught by "ships free at exactly $100 (SHIPPING-001)" (test weakened).
+Footprint (SCI per review): 184 mgCO2e, 0.28 Wh, 191.7 CPU-s (CPU time not measurable here: full utilisation assumed), us-east1 grid at 579 gCO2e/kWh.
+Mutation work: 5 changed-line mutants at 143 mgCO2e instead of 5 whole-file mutants projected at 143 mgCO2e (0% avoided).
+Evidence: evidence/latest.json; MR widgets: evidence/gl-code-quality.json, evidence/metrics.txt
+Exit code: 0
+
+Baseline: 4 tests passed; branch coverage 100%.
+Stryker: 80% mutation score; gate failed.
+Surviving change: subtotalCents >= 10_000 -> subtotalCents > 10_000
+
+$ node --import tsx packages/cli/src/index.ts gate
+{
+  "status": "failed",
+  "reasons": [
+    "Mutation score 80.0% is below the 90% project policy.",
+    "1 actionable surviving finding(s) require repair or an explicit human waiver."
+  ]
+}
+Add the tests Mutant Review proposed, or have a Maintainer comment "@<flow-account> override <reason>" and re-run this job.
+Exit code: 1
