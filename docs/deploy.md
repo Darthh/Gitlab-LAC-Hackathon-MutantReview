@@ -1,4 +1,38 @@
-# Deploy Front Desk to Google Cloud Run
+# Deploy Front Desk
+
+## Cloudflare Workers
+
+Public console: **https://mutant-review.patrickvaldivia123.workers.dev**.
+
+The Worker serves the Vite frontend and a deployment-time snapshot of the existing
+Express server's read-only APIs. The snapshot passes through the same evidence and
+ledger validation and benchmark summaries as Cloud Run. Optional benchmark data
+keeps its 404 response when absent. API responses are not cached, unknown API paths
+return JSON 404, and write methods return 405. No GitLab credential or raw repository
+directory is uploaded: only the frontend assets and the bundled public API responses.
+
+From a clean checkout of the intended commit, with Node 22.12+ and a Cloudflare
+Wrangler login authorized for the account in `wrangler.jsonc`:
+
+```sh
+npm ci
+npm test
+npm run deploy:worker
+```
+
+The deploy command runs the real demo mutation review, builds and typechecks the
+console, captures the validated API snapshot, runs Worker route tests, then uploads
+with Wrangler. The demo's 80% mutation score and failing gate are intentional evidence
+of the missing boundary test; deployment does not approve or apply a repair.
+
+The evidence and ledger are snapshots of this checkout at deployment, not a polling
+connection to GitLab. Re-run the command to refresh them. `/api/health` and
+`/api/config` expose the deployed Git revision. Check those, `/api/evidence`,
+`/api/evidence/download`, `/api/ledger`, `/api/benchmark` and `/api/energy` after
+deploying, and open the console to verify that it renders. For a local Worker check
+after `npm run build:worker`, run `npx wrangler dev`.
+
+## Google Cloud Run (GitLab CI)
 
 Only `main` deploys, and `main` only receives MRs that passed the mutation gate. The pipeline in [`ci/release.gitlab-ci.yml`](../ci/release.gitlab-ci.yml):
 
